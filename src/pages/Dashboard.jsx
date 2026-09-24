@@ -1,0 +1,323 @@
+import React, { useState } from 'react';
+import {
+  FlaskConical,
+  Plus,
+  Search,
+  Filter,
+  Clock,
+  Award,
+  Calendar,
+  User,
+  ChevronRight,
+  Copy,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  FileSpreadsheet,
+  Activity,
+  Layers
+} from 'lucide-react';
+import { useExperiment } from '../context/ExperimentContext';
+
+export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
+  const { experiments, duplicateExperiment, deleteExperiment } = useExperiment();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Filtered experiments
+  const filtered = experiments.filter((exp) => {
+    const matchesSearch =
+      (exp.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exp.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exp.researcher || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Calculate quick stats
+  const totalCount = experiments.length;
+  const runningCount = experiments.filter((e) => e.status === 'running').length;
+  const completedCount = experiments.filter((e) => e.status === 'completed').length;
+  
+  // Average yield calculation
+  const yields = experiments
+    .map((e) => e.columnAndYield?.eppendorfYield?.yieldPercent)
+    .filter((y) => typeof y === 'number' && y > 0);
+  const avgYield = yields.length > 0 ? (yields.reduce((a, b) => a + b, 0) / yields.length).toFixed(1) : '--';
+
+  const formatSecondsToHours = (seconds) => {
+    if (!seconds) return '0h';
+    const hrs = (seconds / 3600).toFixed(1);
+    return `${hrs}h`;
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'running':
+        return (
+          <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 border border-emerald-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Đang khuấy
+          </span>
+        );
+      case 'paused':
+        return (
+          <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 border border-amber-300">
+            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+            Tạm dừng
+          </span>
+        );
+      case 'workup':
+        return (
+          <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-semibold border border-blue-300">
+            Xử lý thô
+          </span>
+        );
+      case 'purification':
+        return (
+          <span className="bg-purple-100 text-purple-800 text-xs px-2.5 py-1 rounded-full font-semibold border border-purple-300">
+            Sắc ký cột
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-slate-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            Hoàn thành
+          </span>
+        );
+      default:
+        return (
+          <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-semibold border border-slate-200">
+            Bản nháp
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Top Banner & Quick Stats */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 rounded-full text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-2">
+              <FlaskConical className="w-3.5 h-3.5" /> Hệ Thống Quản Lý Thí Nghiệm Hóa Dược Chuẩn GLP
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược
+            </h1>
+            <p className="text-slate-300 text-sm mt-1 max-w-2xl">
+              Ghi chép chính xác từ cân đong nạp liệu, thời gian phản ứng ngắt quãng, dòng thời gian TLC đến sắc ký cột và hiệu suất cân 4 số lẻ.
+            </p>
+          </div>
+
+          <button
+            onClick={onOpenNewModal}
+            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer min-h-[48px] self-start md:self-auto"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Tạo Thí Nghiệm Mới</span>
+          </button>
+        </div>
+
+        {/* 4 Quick Stat Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-800">
+          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+            <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+              <FlaskConical className="w-4 h-4 text-indigo-400" /> Tổng thí nghiệm
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono mt-1">
+              {totalCount}
+            </div>
+          </div>
+
+          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+            <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-emerald-400" /> Đang khuấy phản ứng
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-1">
+              {runningCount}
+            </div>
+          </div>
+
+          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+            <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-sky-400" /> Đã hoàn thành
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-sky-400 font-mono mt-1">
+              {completedCount}
+            </div>
+          </div>
+
+          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+            <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-amber-400" /> Hiệu suất trung bình
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-mono mt-1">
+              {avgYield}{avgYield !== '--' ? '%' : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+        {/* Search Input */}
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Tìm theo mã, tên phản ứng, tác giả..."
+            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl pl-10 pr-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+          />
+        </div>
+
+        {/* Status Filter Buttons */}
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+          {[
+            { id: 'all', label: 'Tất cả' },
+            { id: 'running', label: 'Đang khuấy' },
+            { id: 'paused', label: 'Tạm dừng' },
+            { id: 'workup', label: 'Xử lý thô' },
+            { id: 'completed', label: 'Hoàn thành' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStatusFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-[38px] ${
+                statusFilter === tab.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Experiment Cards Grid */}
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((exp) => {
+            const limiting = exp.stoichiometry?.find((r) => r.isLimiting) || exp.stoichiometry?.[0];
+            const yieldPct = exp.columnAndYield?.eppendorfYield?.yieldPercent;
+            const stirringTime = exp.reactionTimer?.totalSeconds || 0;
+            const tlcCount = exp.tlcTimeline?.length || 0;
+
+            return (
+              <div
+                key={exp.id}
+                onClick={() => onSelectExperiment(exp.id)}
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all p-5 flex flex-col justify-between cursor-pointer group"
+              >
+                <div>
+                  {/* Top Bar: Code + Date + Status */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="font-mono font-bold text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200">
+                      {exp.code || 'EXP'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 font-mono">{exp.date}</span>
+                      {getStatusBadge(exp.status)}
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                    {exp.title || 'Thí nghiệm chưa đặt tên'}
+                  </h3>
+
+                  {/* Researcher & Lab Room */}
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{exp.researcher || 'Nghiên cứu viên'}</span>
+                  </div>
+
+                  {/* Chemistry Key Indicators */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-50 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] block">Chất giới hạn:</span>
+                      <span className="font-semibold text-slate-800 truncate block">
+                        {limiting?.name || 'Chưa chọn'}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 p-2 rounded-xl">
+                      <span className="text-slate-400 text-[11px] block">Quy mô (mol):</span>
+                      <span className="font-mono font-bold text-indigo-700">
+                        {limiting?.moles ? `${(limiting.moles * 1000).toFixed(1)} mmol` : '--'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Bar: Stats & Quick Actions */}
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <span className="flex items-center gap-1" title="Tổng thời gian khuấy">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      {formatSecondsToHours(stirringTime)}
+                    </span>
+                    <span className="flex items-center gap-1" title="Số bản mỏng TLC">
+                      <Layers className="w-3.5 h-3.5 text-slate-400" />
+                      {tlcCount} TLC
+                    </span>
+                    {yieldPct ? (
+                      <span className="flex items-center gap-1 text-emerald-600 font-bold" title="Hiệu suất">
+                        <Award className="w-3.5 h-3.5" />
+                        {yieldPct.toFixed(1)}%
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Duplicate / Delete Buttons */}
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => duplicateExperiment(exp.id)}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Nhân bản thí nghiệm"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Bạn có chắc muốn xóa thí nghiệm ${exp.code}?`)) {
+                          deleteExperiment(exp.id);
+                        }
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      title="Xóa thí nghiệm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
+          <FlaskConical className="w-16 h-16 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800 mb-1">Không tìm thấy thí nghiệm nào</h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
+            Không có kết quả khớp với bộ lọc tìm kiếm. Hãy thử từ khóa khác hoặc bấm nút bên dưới để tạo mới.
+          </p>
+          <button
+            onClick={onOpenNewModal}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md"
+          >
+            Tạo thí nghiệm ngay
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
