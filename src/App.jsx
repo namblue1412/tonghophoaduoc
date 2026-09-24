@@ -7,12 +7,14 @@ import { PlusCircle, X, FlaskConical, Beaker } from 'lucide-react';
 
 function AppContent() {
   const {
+    experiments,
+    activeExperiment,
     activeExperimentId,
     setActiveExperimentId,
     createNewExperiment
   } = useExperiment();
 
-  const [currentView, setCurrentView] = useState('detail'); // 'dashboard' | 'detail'
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'detail'
   const [newModalOpen, setNewModalOpen] = useState(false);
 
   // New Experiment Form State
@@ -62,7 +64,7 @@ function AppContent() {
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
-        {currentView === 'dashboard' ? (
+        {currentView === 'dashboard' || !activeExperiment ? (
           <Dashboard
             onSelectExperiment={handleSelectExperiment}
             onOpenNewModal={handleOpenNewModal}

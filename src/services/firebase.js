@@ -4,23 +4,20 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 
 // Check if valid Firebase credentials are provided in environment
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'tonghophoad.firebaseapp.com',
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://tonghophoad-default-rtdb.asia-southeast1.firebasedatabase.app/',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'tonghophoad',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 };
 
-// Check if Firebase is properly configured
+// Check if Firebase Realtime Database is configured
 export const isFirebaseConfigured = () => {
   return Boolean(
-    firebaseConfig.apiKey &&
-    firebaseConfig.apiKey.trim() !== '' &&
-    firebaseConfig.projectId &&
-    firebaseConfig.projectId.trim() !== '' &&
-    !firebaseConfig.apiKey.includes('YOUR_')
+    (firebaseConfig.databaseURL && firebaseConfig.databaseURL.trim() !== '') ||
+    (firebaseConfig.apiKey && firebaseConfig.apiKey.trim() !== '')
   );
 };
 
@@ -34,17 +31,21 @@ if (isFirebaseConfigured()) {
     if (firebaseConfig.databaseURL || firebaseConfig.projectId) {
       database = getDatabase(app);
     }
-    if (firebaseConfig.storageBucket) {
-      storage = getStorage(app);
+    if (firebaseConfig.storageBucket && firebaseConfig.apiKey) {
+      try {
+        storage = getStorage(app);
+      } catch (err) {
+        storage = null;
+      }
     }
-    console.log('🧪 [MedChem ELN] Connected to Firebase Realtime Cloud mode.');
+    console.log('🧪 [MedChem ELN] Connected to Firebase Realtime Database:', firebaseConfig.databaseURL);
   } catch (error) {
-    console.warn('⚠️ [MedChem ELN] Firebase init failed, fallback to LocalStorage mode:', error);
+    console.warn('⚠️ [MedChem ELN] Firebase init fallback to LocalStorage mode:', error);
     database = null;
     storage = null;
   }
 } else {
-  console.info('ℹ️ [MedChem ELN] No Firebase credentials detected. Running in LocalStorage Dual-Mode (Fully functional offline).');
+  console.info('ℹ️ [MedChem ELN] Running in LocalStorage Dual-Mode.');
 }
 
 /**
@@ -74,7 +75,7 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Resize image to max 1280px dimension to keep localStorage light & fast
+        // Resize image to max 1280px dimension to keep storage light & fast
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 1280;
         const MAX_HEIGHT = 1280;
@@ -98,7 +99,7 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Quality 0.8 JPEG for optimal balance of sharp lab TLC spots & small size
+        // Quality 0.82 JPEG for optimal balance of sharp lab TLC spots & small size
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
         resolve(compressedBase64);
       };
@@ -111,23 +112,10 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
 };
 
 /**
- * Save an experiment to Database (Firebase or LocalStorage)
+ * Save an experiment to Database (Firebase and LocalStorage mirror)
  */
 export const saveExperimentData = async (experiment) => {
-  if (database) {
-    try {
-      const experimentRef = ref(database, `experiments/${experiment.id}`);
-      await set(experimentRef, {
-        ...experiment,
-        updatedAt: new Date().toISOString(),
-      });
-      return { success: true, mode: 'firebase' };
-    } catch (err) {
-      console.error('Firebase save error, writing to LocalStorage:', err);
-    }
-  }
-
-  // LocalStorage Fallback
+  // Always mirror in localStorage for immediate resilience
   try {
     const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
     const index = existing.findIndex((e) => e.id === experiment.id);
@@ -143,11 +131,26 @@ export const saveExperimentData = async (experiment) => {
     }
 
     localStorage.setItem('medchem_experiments', JSON.stringify(existing));
-    return { success: true, mode: 'local' };
   } catch (err) {
-    console.error('LocalStorage save error:', err);
-    return { success: false, error: err.message };
+    console.error('LocalStorage mirror error:', err);
   }
+
+  // Firebase Realtime Database
+  if (database) {
+    try {
+      const experimentRef = ref(database, `experiments/${experiment.id}`);
+      await set(experimentRef, {
+        ...experiment,
+        updatedAt: new Date().toISOString(),
+      });
+      return { success: true, mode: 'firebase' };
+    } catch (err) {
+      console.error('Firebase save error:', err);
+      return { success: true, mode: 'local' };
+    }
+  }
+
+  return { success: true, mode: 'local' };
 };
 
 /**
@@ -180,17 +183,26 @@ export const loadExperimentsData = (onDataUpdate) => {
   if (database) {
     try {
       const expRef = ref(database, 'experiments');
-      const unsubscribe = onValue(expRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          const list = Object.values(val).sort((a, b) => new Date(b.updatedAt || b.date) - new Date(a.updatedAt || a.date));
-          onDataUpdate(list, 'firebase');
-        } else {
-          // If Firebase is empty, fall back to check localStorage
+      const unsubscribe = onValue(
+        expRef,
+        (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            const list = Object.values(val).sort(
+              (a, b) => new Date(b.updatedAt || b.date) - new Date(a.updatedAt || a.date)
+            );
+            onDataUpdate(list, 'firebase');
+          } else {
+            // Firebase is connected and completely clean/empty
+            onDataUpdate([], 'firebase');
+          }
+        },
+        (error) => {
+          console.warn('Firebase onValue error, falling back to LocalStorage:', error);
           const localList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
           onDataUpdate(localList, 'local');
         }
-      });
+      );
       return unsubscribe;
     } catch (err) {
       console.warn('Firebase listen error:', err);

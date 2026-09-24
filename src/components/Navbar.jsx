@@ -85,7 +85,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               </div>
             </div>
 
-            {/* Experiment dropdown selector */}
+              {/* Experiment dropdown selector */}
             <div className="relative flex-1 max-w-xs sm:max-w-sm">
               <button
                 type="button"
@@ -93,8 +93,14 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                 className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors focus:ring-2 focus:ring-indigo-400"
               >
                 <div className="truncate pr-2">
-                  <span className="text-indigo-400 font-mono font-bold mr-1.5">{activeExperiment?.code || 'EXP'}:</span>
-                  <span className="text-slate-200">{activeExperiment?.title || 'Chọn thí nghiệm...'}</span>
+                  {activeExperiment ? (
+                    <>
+                      <span className="text-indigo-400 font-mono font-bold mr-1.5">{activeExperiment.code}:</span>
+                      <span className="text-slate-200">{activeExperiment.title}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 text-xs">Chưa có thí nghiệm • Bấm tạo mới</span>
+                  )}
                 </div>
                 <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
               </button>
@@ -114,29 +120,35 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                     </button>
                   </div>
                   <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
-                    {experiments.map((exp) => (
-                      <div
-                        key={exp.id}
-                        onClick={() => {
-                          setActiveExperimentId(exp.id);
-                          setShowDropdown(false);
-                        }}
-                        className={`px-3 py-2.5 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors ${
-                          exp.id === activeExperimentId ? 'bg-indigo-50/70 font-semibold text-indigo-950' : ''
-                        }`}
-                      >
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">{exp.code}</span>
-                            <span className="text-xs text-slate-400 font-mono">{exp.date}</span>
+                    {experiments.length > 0 ? (
+                      experiments.map((exp) => (
+                        <div
+                          key={exp.id}
+                          onClick={() => {
+                            setActiveExperimentId(exp.id);
+                            setShowDropdown(false);
+                          }}
+                          className={`px-3 py-2.5 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors ${
+                            exp.id === activeExperimentId ? 'bg-indigo-50/70 font-semibold text-indigo-950' : ''
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">{exp.code}</span>
+                              <span className="text-xs text-slate-400 font-mono">{exp.date}</span>
+                            </div>
+                            <div className="text-xs truncate text-slate-700 mt-1">{exp.title}</div>
                           </div>
-                          <div className="text-xs truncate text-slate-700 mt-1">{exp.title}</div>
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(exp.status)}
+                          </div>
                         </div>
-                        <div className="flex-shrink-0">
-                          {getStatusBadge(exp.status)}
-                        </div>
+                      ))
+                    ) : (
+                      <div className="py-6 px-4 text-center text-xs text-slate-500">
+                        Chưa có thí nghiệm nào. Nhấn "Tạo mới" để bắt đầu!
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}

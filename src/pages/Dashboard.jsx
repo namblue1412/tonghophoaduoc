@@ -305,16 +305,21 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
-          <FlaskConical className="w-16 h-16 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800 mb-1">Không tìm thấy thí nghiệm nào</h3>
+          <FlaskConical className="w-16 h-16 text-indigo-400 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800 mb-1">
+            {experiments.length === 0 ? 'Sổ Tay Thí Nghiệm Đang Trống' : 'Không tìm thấy thí nghiệm nào'}
+          </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
-            Không có kết quả khớp với bộ lọc tìm kiếm. Hãy thử từ khóa khác hoặc bấm nút bên dưới để tạo mới.
+            {experiments.length === 0
+              ? 'Hệ thống đã kết nối trực tiếp Firebase Realtime Database. Hãy nhấn nút bên dưới để tạo thí nghiệm đầu tiên và kiểm tra toàn diện các module!'
+              : 'Không có kết quả khớp với bộ lọc tìm kiếm. Hãy thử từ khóa khác hoặc bấm nút bên dưới để tạo mới.'}
           </p>
           <button
             onClick={onOpenNewModal}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-2xl text-xs sm:text-sm shadow-md flex items-center gap-2 mx-auto cursor-pointer min-h-[46px]"
           >
-            Tạo thí nghiệm ngay
+            <Plus className="w-4 h-4" />
+            <span>Tạo thí nghiệm đầu tiên</span>
           </button>
         </div>
       )}
