@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Save,
@@ -17,7 +17,10 @@ import {
   Trash2,
   Share2,
   Sparkles,
-  Tag
+  Tag,
+  Play,
+  Pause,
+  Clock
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { StoichiometryTable } from '../components/StoichiometryTable';
@@ -35,8 +38,41 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     isSyncing
   } = useExperiment();
 
-  const [activeTab, setActiveTab] = useState('all'); // 'all' or section id
   const [saveToast, setSaveToast] = useState(false);
+  const [activeNav, setActiveNav] = useState('stoichiometry');
+
+  // Mini live timer calculation for floating bar
+  const [runningSeconds, setRunningSeconds] = useState(0);
+
+  useEffect(() => {
+    let interval = null;
+    if (activeExperiment?.reactionTimer?.status === 'running') {
+      const start = activeExperiment.reactionTimer.lastStartTime
+        ? new Date(activeExperiment.reactionTimer.lastStartTime).getTime()
+        : Date.now();
+
+      interval = setInterval(() => {
+        const diff = Math.max(0, Math.floor((Date.now() - start) / 1000));
+        setRunningSeconds(diff);
+      }, 1000);
+    } else {
+      setRunningSeconds(0);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeExperiment?.reactionTimer?.status, activeExperiment?.reactionTimer?.lastStartTime]);
+
+  const formatTime = (secs) => {
+    const s = Math.max(0, Math.floor(secs));
+    const hours = Math.floor(s / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const seconds = s % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const totalCurrentTimer = (activeExperiment?.reactionTimer?.totalSeconds || 0) + runningSeconds;
 
   if (!activeExperiment) {
     return (
@@ -45,7 +81,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <h3 className="text-base font-bold text-slate-700">Chưa chọn thí nghiệm nào</h3>
         <button
           onClick={onBackToDashboard}
-          className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold"
+          className="mt-4 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold shadow-md cursor-pointer"
         >
           Quay lại danh sách
         </button>
@@ -114,37 +150,45 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     setTimeout(() => setSaveToast(false), 2500);
   };
 
+  const scrollToSection = (id, navName) => {
+    setActiveNav(navName);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 pb-32 sm:pb-20">
       {/* Top Navigation & Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 no-print">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 no-print">
         <button
           onClick={onBackToDashboard}
-          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-indigo-600 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 transition-colors shadow-sm min-h-[44px]"
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 px-3.5 py-2.5 rounded-2xl border border-slate-200 transition-colors shadow-sm min-h-[44px]"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Về Dashboard</span>
+          <span>Danh Sách</span>
         </button>
 
         <div className="flex items-center gap-2">
           {saveToast && (
-            <span className="text-xs bg-emerald-100 text-emerald-800 font-semibold px-3 py-1.5 rounded-xl border border-emerald-300 flex items-center gap-1 animate-in fade-in">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã lưu thành công!
+            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-2 rounded-xl border border-emerald-300 flex items-center gap-1 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Đã lưu!
             </span>
           )}
 
           <button
             onClick={handleManualSave}
             disabled={isSyncing}
-            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md min-h-[44px]"
+            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-2xl flex items-center gap-1.5 transition-all shadow-md min-h-[44px] cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>{isSyncing ? 'Đang lưu...' : 'Lưu Nhật Ký'}</span>
+            <span>{isSyncing ? 'Đang lưu...' : 'Lưu Sổ Tay'}</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-1.5 shadow-sm min-h-[44px]"
+            className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-sm min-h-[44px]"
             title="In phiếu nhật ký phòng thí nghiệm"
           >
             <Printer className="w-4 h-4 text-slate-500" />
@@ -154,19 +198,19 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </div>
 
       {/* Main Experiment Header & Metadata Dossier */}
-      <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-sm space-y-5 card-print">
+      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4 card-print">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div className="flex-1 space-y-3">
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={activeExperiment.code || ''}
                 onChange={(e) => handleMetaChange('code', e.target.value)}
-                placeholder="Mã TN (VD: SYN-01)"
-                className="font-mono font-bold text-xs sm:text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[38px] w-36 uppercase"
+                placeholder="Mã TN (SYN-01)"
+                className="font-mono font-bold text-xs sm:text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-2 rounded-xl focus:outline-none min-h-[44px] w-32 uppercase"
               />
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl min-h-[44px]">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="date"
@@ -180,12 +224,12 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               <select
                 value={activeExperiment.status || 'draft'}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[44px]"
               >
                 <option value="draft">Bản nháp (Draft)</option>
-                <option value="running">Đang khuấy phản ứng (Running)</option>
+                <option value="running">Đang khuấy (Running)</option>
                 <option value="paused">Tạm dừng (Paused)</option>
-                <option value="workup">Xử lý thô & Chiết (Workup)</option>
+                <option value="workup">Xử lý thô (Workup)</option>
                 <option value="purification">Sắc ký cột (Purification)</option>
                 <option value="completed">Đã hoàn thành (Completed)</option>
               </select>
@@ -196,83 +240,88 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               type="text"
               value={activeExperiment.title || ''}
               onChange={(e) => handleMetaChange('title', e.target.value)}
-              placeholder="Tiêu đề phản ứng tổng hợp..."
-              className="w-full text-xl sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-indigo-500 px-1 py-1 focus:outline-none rounded"
+              placeholder="Tên phản ứng thí nghiệm..."
+              className="w-full text-lg sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-indigo-500 py-1 focus:outline-none rounded"
             />
           </div>
 
           {/* Researcher & Lab Room */}
-          <div className="flex flex-wrap lg:flex-col gap-2.5 text-xs text-slate-600 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 lg:w-72">
-            <div className="flex items-center gap-2 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200 lg:w-72">
+            <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-indigo-500 flex-shrink-0" />
               <input
                 type="text"
                 value={activeExperiment.researcher || ''}
                 onChange={(e) => handleMetaChange('researcher', e.target.value)}
-                placeholder="Họ tên nghiên cứu viên"
-                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium focus:outline-none min-h-[36px]"
+                placeholder="Người thực hiện..."
+                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:outline-none min-h-[40px]"
               />
             </div>
 
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2">
               <Building className="w-4 h-4 text-emerald-500 flex-shrink-0" />
               <input
                 type="text"
                 value={activeExperiment.labRoom || ''}
                 onChange={(e) => handleMetaChange('labRoom', e.target.value)}
-                placeholder="Phòng thí nghiệm / Đơn vị"
-                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium focus:outline-none min-h-[36px]"
+                placeholder="Phòng thí nghiệm..."
+                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium focus:outline-none min-h-[40px]"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky Quick-Jump Section Navigator (Mobile Fume Hood Ready) */}
-      <div className="sticky top-16 sm:top-18 z-30 bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 flex items-center justify-between gap-1 overflow-x-auto no-print">
-        <a
-          href="#section-stoichiometry"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+      {/* Desktop Sticky Quick-Jump Section Navigator */}
+      <div className="hidden md:flex sticky top-16 sm:top-18 z-30 bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 items-center justify-between gap-1 overflow-x-auto no-print">
+        <button
+          type="button"
+          onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
         >
           <Scale className="w-4 h-4 text-indigo-400" />
           <span>1. Cân đong</span>
-        </a>
+        </button>
 
-        <a
-          href="#section-timer"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+        <button
+          type="button"
+          onClick={() => scrollToSection('section-timer', 'timer')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
         >
           <Timer className="w-4 h-4 text-emerald-400" />
           <span>2. Thời gian</span>
-        </a>
+        </button>
 
-        <a
-          href="#section-tlc"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+        <button
+          type="button"
+          onClick={() => scrollToSection('section-tlc', 'tlc')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
         >
           <Layers className="w-4 h-4 text-sky-400" />
-          <span>3. Sắc ký TLC</span>
-        </a>
+          <span>3. Sắc ký TLC (3 ảnh)</span>
+        </button>
 
-        <a
-          href="#section-workup"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+        <button
+          type="button"
+          onClick={() => scrollToSection('section-workup', 'workup')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
         >
           <Waves className="w-4 h-4 text-blue-400" />
           <span>4. Xử lý thô</span>
-        </a>
+        </button>
 
-        <a
-          href="#section-column"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+        <button
+          type="button"
+          onClick={() => scrollToSection('section-column', 'column')}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
         >
           <Filter className="w-4 h-4 text-amber-400" />
           <span>5. Cột & Hiệu suất</span>
-        </a>
+        </button>
       </div>
 
       {/* Module 1: Stoichiometry Table */}
-      <section id="section-stoichiometry" className="scroll-mt-36">
+      <section id="section-stoichiometry" className="scroll-mt-28">
         <StoichiometryTable
           reagents={activeExperiment.stoichiometry || []}
           onChange={handleStoichiometryChange}
@@ -282,7 +331,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 2: Reaction Session Timer */}
-      <section id="section-timer" className="scroll-mt-36">
+      <section id="section-timer" className="scroll-mt-28">
         <ReactionTimer
           timerData={activeExperiment.reactionTimer}
           onChange={handleTimerChange}
@@ -291,17 +340,17 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         />
       </section>
 
-      {/* Module 3: TLC Timeline Monitor */}
-      <section id="section-tlc" className="scroll-mt-36">
+      {/* Module 3: TLC Timeline Monitor (3 Photos: UV 254, UV 365, Reagent) */}
+      <section id="section-tlc" className="scroll-mt-28">
         <TLCTracker
           tlcList={activeExperiment.tlcTimeline || []}
           onChange={handleTlcChange}
-          currentTimerSeconds={activeExperiment.reactionTimer?.totalSeconds || 0}
+          currentTimerSeconds={totalCurrentTimer}
         />
       </section>
 
       {/* Module 4: Workup & Rotavapor Section */}
-      <section id="section-workup" className="scroll-mt-36">
+      <section id="section-workup" className="scroll-mt-28">
         <WorkupSection
           workupData={activeExperiment.workup}
           onChange={handleWorkupChange}
@@ -309,7 +358,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 5: Column Chromatography & Eppendorf Yield */}
-      <section id="section-column" className="scroll-mt-36">
+      <section id="section-column" className="scroll-mt-28">
         <ColumnFractionManager
           columnData={activeExperiment.columnAndYield}
           onChange={handleColumnChange}
@@ -318,7 +367,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         />
       </section>
 
-      {/* Printable Signature & GLP Lab Verification Block (Displayed when printing) */}
+      {/* Printable Signature & GLP Lab Verification Block */}
       <div className="hidden print-only mt-8 pt-6 border-t-2 border-slate-300 grid grid-cols-2 text-xs">
         <div>
           <p className="font-bold">Nghiên cứu viên thực hiện:</p>
@@ -334,6 +383,102 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
           <p className="text-[10px] text-slate-500 mt-1">Ngày: ....../....../202...</p>
         </div>
       </div>
+
+      {/* FLOATING MINI LIVE TIMER BAR (Visible on mobile/tablet when running) */}
+      {activeExperiment.reactionTimer?.status === 'running' && (
+        <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden animate-in slide-in-from-bottom-4 no-print">
+          <div
+            onClick={() => scrollToSection('section-timer', 'timer')}
+            className="bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center justify-between cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+              <div>
+                <div className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold">
+                  Phản ứng đang khuấy:
+                </div>
+                <div className="font-mono text-base font-extrabold text-white">
+                  {formatTime(totalCurrentTimer)}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToSection('section-timer', 'timer');
+              }}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl"
+            >
+              Xem đồng hồ
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Zone Optimized) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 md:hidden no-print pb-safe">
+        <div className="grid grid-cols-5 h-16 items-center px-1">
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+              activeNav === 'stoichiometry' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Scale className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">Cân đong</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-timer', 'timer')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors relative ${
+              activeNav === 'timer' ? 'text-emerald-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Timer className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">Bấm giờ</span>
+            {activeExperiment.reactionTimer?.status === 'running' && (
+              <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-tlc', 'tlc')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+              activeNav === 'tlc' ? 'text-sky-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Layers className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">TLC 3 Ảnh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-workup', 'workup')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+              activeNav === 'workup' ? 'text-blue-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Waves className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">Xử lý thô</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-column', 'column')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+              activeNav === 'column' ? 'text-amber-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Filter className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight">Cột & Yield</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 };

@@ -10,12 +10,13 @@ import {
   Beaker,
   Droplet,
   Layers,
-  Sparkles
+  Sparkles,
+  LayoutGrid,
+  Table as TableIcon
 } from 'lucide-react';
 
 export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTargetChange }) => {
-  const [scaleMolMultiplier, setScaleMolMultiplier] = useState(1);
-  const [showMolScaleModal, setShowMolScaleModal] = useState(false);
+  const [mobileView, setMobileView] = useState('auto'); // 'auto' | 'card' | 'table'
 
   // Identify limiting reagent
   const limitingReagent = reagents.find((r) => r.isLimiting) || reagents[0];
@@ -194,11 +195,11 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden card-print">
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print">
       {/* Module Header */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 rounded-xl shadow-md text-white">
+          <div className="p-2.5 bg-indigo-600 rounded-xl shadow-md text-white flex-shrink-0">
             <Scale className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
@@ -209,30 +210,30 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
               </span>
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Tự động tính số mol ($n = m/M$) và tỉ lệ đương lượng phản ứng ($eq$) theo chất giới hạn
+              Tự động tính số mol (n = m/M) và tỉ lệ đương lượng (eq) theo chất giới hạn
             </p>
           </div>
         </div>
 
-        {/* Quick actions for Stoichiometry */}
-        <div className="flex items-center gap-2 no-print">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 no-print w-full sm:w-auto justify-between sm:justify-end">
           <button
             type="button"
             onClick={autoScaleTheoreticalMass}
-            className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-medium border border-indigo-400/30 min-h-[44px]"
+            className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs px-3 py-2.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-semibold border border-indigo-400/30 min-h-[44px]"
             title="Tự động tính khối lượng lý thuyết cần cân từ đương lượng (eq)"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
-            <span>Khối lượng lý thuyết (eq)</span>
+            <span>Tính m lý thuyết (eq)</span>
           </button>
         </div>
       </div>
 
       {/* Target Molecule Quick Bar */}
       {targetMolecule && (
-        <div className="bg-indigo-50/70 border-b border-indigo-100 px-4 py-3 sm:px-6 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="bg-indigo-50/70 border-b border-indigo-100 p-3 sm:px-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-indigo-900 flex items-center gap-1.5">
+            <span className="font-bold text-indigo-950 flex items-center gap-1.5 flex-shrink-0">
               <Beaker className="w-4 h-4 text-indigo-600" /> Sản phẩm mục tiêu:
             </span>
             <input
@@ -240,52 +241,206 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
               value={targetMolecule.name || ''}
               onChange={(e) => onTargetChange?.('name', e.target.value)}
               placeholder="Tên sản phẩm..."
-              className="bg-white border border-indigo-200 px-2.5 py-1.5 rounded-lg text-indigo-950 font-semibold focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[38px] text-xs sm:text-sm"
+              className="bg-white border border-indigo-200 px-3 py-2 rounded-xl text-indigo-950 font-bold focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[44px] flex-1 text-xs sm:text-sm"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-600 font-medium">Công thức:</span>
+          <div className="flex items-center gap-2 justify-between sm:justify-end">
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+              <span className="text-slate-600 font-medium">CTHH:</span>
               <input
                 type="text"
                 value={targetMolecule.molecularFormula || ''}
                 onChange={(e) => onTargetChange?.('molecularFormula', e.target.value)}
                 placeholder="C10H8O3"
-                className="bg-white border border-indigo-200 px-2 py-1 rounded-lg font-mono text-xs w-24 text-slate-800 focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                className="bg-white border border-indigo-200 px-2 py-2 rounded-xl font-mono text-xs w-full sm:w-28 text-slate-800 focus:outline-none min-h-[44px]"
               />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-600 font-medium">$M$ (g/mol):</span>
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+              <span className="text-slate-600 font-medium">M:</span>
               <input
                 type="number"
                 step="0.01"
+                inputMode="decimal"
                 value={targetMolecule.molecularWeight || ''}
                 onChange={(e) => onTargetChange?.('molecularWeight', parseFloat(e.target.value) || 0)}
                 placeholder="176.17"
-                className="bg-white border border-indigo-200 px-2 py-1 rounded-lg font-mono font-bold text-xs w-20 text-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                className="bg-white border border-indigo-200 px-2 py-2 rounded-xl font-mono font-bold text-xs w-full sm:w-24 text-indigo-700 focus:outline-none min-h-[44px]"
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* Limiting Reagent Highlight Banner */}
+      {/* Limiting Reagent Banner */}
       <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2.5 sm:px-6 flex items-center justify-between text-xs text-emerald-900">
         <div className="flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <span>
-            Chất giới hạn (Limiting Reagent):{' '}
-            <strong className="font-bold underline text-emerald-950">{limitingReagent?.name || 'Chưa chọn'}</strong>{' '}
+            Chất giới hạn: <strong className="font-bold underline text-emerald-950">{limitingReagent?.name || 'Chưa chọn'}</strong>{' '}
             ({limitingReagent?.moles ? `${limitingReagent.moles} mol` : '0 mol'} = <strong>1.00 eq</strong>)
           </span>
         </div>
-        <span className="hidden sm:inline text-slate-500 italic">
-          Bấm chọn vào ô tròn "Giới hạn" để đổi chất làm mốc đương lượng
-        </span>
       </div>
 
-      {/* Table Container - Mobile Responsive with Scroll */}
-      <div className="overflow-x-auto">
+      {/* MOBILE CARD VIEW (Optimized for Mobile Phone Screens) */}
+      <div className="block md:hidden p-3 space-y-3 bg-slate-50/50">
+        {reagents.map((row) => {
+          const typeBadge = getTypeLabel(row.type);
+          const isLim = row.isLimiting;
+
+          return (
+            <div
+              key={row.id}
+              className={`p-3.5 rounded-2xl border transition-all space-y-3 ${
+                isLim
+                  ? 'bg-emerald-50/40 border-emerald-300 shadow-sm'
+                  : 'bg-white border-slate-200'
+              }`}
+            >
+              {/* Card Header: Limiting radio + Type + Delete */}
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 cursor-pointer min-h-[40px]">
+                  <input
+                    type="radio"
+                    name="limitingReagentGroupMobile"
+                    checked={Boolean(isLim)}
+                    onChange={() => setLimiting(row.id)}
+                    className="w-5 h-5 text-emerald-600 focus:ring-emerald-500 accent-emerald-600"
+                  />
+                  <span className={`text-xs font-bold ${isLim ? 'text-emerald-900' : 'text-slate-600'}`}>
+                    {isLim ? 'Chất giới hạn (1.00 eq)' : 'Chọn làm mốc (eq)'}
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={row.type}
+                    onChange={(e) => handleCellChange(row.id, 'type', e.target.value)}
+                    className={`text-xs font-semibold px-2 py-1.5 rounded-xl border focus:outline-none min-h-[40px] ${typeBadge.color}`}
+                  >
+                    <option value="starting_material">Chất đầu</option>
+                    <option value="reagent">Thuốc thử</option>
+                    <option value="catalyst">Xúc tác</option>
+                    <option value="solvent">Dung môi</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => removeReagent(row.id)}
+                    className="p-2 text-slate-400 hover:text-rose-600 rounded-xl min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Chemical Name & Formula */}
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  value={row.name || ''}
+                  onChange={(e) => handleCellChange(row.id, 'name', e.target.value)}
+                  placeholder="Tên hóa chất (VD: 4-Hydroxycoumarin)..."
+                  className="w-full bg-slate-50 focus:bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none min-h-[44px]"
+                />
+                <input
+                  type="text"
+                  value={row.formula || ''}
+                  onChange={(e) => handleCellChange(row.id, 'formula', e.target.value)}
+                  placeholder="Công thức (C6H6O2)..."
+                  className="w-full bg-transparent border-0 border-b border-slate-200 text-xs font-mono text-slate-500 px-2 py-1 focus:outline-none"
+                />
+              </div>
+
+              {/* Numeric Inputs Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500 block mb-0.5">M (g/mol):</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={row.mw ?? ''}
+                    onChange={(e) => handleCellChange(row.id, 'mw', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-mono font-semibold focus:outline-none min-h-[44px]"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-slate-500 block mb-0.5">Độ sạch (%):</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={row.purity ?? 99}
+                    onChange={(e) => handleCellChange(row.id, 'purity', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-mono focus:outline-none min-h-[44px]"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-amber-800 font-bold block mb-0.5">m thực tế (g):</span>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    inputMode="decimal"
+                    value={row.actualMass ?? ''}
+                    onChange={(e) => handleCellChange(row.id, 'actualMass', e.target.value)}
+                    placeholder="0.0000"
+                    className="w-full bg-amber-50 border border-amber-300 rounded-xl px-2.5 py-2 font-mono font-bold text-amber-950 focus:outline-none min-h-[44px]"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-slate-500 block mb-0.5">V (mL) / d (g/mL):</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={row.actualVolume ?? ''}
+                      onChange={(e) => handleCellChange(row.id, 'actualVolume', e.target.value)}
+                      placeholder="mL"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 font-mono focus:outline-none min-h-[44px]"
+                    />
+                    <input
+                      type="number"
+                      step="0.001"
+                      inputMode="decimal"
+                      value={row.density ?? ''}
+                      onChange={(e) => handleCellChange(row.id, 'density', e.target.value)}
+                      placeholder="d"
+                      className="w-1/2 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 font-mono focus:outline-none min-h-[44px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculated badges */}
+              <div className="flex items-center justify-between bg-slate-100/70 p-2.5 rounded-xl border border-slate-200">
+                <div className="text-xs">
+                  <span className="text-slate-500 block text-[11px]">Số mol thực (n):</span>
+                  <span className="font-mono font-bold text-indigo-700 text-sm">
+                    {row.moles > 0 ? `${row.moles < 0.001 ? row.moles.toExponential(3) : row.moles.toFixed(4)} mol` : '--'}
+                  </span>
+                </div>
+
+                <div className="text-xs text-right">
+                  <span className="text-slate-500 block text-[11px]">Đương lượng (eq):</span>
+                  <span className={`font-mono font-bold text-sm px-2 py-0.5 rounded-md ${
+                    isLim ? 'bg-emerald-200 text-emerald-950' : 'bg-white text-emerald-800 border border-slate-200'
+                  }`}>
+                    {row.eq > 0 ? `${row.eq.toFixed(2)} eq` : '--'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP / TABLET FULL SPREADSHEET TABLE */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[920px]">
           <thead>
             <tr className="bg-slate-100/80 text-slate-700 border-b border-slate-200 font-semibold uppercase text-[11px] tracking-wider">
@@ -315,7 +470,6 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
                     isLim ? 'bg-emerald-50/30 font-medium' : ''
                   }`}
                 >
-                  {/* Radio Limiting Reagent */}
                   <td className="py-2.5 px-3 text-center">
                     <label className="inline-flex items-center justify-center cursor-pointer p-1">
                       <input
@@ -329,12 +483,11 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
                     </label>
                   </td>
 
-                  {/* Type Selector */}
                   <td className="py-2.5 px-2">
                     <select
                       value={row.type}
                       onChange={(e) => handleCellChange(row.id, 'type', e.target.value)}
-                      className={`text-xs font-semibold px-2 py-1.5 rounded-lg border focus:ring-2 focus:ring-indigo-400 focus:outline-none w-full min-h-[38px] ${typeBadge.color}`}
+                      className={`text-xs font-semibold px-2 py-1.5 rounded-lg border focus:outline-none w-full min-h-[38px] ${typeBadge.color}`}
                     >
                       <option value="starting_material">Chất đầu</option>
                       <option value="reagent">Thuốc thử</option>
@@ -343,92 +496,84 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
                     </select>
                   </td>
 
-                  {/* Name & Formula */}
                   <td className="py-2.5 px-3">
                     <input
                       type="text"
                       value={row.name || ''}
                       onChange={(e) => handleCellChange(row.id, 'name', e.target.value)}
-                      placeholder="Tên chất (ví dụ: Resorcinol)"
-                      className="w-full bg-slate-50 focus:bg-white border border-slate-200 focus:border-indigo-400 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:ring-1 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                      placeholder="Tên chất..."
+                      className="w-full bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:outline-none min-h-[38px]"
                     />
                     <input
                       type="text"
                       value={row.formula || ''}
                       onChange={(e) => handleCellChange(row.id, 'formula', e.target.value)}
-                      placeholder="CTHH (C6H6O2)"
-                      className="w-full mt-1 bg-transparent border-0 border-b border-dashed border-slate-300 text-[11px] font-mono text-slate-500 px-1 py-0.5 focus:border-indigo-400 focus:outline-none"
+                      placeholder="CTHH"
+                      className="w-full mt-1 bg-transparent border-0 border-b border-dashed border-slate-300 text-[11px] font-mono text-slate-500 px-1 py-0.5 focus:outline-none"
                     />
                   </td>
 
-                  {/* Molecular Weight */}
                   <td className="py-2.5 px-2 text-right">
                     <input
                       type="number"
                       step="0.01"
-                      min="0"
+                      inputMode="decimal"
                       value={row.mw ?? ''}
                       onChange={(e) => handleCellChange(row.id, 'mw', e.target.value)}
-                      className="w-full text-right font-mono font-semibold bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-1 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                      className="w-full text-right font-mono font-semibold bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                     />
                   </td>
 
-                  {/* Purity (%) */}
                   <td className="py-2.5 px-2 text-right">
                     <input
                       type="number"
                       step="0.1"
-                      min="0"
-                      max="100"
+                      inputMode="decimal"
                       value={row.purity ?? 99}
                       onChange={(e) => handleCellChange(row.id, 'purity', e.target.value)}
-                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-1 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                     />
                   </td>
 
-                  {/* Actual Mass (g) */}
                   <td className="py-2.5 px-2 text-right">
                     <input
                       type="number"
                       step="0.0001"
-                      min="0"
+                      inputMode="decimal"
                       value={row.actualMass ?? ''}
                       onChange={(e) => handleCellChange(row.id, 'actualMass', e.target.value)}
                       placeholder="0.0000"
-                      className="w-full text-right font-mono font-bold text-slate-900 bg-amber-50/50 focus:bg-white border border-amber-200 focus:border-amber-400 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-1 focus:ring-amber-400 focus:outline-none min-h-[38px]"
+                      className="w-full text-right font-mono font-bold text-slate-900 bg-amber-50/50 focus:bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                     />
                   </td>
 
-                  {/* Actual Volume (mL) */}
                   <td className="py-2.5 px-2 text-right">
                     <input
                       type="number"
                       step="0.01"
-                      min="0"
+                      inputMode="decimal"
                       value={row.actualVolume ?? ''}
                       onChange={(e) => handleCellChange(row.id, 'actualVolume', e.target.value)}
                       placeholder="mL"
-                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-1 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                     />
                   </td>
 
-                  {/* Density d (g/mL) */}
                   <td className="py-2.5 px-2 text-right">
                     <input
                       type="number"
                       step="0.001"
-                      min="0"
+                      inputMode="decimal"
                       value={row.density ?? ''}
                       onChange={(e) => handleCellChange(row.id, 'density', e.target.value)}
                       placeholder="1.00"
-                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:ring-1 focus:ring-indigo-400 focus:outline-none min-h-[38px]"
+                      className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                     />
                   </td>
 
-                  {/* Calculated Moles */}
                   <td className="py-2.5 px-2 text-right bg-indigo-50/40 font-mono font-bold text-indigo-950 text-xs sm:text-sm">
                     {row.moles > 0 ? (
-                      <span title={`${row.moles} mol`}>
+                      <span>
                         {row.moles < 0.001 ? row.moles.toExponential(3) : row.moles.toFixed(4)}
                         <span className="text-[10px] text-indigo-500 font-normal ml-0.5">mol</span>
                       </span>
@@ -437,7 +582,6 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
                     )}
                   </td>
 
-                  {/* Calculated Equivalents (eq) */}
                   <td className="py-2.5 px-2 text-right bg-emerald-50/40 font-mono font-bold text-emerald-950 text-xs sm:text-sm">
                     {row.eq > 0 ? (
                       <span className={isLim ? 'text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded' : 'text-slate-800'}>
@@ -449,24 +593,21 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
                     )}
                   </td>
 
-                  {/* Notes */}
                   <td className="py-2.5 px-3">
                     <input
                       type="text"
                       value={row.notes || ''}
                       onChange={(e) => handleCellChange(row.id, 'notes', e.target.value)}
-                      placeholder="Hiện tượng cân, bảo quản..."
-                      className="w-full bg-transparent border-0 border-b border-slate-200 focus:border-indigo-400 text-xs text-slate-600 py-1 focus:outline-none min-h-[36px]"
+                      placeholder="Ghi chú..."
+                      className="w-full bg-transparent border-0 border-b border-slate-200 text-xs text-slate-600 py-1 focus:outline-none min-h-[36px]"
                     />
                   </td>
 
-                  {/* Delete Button */}
                   <td className="py-2.5 px-2 text-center no-print">
                     <button
                       type="button"
                       onClick={() => removeReagent(row.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
-                      title="Xóa chất này"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -479,45 +620,45 @@ export const StoichiometryTable = ({ reagents, onChange, targetMolecule, onTarge
       </div>
 
       {/* Footer Add Buttons & Stoichiometric Summary */}
-      <div className="p-4 bg-slate-50/80 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2 no-print">
+      <div className="p-4 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="grid grid-cols-3 gap-2 no-print">
           <button
             type="button"
             onClick={() => addReagent('reagent')}
-            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 font-semibold transition-all shadow-sm min-h-[44px]"
+            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs px-3 py-2.5 rounded-2xl flex items-center justify-center gap-1 font-bold shadow-sm min-h-[46px]"
           >
             <Plus className="w-4 h-4" />
-            <span>Thêm Thuốc thử</span>
+            <span>+ Thuốc thử</span>
           </button>
           <button
             type="button"
             onClick={() => addReagent('catalyst')}
-            className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 font-semibold transition-all shadow-sm min-h-[44px]"
+            className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs px-3 py-2.5 rounded-2xl flex items-center justify-center gap-1 font-bold shadow-sm min-h-[46px]"
           >
             <Plus className="w-4 h-4" />
-            <span>Thêm Xúc tác</span>
+            <span>+ Xúc tác</span>
           </button>
           <button
             type="button"
             onClick={() => addReagent('solvent')}
-            className="bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 font-semibold transition-all shadow-sm min-h-[44px]"
+            className="bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white text-xs px-3 py-2.5 rounded-2xl flex items-center justify-center gap-1 font-bold shadow-sm min-h-[46px]"
           >
             <Plus className="w-4 h-4" />
-            <span>Thêm Dung môi</span>
+            <span>+ Dung môi</span>
           </button>
         </div>
 
         {/* Moles & Batch Size Summary */}
-        <div className="flex items-center gap-4 text-xs font-mono text-slate-600 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-mono text-slate-600 bg-white px-3.5 py-2.5 rounded-2xl border border-slate-200 shadow-sm">
           <div>
-            Quy mô nạp liệu:{' '}
+            Quy mô:{' '}
             <strong className="text-indigo-900 font-bold">
               {limitingMoles > 0 ? `${(limitingMoles * 1000).toFixed(1)} mmol` : '0 mmol'}
             </strong>
           </div>
           <div className="w-px h-4 bg-slate-200"></div>
           <div>
-            Tổng khối lượng hóa chất:{' '}
+            Tổng m:{' '}
             <strong className="text-slate-900 font-bold">
               {reagents.reduce((sum, r) => sum + (parseFloat(r.actualMass) || 0), 0).toFixed(3)} g
             </strong>
