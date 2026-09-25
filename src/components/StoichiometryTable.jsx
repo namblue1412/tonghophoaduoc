@@ -31,6 +31,7 @@ export const StoichiometryTable = ({
 }) => {
   const massUnit = units?.mass || 'g'; // 'g' | 'mg'
   const moleUnit = units?.mole || 'mol'; // 'mol' | 'mmol'
+  const [unitToast, setUnitToast] = useState(null);
 
   // Partition into Active Reactants (need molar ratio) vs Medium vs Solvent
   const activeReagents = reagents.filter((r) => r.type !== 'base_acid' && r.type !== 'solvent');
@@ -42,7 +43,7 @@ export const StoichiometryTable = ({
   const limitingMoles = limitingReagent ? parseDecimal(limitingReagent.moles) : 0;
 
   // Re-calculate row moles and molar ratio (tỉ lệ mol)
-  const calculateRowValues = (row, isLimitingRow = false, currentLimitingMoles = limitingMoles) => {
+  const calculateRowValues = (row, isLimitingRow = false, currentLimitingMoles = limitingMoles, activeMassUnit = massUnit) => {
     // For medium and solvent, do not calculate moles or molar ratio
     if (row.type === 'base_acid' || row.type === 'solvent') {
       return {
@@ -62,7 +63,7 @@ export const StoichiometryTable = ({
 
     let effectiveMass = actualMass;
     if ((!actualMass || actualMass === 0) && actualVolume > 0 && density > 0) {
-      if (massUnit === 'mg') {
+      if (activeMassUnit === 'mg') {
         effectiveMass = actualVolume * density * 1000;
       } else {
         effectiveMass = actualVolume * density;
@@ -246,9 +247,55 @@ export const StoichiometryTable = ({
     alert(`Đã tính khối lượng lý thuyết cho tất cả các chất dựa theo tỉ lệ mol của ${limitingReagent.name}!`);
   };
 
-  // Toggle Units (g/mol vs mg/mmol)
+  // Toggle Units (g/mol vs mg/mmol) with automatic bidirectional conversion
   const toggleUnitScale = (newMassUnit, newMoleUnit) => {
-    onUnitsChange?.({ mass: newMassUnit, mole: newMoleUnit });
+    if (newMassUnit === massUnit) return;
+
+    const factor = newMassUnit === 'mg' ? 1000 : 0.001;
+
+    // Convert mass values of all active reactants
+    const convertedReagents = reagents.map((r) => {
+      if (r.type === 'base_acid' || r.type === 'solvent') {
+        return r;
+      }
+      const actualM = parseDecimal(r.actualMass);
+      const theoM = parseDecimal(r.theoMass);
+
+      const nextRow = { ...r };
+      if (actualM > 0) {
+        const converted = actualM * factor;
+        nextRow.actualMass = String(parseFloat(converted.toFixed(newMassUnit === 'mg' ? 2 : 5)));
+      }
+      if (theoM > 0) {
+        const converted = theoM * factor;
+        nextRow.theoMass = String(parseFloat(converted.toFixed(newMassUnit === 'mg' ? 2 : 5)));
+      }
+      return nextRow;
+    });
+
+    // Re-evaluate moles with newMassUnit
+    const curActive = convertedReagents.filter((r) => r.type !== 'base_acid' && r.type !== 'solvent');
+    const currentLim = curActive.find((r) => r.isLimiting) || curActive[0];
+    const tempLimRow = currentLim ? calculateRowValues(currentLim, true, 0, newMassUnit) : null;
+    const newLimitingMoles = tempLimRow ? tempLimRow.moles : 0;
+
+    const finalReagents = convertedReagents.map((r) => {
+      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.id === currentLim?.id) {
+        return { ...tempLimRow, isLimiting: true };
+      }
+      return calculateRowValues(r, false, newLimitingMoles, newMassUnit);
+    });
+
+    onChange(finalReagents);
+    onUnitsChange?.({ mass: newMassUnit, mole: newMoleUnit }, finalReagents);
+
+    setUnitToast(
+      newMassUnit === 'mg'
+        ? 'Đã tự động quy đổi dữ liệu: g/mol ➔ mg/mmol (x1000)'
+        : 'Đã tự động quy đổi dữ liệu: mg/mmol ➔ g/mol (:1000)'
+    );
+    setTimeout(() => setUnitToast(null), 3500);
   };
 
   const getTypeLabel = (type) => {
@@ -348,6 +395,23 @@ export const StoichiometryTable = ({
           </button>
         </div>
       </div>
+
+      {/* Unit Auto-Conversion Toast Notification */}
+      {unitToast && (
+        <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 flex items-center justify-between animate-in fade-in slide-in-from-top-1 no-print">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-200 flex-shrink-0" />
+            {unitToast}
+          </span>
+          <button
+            type="button"
+            onClick={() => setUnitToast(null)}
+            className="text-white hover:text-emerald-100 p-1 rounded-lg text-xs cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Target Molecule Quick Bar */}
       {targetMolecule && (

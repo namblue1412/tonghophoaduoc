@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { ApparatusPreparation } from '../components/ApparatusPreparation';
-import { StoichiometryTable } from '../components/StoichiometryTable';
+import { StoichiometryTable, parseDecimal } from '../components/StoichiometryTable';
 import { ReactionTimer } from '../components/ReactionTimer';
 import { TLCTracker } from '../components/TLCTracker';
 import { WorkupSection } from '../components/WorkupSection';
@@ -151,9 +151,73 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     });
   };
 
-  const handleUnitsChange = (newUnits) => {
+  const handleUnitsChange = (newUnits, convertedReagents) => {
+    const oldMassUnit = activeExperiment.units?.mass || 'g';
+    const newMassUnit = newUnits?.mass || 'g';
+
+    // If unit didn't change mass scale
+    if (oldMassUnit === newMassUnit) {
+      updateExperiment(activeExperiment.id, {
+        units: newUnits,
+        ...(convertedReagents ? { stoichiometry: convertedReagents } : {})
+      });
+      return;
+    }
+
+    const factor = newMassUnit === 'mg' ? 1000 : 0.001;
+
+    // Convert workup crude tubes and crudeMass
+    let updatedWorkup = activeExperiment.workup;
+    if (updatedWorkup) {
+      const updatedCrudeTubes = (updatedWorkup.crudeTubes || []).map((t) => {
+        const tare = parseDecimal(t.tareMass);
+        const gross = parseDecimal(t.grossMass);
+        const crude = t.crudeMass ? parseDecimal(t.crudeMass) : 0;
+        return {
+          ...t,
+          tareMass: tare > 0 ? String(parseFloat((tare * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.tareMass,
+          grossMass: gross > 0 ? String(parseFloat((gross * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.grossMass,
+          crudeMass: crude > 0 ? parseFloat((crude * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : 0
+        };
+      });
+      const oldCrude = parseDecimal(updatedWorkup.crudeMass);
+      updatedWorkup = {
+        ...updatedWorkup,
+        crudeTubes: updatedCrudeTubes,
+        crudeMass: oldCrude > 0 ? parseFloat((oldCrude * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : updatedWorkup.crudeMass
+      };
+    }
+
+    // Convert column eppendorf tubes and productMass
+    let updatedColumn = activeExperiment.columnAndYield;
+    if (updatedColumn?.eppendorfYield) {
+      const updatedTubes = (updatedColumn.eppendorfYield.tubes || []).map((t) => {
+        const tare = parseDecimal(t.tareMass);
+        const gross = parseDecimal(t.grossMass);
+        const prod = t.productMass ? parseDecimal(t.productMass) : 0;
+        return {
+          ...t,
+          tareMass: tare > 0 ? String(parseFloat((tare * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.tareMass,
+          grossMass: gross > 0 ? String(parseFloat((gross * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.grossMass,
+          productMass: prod > 0 ? parseFloat((prod * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : 0
+        };
+      });
+      const oldProd = parseDecimal(updatedColumn.eppendorfYield.productMass);
+      updatedColumn = {
+        ...updatedColumn,
+        eppendorfYield: {
+          ...updatedColumn.eppendorfYield,
+          tubes: updatedTubes,
+          productMass: oldProd > 0 ? parseFloat((oldProd * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : updatedColumn.eppendorfYield.productMass
+        }
+      };
+    }
+
     updateExperiment(activeExperiment.id, {
-      units: newUnits
+      units: newUnits,
+      ...(convertedReagents ? { stoichiometry: convertedReagents } : {}),
+      ...(updatedWorkup ? { workup: updatedWorkup } : {}),
+      ...(updatedColumn ? { columnAndYield: updatedColumn } : {})
     });
   };
 
