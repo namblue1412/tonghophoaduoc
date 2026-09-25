@@ -99,12 +99,22 @@ export const ExperimentProvider = ({ children }) => {
         smiles: '',
         appearance: ''
       },
+      // Equipment / Glassware Preparation Checklist
+      equipment: [
+        { id: `eq-${Date.now()}-1`, name: 'Bình cầu 2 cổ 100 mL', quantity: 1, checked: false, notes: 'Sấy khô 110°C' },
+        { id: `eq-${Date.now()}-2`, name: 'Sinh hàn hồi lưu (Condenser)', quantity: 1, checked: false, notes: 'Nối ống nước làm mát' },
+        { id: `eq-${Date.now()}-3`, name: 'Cá từ khuấy (Stirring bar)', quantity: 1, checked: false, notes: 'Teflon sạch' },
+        { id: `eq-${Date.now()}-4`, name: 'Bếp khuấy từ gia nhiệt', quantity: 1, checked: false, notes: 'Kiểm tra tốc độ khuấy' },
+        { id: `eq-${Date.now()}-5`, name: 'Ống đong 50 mL', quantity: 1, checked: false, notes: 'Đong dung môi' },
+        { id: `eq-${Date.now()}-6`, name: 'Phễu chiết 125 mL', quantity: 1, checked: false, notes: 'Chuẩn bị cho bước chiết' },
+        { id: `eq-${Date.now()}-7`, name: 'Cốc Becher 100 mL', quantity: 2, checked: false, notes: 'Đựng pha hữu cơ/nước' }
+      ],
       // Realistic Multi-Reagent Starting Template: SM + Reagent + Catalyst + Base/Acid + Solvent
       stoichiometry: [
         {
           id: `reagent-${Date.now()}-1`,
           type: 'starting_material',
-          name: 'Chất đầu A (Starting Material)',
+          name: 'Chất tham gia 1 (Reactant 1)',
           formula: '',
           mw: '150.0',
           purity: '99.0',
@@ -115,12 +125,13 @@ export const ExperimentProvider = ({ children }) => {
           actualVolume: '0',
           moles: 0.0099,
           eq: 1.0,
-          notes: 'Chất giới hạn (1.00 eq)'
+          molarRatio: 1.0,
+          notes: 'Chất giới hạn (Tỉ lệ mốc 1.00)'
         },
         {
           id: `reagent-${Date.now()}-2`,
           type: 'reagent',
-          name: 'Thuốc thử B (Reagent)',
+          name: 'Thuốc thử 2 (Reagent 2)',
           formula: '',
           mw: '120.0',
           purity: '98.0',
@@ -131,12 +142,13 @@ export const ExperimentProvider = ({ children }) => {
           actualVolume: '1.45',
           moles: 0.0118,
           eq: 1.19,
+          molarRatio: 1.19,
           notes: 'Thuốc thử chính (lấy dư)'
         },
         {
           id: `reagent-${Date.now()}-3`,
           type: 'catalyst',
-          name: 'Xúc tác C (Catalyst)',
+          name: 'Xúc tác 3 (Catalyst)',
           formula: '',
           mw: '98.0',
           purity: '98.0',
@@ -147,39 +159,43 @@ export const ExperimentProvider = ({ children }) => {
           actualVolume: '0.08',
           moles: 0.0015,
           eq: 0.15,
-          notes: '0.15 eq xúc tác'
+          molarRatio: 0.15,
+          notes: '0.15 tỉ lệ mol xúc tác'
         },
         {
           id: `reagent-${Date.now()}-4`,
           type: 'base_acid',
-          name: 'Môi trường (Base / Acid)',
+          name: 'Dung dịch HCl 10%',
           formula: '',
-          mw: '101.0',
-          purity: '99.0',
-          density: '0.73',
+          mw: '0',
+          purity: '10.0',
+          concentrationPercent: '10',
+          density: '1.05',
           isLimiting: false,
-          theoMass: '1.05',
-          actualMass: '1.05',
-          actualVolume: '1.44',
-          moles: 0.0103,
-          eq: 1.04,
-          notes: 'Chất điều chỉnh môi trường phản ứng'
+          theoMass: '0',
+          actualMass: '0',
+          actualVolume: '5.0',
+          moles: 0,
+          eq: 0,
+          molarRatio: 0,
+          notes: 'Nhỏ giọt từ từ ở 0 - 5°C'
         },
         {
           id: `reagent-${Date.now()}-5`,
           type: 'solvent',
-          name: 'Dung môi phản ứng (Solvent)',
+          name: 'Dichloromethane (DCM)',
           formula: '',
-          mw: '46.0',
+          mw: '84.93',
           purity: '99.5',
-          density: '0.789',
+          density: '1.33',
           isLimiting: false,
           theoMass: '0',
-          actualMass: '15.8',
+          actualMass: '0',
           actualVolume: '20.0',
           moles: 0,
           eq: 0,
-          notes: 'Dung môi hòa tan'
+          molarRatio: 0,
+          notes: 'Dung môi phản ứng chính'
         }
       ],
       reactionTimer: {

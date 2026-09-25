@@ -2445,13 +2445,13 @@ export const ColumnFractionManager = ({
               {/* Notes */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Ghi chú độ sạch & đối chiếu chất đầu:
+                  Ghi chú độ sạch & đối chiếu chất tham gia:
                 </label>
                 <textarea
                   rows="2"
                   value={poolNotes}
                   onChange={(e) => setPoolNotes(e.target.value)}
-                  placeholder="VD: Chấm đối chứng với chất đầu A: đã chuyển hóa hết, 1 vết sản phẩm duy nhất Rf = 0.42..."
+                  placeholder="VD: Chấm đối chứng với chất tham gia 1: đã chuyển hóa hết, 1 vết sản phẩm duy nhất Rf = 0.42..."
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs sm:text-sm focus:outline-none min-h-[44px]"
                 ></textarea>
               </div>

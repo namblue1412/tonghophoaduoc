@@ -36,7 +36,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const [customStainName, setCustomStainName] = useState('');
   const [newObservation, setNewObservation] = useState('');
   const [newSpots, setNewSpots] = useState([
-    { label: 'Chất đầu (SM)', rf: '' },
+    { label: 'Chất tham gia (SM)', rf: '' },
     { label: 'Sản phẩm (P)', rf: '' }
   ]);
 
@@ -87,7 +87,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setCustomStainName('');
     setSelectedStainName('Vanillin / H2SO4');
     setNewSpots([
-      { label: 'Chất đầu (SM)', rf: '' },
+      { label: 'Chất tham gia (SM)', rf: '' },
       { label: 'Sản phẩm (P)', rf: '' }
     ]);
     setModalOpen(true);
@@ -111,7 +111,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       plate.spots?.length
         ? plate.spots.map((s) => ({ label: s.label || '', rf: String(s.rf ?? '') }))
         : [
-            { label: 'Chất đầu (SM)', rf: '' },
+            { label: 'Chất tham gia (SM)', rf: '' },
             { label: 'Sản phẩm (P)', rf: '' }
           ]
     );
@@ -889,7 +889,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                   rows="2"
                   value={newObservation}
                   onChange={(e) => setNewObservation(e.target.value)}
-                  placeholder="VD: Hết sạch chất đầu, xuất hiện vết sản phẩm chính Rf 0.22..."
+                  placeholder="VD: Hết sạch chất tham gia, xuất hiện vết sản phẩm chính Rf 0.22..."
                   className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-500 rounded-xl p-3 text-xs sm:text-sm focus:outline-none min-h-[48px]"
                 ></textarea>
               </div>

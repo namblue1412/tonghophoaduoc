@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FlaskConical,
   PlusCircle,
@@ -18,7 +18,11 @@ import {
   User,
   LogIn,
   LogOut,
-  GraduationCap
+  GraduationCap,
+  Smartphone,
+  Share2,
+  PlusSquare,
+  Sparkles
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { useAuth } from '../context/AuthContext';
@@ -43,7 +47,32 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      setShowInstallModal(true);
+    }
+  };
 
   const handleImportFile = async (e) => {
     const file = e.target.files?.[0];
@@ -289,6 +318,14 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
             {/* Desktop Action Buttons */}
             <div className="hidden sm:flex items-center gap-1.5">
               <button
+                onClick={handleInstallClick}
+                title="Thêm vào Màn hình chính (iPhone / iPad / Android)"
+                className="bg-slate-800 hover:bg-slate-700 text-teal-300 p-2.5 rounded-xl text-xs font-medium transition-colors border border-teal-500/40 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4 text-teal-400" />
+              </button>
+
+              <button
                 onClick={() => activeExperimentId && duplicateExperiment(activeExperimentId)}
                 title="Sao chép thí nghiệm này thành bản ghi mới"
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
@@ -372,6 +409,18 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               )}
             </div>
 
+            {/* Install to Home Screen Shortcut Button */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleInstallClick();
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-900/60 to-indigo-900/60 border border-teal-500/40 text-teal-300 p-2.5 rounded-xl text-xs font-bold min-h-[48px] cursor-pointer"
+            >
+              <Smartphone className="w-4.5 h-4.5 text-teal-400" />
+              <span>Thêm ứng dụng vào Màn hình chính (PWA)</span>
+            </button>
+
             <div className="flex items-center justify-between px-2 text-xs text-slate-400 pb-2 border-b border-slate-800">
               <span className="flex items-center gap-1.5">
                 {syncMode === 'firebase' ? <Cloud className="w-3.5 h-3.5 text-emerald-400" /> : <HardDrive className="w-3.5 h-3.5 text-indigo-400" />}
@@ -437,6 +486,116 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
         accept=".json"
         className="hidden"
       />
+
+      {/* PWA Add to Home Screen Guidance Modal */}
+      {showInstallModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowInstallModal(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 text-white w-full max-w-lg rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-indigo-600 to-teal-500 rounded-2xl shadow-md">
+                  <Smartphone className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Thêm vào Màn hình chính</h3>
+                  <p className="text-xs text-slate-400">Trải nghiệm như App thật trên iPhone & iPad</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInstallModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* App Icon & Info */}
+            <div className="flex items-center gap-4 bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700">
+              <img
+                src="/icon-192.png"
+                alt="MedChem ELN Icon"
+                className="w-14 h-14 rounded-2xl shadow-md border border-slate-600 flex-shrink-0"
+              />
+              <div>
+                <h4 className="font-extrabold text-sm text-white">MedChem ELN</h4>
+                <p className="text-xs text-teal-400 font-medium">Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Toàn màn hình • Chạy offline • Không che khuất thanh địa chỉ</p>
+              </div>
+            </div>
+
+            {/* Platform Guides */}
+            <div className="space-y-3 text-xs">
+              {/* iPhone / iPad Guide */}
+              <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/80 space-y-2.5">
+                <div className="font-bold text-teal-300 flex items-center gap-1.5 text-sm">
+                  <span>🍎</span>
+                  <span>Hướng dẫn trên iPhone & iPad (Safari):</span>
+                </div>
+                <div className="space-y-2 text-slate-300 pl-1">
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">1</span>
+                    <p>Nhấn vào biểu tượng <strong>Chia sẻ (Share) 📤</strong> ở thanh công cụ Safari (ở dưới cùng màn hình trên iPhone hoặc góc trên trên iPad).</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">2</span>
+                    <p>Cuộn xuống trong danh sách tùy chọn và chạm vào <strong>"Thêm vào MH chính" (Add to Home Screen) ➕</strong>.</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">3</span>
+                    <p>Nhấn <strong>"Thêm" (Add)</strong> ở góc trên bên phải. Icon ứng dụng sẽ xuất hiện ngay trên màn hình chính của bạn!</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Android Guide */}
+              <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/80 space-y-2">
+                <div className="font-bold text-indigo-300 flex items-center gap-1.5 text-sm">
+                  <span>🤖</span>
+                  <span>Hướng dẫn trên Android (Chrome / Cốc Cốc):</span>
+                </div>
+                <p className="text-slate-300 pl-1">
+                  Bấm biểu tượng menu <strong>3 chấm (⋮)</strong> ở góc trên bên phải trình duyệt &rarr; Chọn <strong>"Cài đặt ứng dụng"</strong> hoặc <strong>"Thêm vào Màn hình chính"</strong>.
+                </p>
+
+                {deferredPrompt && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      deferredPrompt.prompt();
+                      const { outcome } = await deferredPrompt.userChoice;
+                      if (outcome === 'accepted') {
+                        setDeferredPrompt(null);
+                        setShowInstallModal(false);
+                      }
+                    }}
+                    className="w-full mt-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Cài đặt ngay vào thiết bị</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowInstallModal(false)}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-2xl text-xs transition-colors min-h-[44px] cursor-pointer"
+            >
+              Đã hiểu & Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

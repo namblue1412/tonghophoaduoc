@@ -20,9 +20,11 @@ import {
   Tag,
   Play,
   Pause,
-  Clock
+  Clock,
+  FlaskConical
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { ApparatusPreparation } from '../components/ApparatusPreparation';
 import { StoichiometryTable } from '../components/StoichiometryTable';
 import { ReactionTimer } from '../components/ReactionTimer';
 import { TLCTracker } from '../components/TLCTracker';
@@ -100,6 +102,12 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         ...activeExperiment.targetMolecule,
         [field]: value
       }
+    });
+  };
+
+  const handleEquipmentChange = (newEquipment) => {
+    updateExperiment(activeExperiment.id, {
+      equipment: newEquipment
     });
   };
 
@@ -286,8 +294,17 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       <div className="hidden md:flex sticky top-16 sm:top-18 z-30 bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 items-center justify-between gap-1 overflow-x-auto no-print">
         <button
           type="button"
+          onClick={() => scrollToSection('section-apparatus', 'apparatus')}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+        >
+          <FlaskConical className="w-4 h-4 text-teal-400" />
+          <span>0. Dụng cụ</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
         >
           <Scale className="w-4 h-4 text-indigo-400" />
           <span>1. Cân đong</span>
@@ -296,7 +313,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-timer', 'timer')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
         >
           <Timer className="w-4 h-4 text-emerald-400" />
           <span>2. Thời gian</span>
@@ -305,16 +322,16 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-tlc', 'tlc')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
         >
           <Layers className="w-4 h-4 text-sky-400" />
-          <span>3. Sắc ký TLC (3 ảnh)</span>
+          <span>3. Sắc ký TLC</span>
         </button>
 
         <button
           type="button"
           onClick={() => scrollToSection('section-workup', 'workup')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
         >
           <Waves className="w-4 h-4 text-blue-400" />
           <span>4. Xử lý thô</span>
@@ -323,12 +340,20 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-column', 'column')}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
         >
           <Filter className="w-4 h-4 text-amber-400" />
           <span>5. Cột & Hiệu suất</span>
         </button>
       </div>
+
+      {/* Module 0: Apparatus & Glassware Preparation */}
+      <section id="section-apparatus" className="scroll-mt-28">
+        <ApparatusPreparation
+          equipment={activeExperiment.equipment || []}
+          onChange={handleEquipmentChange}
+        />
+      </section>
 
       {/* Module 1: Stoichiometry Table */}
       <section id="section-stoichiometry" className="scroll-mt-28">
@@ -434,7 +459,18 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
 
       {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Zone Optimized) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 md:hidden no-print pb-safe">
-        <div className="grid grid-cols-5 h-16 items-center px-1">
+        <div className="grid grid-cols-6 h-16 items-center px-1">
+          <button
+            type="button"
+            onClick={() => scrollToSection('section-apparatus', 'apparatus')}
+            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+              activeNav === 'apparatus' ? 'text-teal-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <FlaskConical className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">Dụng cụ</span>
+          </button>
+
           <button
             type="button"
             onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
@@ -442,8 +478,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               activeNav === 'stoichiometry' ? 'text-indigo-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Scale className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">Cân đong</span>
+            <Scale className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">Cân đong</span>
           </button>
 
           <button
@@ -453,10 +489,10 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               activeNav === 'timer' ? 'text-emerald-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Timer className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">Bấm giờ</span>
+            <Timer className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">Bấm giờ</span>
             {activeExperiment.reactionTimer?.status === 'running' && (
-              <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             )}
           </button>
 
@@ -467,8 +503,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               activeNav === 'tlc' ? 'text-sky-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Layers className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">TLC 3 Ảnh</span>
+            <Layers className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">TLC</span>
           </button>
 
           <button
@@ -478,8 +514,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               activeNav === 'workup' ? 'text-blue-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Waves className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">Xử lý thô</span>
+            <Waves className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">Xử lý</span>
           </button>
 
           <button
@@ -489,8 +525,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               activeNav === 'column' ? 'text-amber-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Filter className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] leading-tight">Cột & Yield</span>
+            <Filter className="w-4.5 h-4.5 mb-0.5" />
+            <span className="text-[9px] sm:text-[10px] leading-tight">Cột & Yield</span>
           </button>
         </div>
       </nav>
