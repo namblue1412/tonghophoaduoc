@@ -25,7 +25,8 @@ import {
   Tag,
   FlaskConical,
   Eye,
-  Clock
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
@@ -79,7 +80,12 @@ export const ColumnFractionManager = ({
     columnParams = {
       silicaMass: '30',
       columnSize: '2.0 cm x 30 cm',
-      eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
+      eluentMode: 'gradient',
+      isocraticSystem: 'Hexan : EtOAc',
+      isocraticRatio: '4 : 1',
+      gradientStart: 'Hexan : EtOAc (9 : 1)',
+      gradientEnd: 'Hexan : EtOAc (4 : 1)',
+      eluentGradient: 'Hexan : EtOAc (9 : 1) -> (4 : 1)'
     },
     totalFractions = 10,
     fractions = Array.from({ length: 10 }, (_, i) => ({
@@ -370,6 +376,96 @@ export const ColumnFractionManager = ({
       fractionGroups: updatedGroups,
       fractions: updatedFractions
     });
+  };
+
+  // Eluent Mode: 'isocratic' (cố định 1 hệ) | 'gradient' (từ hệ này sang hệ kia)
+  const currentEluentMode = columnParams.eluentMode || (
+    columnParams.eluentGradient && columnParams.eluentGradient.includes('->')
+      ? 'gradient'
+      : 'isocratic'
+  );
+
+  const currentIsocraticSystem = columnParams.isocraticSystem ?? (
+    currentEluentMode === 'isocratic' && columnParams.eluentGradient
+      ? (columnParams.eluentGradient.includes('(') ? columnParams.eluentGradient.split('(')[0].trim() : columnParams.eluentGradient.trim())
+      : 'Hexan : EtOAc'
+  );
+
+  const currentIsocraticRatio = columnParams.isocraticRatio ?? (
+    currentEluentMode === 'isocratic' && columnParams.eluentGradient
+      ? (columnParams.eluentGradient.match(/\((.*?)\)/)?.[1]?.trim() || '4 : 1')
+      : '4 : 1'
+  );
+
+  const currentGradientStart = columnParams.gradientStart ?? (
+    columnParams.eluentGradient && columnParams.eluentGradient.includes('->')
+      ? columnParams.eluentGradient.split('->')[0].trim()
+      : 'Hexan : EtOAc (9 : 1)'
+  );
+
+  const currentGradientEnd = columnParams.gradientEnd ?? (
+    columnParams.eluentGradient && columnParams.eluentGradient.includes('->')
+      ? columnParams.eluentGradient.split('->')[1].trim()
+      : 'Hexan : EtOAc (4 : 1)'
+  );
+
+  const handleUpdateEluentMode = (mode) => {
+    const isIso = mode === 'isocratic';
+    const computedGradientStr = isIso
+      ? `${currentIsocraticSystem} (${currentIsocraticRatio})`
+      : `${currentGradientStart} -> ${currentGradientEnd}`;
+
+    onChange({
+      ...columnData,
+      columnParams: {
+        ...columnParams,
+        eluentMode: mode,
+        isocraticSystem: currentIsocraticSystem,
+        isocraticRatio: currentIsocraticRatio,
+        gradientStart: currentGradientStart,
+        gradientEnd: currentGradientEnd,
+        eluentGradient: computedGradientStr
+      }
+    });
+  };
+
+  const handleUpdateIsocratic = (system, ratio) => {
+    const sys = system.trim();
+    const rat = ratio.trim();
+    const computedStr = rat ? `${sys} (${rat})` : sys;
+
+    onChange({
+      ...columnData,
+      columnParams: {
+        ...columnParams,
+        eluentMode: 'isocratic',
+        isocraticSystem: system,
+        isocraticRatio: ratio,
+        eluentGradient: computedStr
+      }
+    });
+  };
+
+  const handleUpdateGradient = (start, end) => {
+    const computedStr = `${start.trim()} -> ${end.trim()}`;
+    onChange({
+      ...columnData,
+      columnParams: {
+        ...columnParams,
+        eluentMode: 'gradient',
+        gradientStart: start,
+        gradientEnd: end,
+        eluentGradient: computedStr
+      }
+    });
+  };
+
+  const handleApplyEluentPreset = (preset) => {
+    if (currentEluentMode === 'isocratic') {
+      handleUpdateIsocratic(preset.system, preset.ratio);
+    } else {
+      handleUpdateGradient(preset.label, currentGradientEnd);
+    }
   };
 
   // Tubes normalization (backward-compatible)
@@ -882,53 +978,170 @@ export const ColumnFractionManager = ({
       </div>
 
       <div className="p-4 sm:p-6 space-y-6">
-        {/* Column Setup Parameters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
-          <div>
-            <span className="font-semibold text-slate-700 block mb-1">Khối lượng Silicagel (g):</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={columnParams.silicaMass ?? ''}
-              onChange={(e) =>
-                onChange({
-                  ...columnData,
-                  columnParams: { ...columnParams, silicaMass: e.target.value.replace(/[^0-9.,]/g, '') }
-                })
-              }
-              placeholder="VD: 30"
-              className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-mono focus:outline-none min-h-[40px]"
-            />
+        {/* Column Setup Parameters & Eluent Mode Selector */}
+        <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-teal-600" />
+                Thông Số Cột & Hệ Dung Môi Giải Hấp (Eluent):
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Chọn chạy cố định 1 hệ hoặc chạy gradient tăng dần độ phân cực
+              </p>
+            </div>
+
+            {/* Elution Mode Toggle: Isocratic vs Gradient */}
+            <div className="inline-flex rounded-xl bg-slate-200/90 p-1 text-xs font-bold shadow-xs">
+              <button
+                type="button"
+                onClick={() => handleUpdateEluentMode('isocratic')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  currentEluentMode === 'isocratic'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Hệ cố định (Isocratic)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUpdateEluentMode('gradient')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  currentEluentMode === 'gradient'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Hệ Gradient</span>
+              </button>
+            </div>
           </div>
-          <div>
-            <span className="font-semibold text-slate-700 block mb-1">Kích thước cột (Đường kính x Cao):</span>
-            <input
-              type="text"
-              value={columnParams.columnSize || ''}
-              onChange={(e) =>
-                onChange({
-                  ...columnData,
-                  columnParams: { ...columnParams, columnSize: e.target.value }
-                })
-              }
-              placeholder="VD: 2.5 cm x 35 cm"
-              className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
+            {/* Silica Mass */}
+            <div className="sm:col-span-3">
+              <span className="font-semibold text-slate-700 block mb-1">Khối lượng Silicagel (g):</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={columnParams.silicaMass ?? ''}
+                onChange={(e) =>
+                  onChange({
+                    ...columnData,
+                    columnParams: { ...columnParams, silicaMass: e.target.value.replace(/[^0-9.,]/g, '') }
+                  })
+                }
+                placeholder="VD: 30"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono tabular-nums focus:outline-none focus:border-teal-600 min-h-[42px]"
+              />
+            </div>
+
+            {/* Column Size */}
+            <div className="sm:col-span-3">
+              <span className="font-semibold text-slate-700 block mb-1">Kích thước cột (ĐK x Cao):</span>
+              <input
+                type="text"
+                value={columnParams.columnSize || ''}
+                onChange={(e) =>
+                  onChange({
+                    ...columnData,
+                    columnParams: { ...columnParams, columnSize: e.target.value }
+                  })
+                }
+                placeholder="VD: 2.0 cm x 30 cm"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-teal-600 min-h-[42px]"
+              />
+            </div>
+
+            {/* Eluent Fields depending on Mode */}
+            {currentEluentMode === 'isocratic' ? (
+              <>
+                {/* Isocratic: Solvent System + Ratio */}
+                <div className="sm:col-span-4">
+                  <span className="font-semibold text-slate-700 block mb-1">Hệ dung môi cố định:</span>
+                  <input
+                    type="text"
+                    value={currentIsocraticSystem}
+                    onChange={(e) => handleUpdateIsocratic(e.target.value, currentIsocraticRatio)}
+                    placeholder="VD: Hexan : EtOAc"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-900 focus:outline-none focus:border-teal-600 min-h-[42px]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="font-semibold text-slate-700 block mb-1">Tỉ lệ (V : V):</span>
+                  <input
+                    type="text"
+                    value={currentIsocraticRatio}
+                    onChange={(e) => handleUpdateIsocratic(currentIsocraticSystem, e.target.value)}
+                    placeholder="VD: 4 : 1"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 font-mono font-bold text-center text-teal-800 focus:outline-none focus:border-teal-600 min-h-[42px]"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Gradient: From System A -> To System B */}
+                <div className="sm:col-span-3">
+                  <span className="font-semibold text-slate-700 block mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                    Từ hệ (Bắt đầu):
+                  </span>
+                  <input
+                    type="text"
+                    value={currentGradientStart}
+                    onChange={(e) => handleUpdateGradient(e.target.value, currentGradientEnd)}
+                    placeholder="VD: Hexan : EtOAc (9 : 1)"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono text-slate-900 focus:outline-none focus:border-teal-600 min-h-[42px]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <span className="font-semibold text-slate-700 block mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Đến hệ (Tăng phân cực):
+                  </span>
+                  <input
+                    type="text"
+                    value={currentGradientEnd}
+                    onChange={(e) => handleUpdateGradient(currentGradientStart, e.target.value)}
+                    placeholder="VD: Hexan : EtOAc (4 : 1)"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono text-slate-900 focus:outline-none focus:border-teal-600 min-h-[42px]"
+                  />
+                </div>
+              </>
+            )}
           </div>
-          <div>
-            <span className="font-semibold text-slate-700 block mb-1">Hệ Gradient dung môi nạp & rửa:</span>
-            <input
-              type="text"
-              value={columnParams.eluentGradient || ''}
-              onChange={(e) =>
-                onChange({
-                  ...columnData,
-                  columnParams: { ...columnParams, eluentGradient: e.target.value }
-                })
-              }
-              placeholder="Hexan : EtOAc (9:1) -> (4:1)"
-              className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 font-mono focus:outline-none min-h-[40px]"
-            />
+
+          {/* Quick Solvent System Presets & Output String Display */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-200/80">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 mr-1">Gợi ý nhanh:</span>
+              {[
+                { label: 'Hexan : EtOAc (9:1)', system: 'Hexan : EtOAc', ratio: '9 : 1' },
+                { label: 'Hexan : EtOAc (4:1)', system: 'Hexan : EtOAc', ratio: '4 : 1' },
+                { label: 'Hexan : EtOAc (3:1)', system: 'Hexan : EtOAc', ratio: '3 : 1' },
+                { label: 'Hexan : EtOAc (1:1)', system: 'Hexan : EtOAc', ratio: '1 : 1' },
+                { label: 'DCM : MeOH (95:5)', system: 'DCM : MeOH', ratio: '95 : 5' },
+                { label: 'Pet. Ether : Acetone (5:1)', system: 'Petroleum Ether : Acetone', ratio: '5 : 1' }
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => handleApplyEluentPreset(preset)}
+                  className="text-[11px] bg-white hover:bg-teal-50 hover:text-teal-800 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Current Eluent Summary Pill */}
+            <div className="text-[11px] bg-white border border-slate-200 px-2.5 py-1 rounded-lg font-mono flex items-center gap-1.5 text-slate-700">
+              <span className="text-slate-400">Hệ hiện tại:</span>
+              <strong className="text-teal-800">{columnParams.eluentGradient || 'Chưa thiết lập'}</strong>
+            </div>
           </div>
         </div>
 

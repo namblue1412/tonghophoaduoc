@@ -210,7 +210,12 @@ export const ExperimentProvider = ({ children }) => {
         columnParams: {
           silicaMass: '30',
           columnSize: '2.0 cm x 30 cm',
-          eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
+          eluentMode: 'gradient', // 'isocratic' | 'gradient'
+          isocraticSystem: 'Hexan : EtOAc',
+          isocraticRatio: '4 : 1',
+          gradientStart: 'Hexan : EtOAc (9 : 1)',
+          gradientEnd: 'Hexan : EtOAc (4 : 1)',
+          eluentGradient: 'Hexan : EtOAc (9 : 1) -> (4 : 1)'
         },
         totalFractions: 10,
         fractions: Array.from({ length: 10 }, (_, i) => ({
