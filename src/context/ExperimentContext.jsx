@@ -195,6 +195,9 @@ export const ExperimentProvider = ({ children }) => {
         rotavaporTemp: '40°C',
         rotavaporPressure: '',
         residueAppearance: '',
+        crudeTubes: [
+          { id: 'crude-tube-1', label: 'Ống 1', tareMass: '0', grossMass: '0', crudeMass: 0 }
+        ],
         crudeTareMass: '0',
         crudeGrossMass: '0',
         crudeMass: '0',

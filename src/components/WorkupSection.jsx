@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   Droplets,
   Wind,
-  Scale
+  Scale,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { parseDecimal } from './StoichiometryTable';
 
@@ -23,11 +25,25 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
     rotavaporTemp = '40°C',
     rotavaporPressure = '250 mbar',
     residueAppearance = '',
+    crudeTubes = [],
     crudeTareMass = '',
     crudeGrossMass = '',
     crudeMass = 0,
     workupNotes = ''
   } = workupData || {};
+
+  // Normalize crude tubes (backward-compatible)
+  const normalizedCrudeTubes = (Array.isArray(crudeTubes) && crudeTubes.length > 0)
+    ? crudeTubes
+    : [
+        {
+          id: 'crude-tube-1',
+          label: 'Ống 1',
+          tareMass: crudeTareMass || '',
+          grossMass: crudeGrossMass || '',
+          crudeMass: parseDecimal(crudeMass) || 0
+        }
+      ];
 
   const handleFieldChange = (field, value) => {
     onChange({
@@ -36,19 +52,60 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
     });
   };
 
-  const handleTareOrGrossChange = (field, val) => {
-    const cleanVal = val.replace(/[^0-9.,]/g, '');
-    const tare = parseDecimal(field === 'crudeTareMass' ? cleanVal : crudeTareMass);
-    const gross = parseDecimal(field === 'crudeGrossMass' ? cleanVal : crudeGrossMass);
-    let autoCrude = undefined;
-    if (gross > 0 && tare > 0) {
-      autoCrude = String(parseFloat(Math.max(0, gross - tare).toFixed(4)));
-    }
+  const recalculateCrudeTubes = (updatedTubes) => {
+    const totalMass = updatedTubes.reduce((sum, t) => sum + (t.crudeMass || 0), 0);
+    const roundedTotal = parseFloat(totalMass.toFixed(4));
+    const firstTare = updatedTubes[0]?.tareMass || '';
+    const firstGross = updatedTubes[0]?.grossMass || '';
+
     onChange({
       ...workupData,
-      [field]: cleanVal,
-      ...(autoCrude !== undefined ? { crudeMass: autoCrude } : {})
+      crudeTubes: updatedTubes,
+      crudeTareMass: firstTare,
+      crudeGrossMass: firstGross,
+      crudeMass: roundedTotal
     });
+  };
+
+  const handleCrudeTubeChange = (tubeId, field, val) => {
+    const cleanVal = typeof val === 'string' ? val.replace(/[^0-9.,]/g, '') : val;
+    const updatedTubes = normalizedCrudeTubes.map((t) => {
+      if (t.id !== tubeId) return t;
+      const nextTube = { ...t, [field]: cleanVal };
+      const tare = parseDecimal(field === 'tareMass' ? cleanVal : t.tareMass);
+      const gross = parseDecimal(field === 'grossMass' ? cleanVal : t.grossMass);
+      nextTube.crudeMass = parseFloat(Math.max(0, gross - tare).toFixed(4));
+      return nextTube;
+    });
+
+    recalculateCrudeTubes(updatedTubes);
+  };
+
+  const handleCrudeTubeLabelChange = (tubeId, newLabel) => {
+    const updatedTubes = normalizedCrudeTubes.map((t) => (t.id === tubeId ? { ...t, label: newLabel } : t));
+    onChange({
+      ...workupData,
+      crudeTubes: updatedTubes
+    });
+  };
+
+  const handleAddCrudeTube = () => {
+    const nextNum = normalizedCrudeTubes.length + 1;
+    const newTube = {
+      id: `crude-tube-${Date.now()}`,
+      label: `Ống ${nextNum}`,
+      tareMass: '',
+      grossMass: '',
+      crudeMass: 0
+    };
+    const updatedTubes = [...normalizedCrudeTubes, newTube];
+    recalculateCrudeTubes(updatedTubes);
+  };
+
+  const handleRemoveCrudeTube = (tubeId) => {
+    if (normalizedCrudeTubes.length <= 1) return;
+    const updatedTubes = normalizedCrudeTubes.filter((t) => t.id !== tubeId);
+    recalculateCrudeTubes(updatedTubes);
   };
 
   // Quick preset helper
@@ -240,72 +297,127 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
         <div className="bg-gradient-to-br from-amber-50/70 to-slate-50 border border-amber-200 p-4 sm:p-5 rounded-2xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 pb-3">
             <div>
-              <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+              <h3 className="text-sm sm:text-base font-bold text-amber-950 flex items-center gap-2">
                 <Scale className="w-5 h-5 text-amber-600" />
-                Cân Khối Lượng Cắn Thô (Ống Eppendorf)
+                Cân Khối Lượng Cắn Thô (Ống Eppendorf) ({normalizedCrudeTubes.length} ống)
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Cân trừ bì vỏ ống để xác định khối lượng cắn thô nạp cột
+              <p className="text-xs text-slate-500 mt-0.5">
+                Cân trừ bì vỏ ống để xác định khối lượng cắn thô trước khi nạp cột
               </p>
             </div>
-            <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-mono font-medium">
-              Trừ bì tự động
-            </span>
+
+            <button
+              type="button"
+              onClick={handleAddCrudeTube}
+              className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm min-h-[38px] cursor-pointer no-print"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Thêm ống Eppendorf</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            {/* m vỏ */}
-            <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-sm">
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                m(vỏ Eppendorf rỗng) ({massUnit}):
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={crudeTareMass ?? ''}
-                onChange={(e) => handleTareOrGrossChange('crudeTareMass', e.target.value)}
-                placeholder="1.0520"
-                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
-              />
-              <span className="text-[11px] text-slate-400 block mt-1">Khối lượng vỏ ống khô</span>
-            </div>
+          {/* List of Crude Eppendorf Tubes */}
+          <div className="space-y-2.5">
+            {normalizedCrudeTubes.map((tube, index) => (
+              <div
+                key={tube.id || index}
+                className="bg-white p-3 sm:p-3.5 rounded-2xl border border-amber-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3"
+              >
+                {/* Tube Label */}
+                <div className="flex items-center gap-2 md:w-36 flex-shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  <input
+                    type="text"
+                    value={tube.label}
+                    onChange={(e) => handleCrudeTubeLabelChange(tube.id, e.target.value)}
+                    placeholder={`Ống ${index + 1}`}
+                    className="font-bold text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none w-full"
+                    title="Nhấn để đổi tên ống"
+                  />
+                </div>
 
-            {/* m vỏ + cắn */}
-            <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-sm">
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                m(vỏ + cắn thô) sau cô quay ({massUnit}):
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={crudeGrossMass ?? ''}
-                onChange={(e) => handleTareOrGrossChange('crudeGrossMass', e.target.value)}
-                placeholder="2.8450"
-                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
-              />
-              <span className="text-[11px] text-slate-400 block mt-1">Vỏ kèm cắn thô đã cô đuổi dung môi</span>
-            </div>
+                {/* 3 Mass inputs */}
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                      m(vỏ) ({massUnit}):
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={tube.tareMass ?? ''}
+                      onChange={(e) => handleCrudeTubeChange(tube.id, 'tareMass', e.target.value)}
+                      placeholder="1.0520"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                    />
+                  </div>
 
-            {/* m cắn thô thu được */}
-            <div className="bg-amber-100/90 p-3.5 rounded-xl border border-amber-300 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                      m(vỏ+cắn thô) ({massUnit}):
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={tube.grossMass ?? ''}
+                      onChange={(e) => handleCrudeTubeChange(tube.id, 'grossMass', e.target.value)}
+                      placeholder="2.8450"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                    />
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase leading-none">
+                      m(cắn thô):
+                    </span>
+                    <span className="font-mono font-extrabold text-amber-950 text-xs sm:text-sm text-right mt-1">
+                      {(tube.crudeMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delete Tube button if > 1 tube */}
+                {normalizedCrudeTubes.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCrudeTube(tube.id)}
+                    className="text-slate-400 hover:text-rose-500 p-2 rounded-lg no-print self-end md:self-center cursor-pointer"
+                    title="Xóa ống này"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Aggregate Crude Mass Summary Banner */}
+          <div className="bg-amber-100/90 border border-amber-300 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-200 text-amber-900 rounded-xl font-bold flex-shrink-0">
+                <Scale className="w-5 h-5 text-amber-800" />
+              </div>
               <div>
-                <label className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
-                  m(cắn thô) nạp cột ({massUnit}):
-                </label>
-                <span className="text-[11px] text-amber-800 font-medium">
-                  = m(vỏ+cắn) - m(vỏ) (hoặc tự nhập)
+                <span className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
+                  Tổng khối lượng cắn thô nạp cột ({normalizedCrudeTubes.length} ống):
+                </span>
+                <span className="text-[11px] text-amber-800">
+                  Tự động cộng dồn từ tất cả các ống Eppendorf cô quay cắn thô
                 </span>
               </div>
-              <div className="mt-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={crudeMass ?? ''}
-                  onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                  placeholder="0.0000"
-                  className="w-full text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
-                />
-              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={crudeMass ?? ''}
+                onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
+                title="Nhấn để chỉnh sửa hoặc nhập tay tổng khối lượng cắn thô nếu cần"
+                placeholder="0.0000"
+                className="w-36 text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-3 py-1.5 focus:outline-none min-h-[44px]"
+              />
+              <span className="font-bold text-sm text-amber-900">{massUnit}</span>
             </div>
           </div>
         </div>
