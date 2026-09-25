@@ -54,6 +54,17 @@ const COMMON_ELUENTS = [
   'Petroleum Ether : Acetone (5 : 1)'
 ];
 
+export const FRACTION_COLOR_PALETTE = [
+  { name: 'Xanh lục bảo', hex: '#10b981' },
+  { name: 'Xanh ngọc', hex: '#06b6d4' },
+  { name: 'Xanh dương', hex: '#3b82f6' },
+  { name: 'Tím violet', hex: '#8b5cf6' },
+  { name: 'Cam hổ phách', hex: '#f59e0b' },
+  { name: 'Cam đậm', hex: '#f97316' },
+  { name: 'Hồng sen', hex: '#ec4899' },
+  { name: 'Đỏ san hô', hex: '#ef4444' }
+];
+
 export const ColumnFractionManager = ({
   columnData,
   onChange,
@@ -98,7 +109,8 @@ export const ColumnFractionManager = ({
   } = columnData || {};
 
   // Local state for grouping builder
-  const [groupName, setGroupName] = useState('Nhóm sản phẩm chính (Pure Product)');
+  const [groupName, setGroupName] = useState('');
+  const [groupTag, setGroupTag] = useState('spc'); // 'spc' (sản phẩm chính) | 'spp' (sản phẩm phụ)
   const [fromFraction, setFromFraction] = useState(1);
   const [toFraction, setToFraction] = useState(1);
   const [groupColor, setGroupColor] = useState('#10b981');
@@ -241,23 +253,30 @@ export const ColumnFractionManager = ({
     const numbers = [];
     for (let i = start; i <= end; i++) numbers.push(i);
 
+    const tag = groupTag || 'spc';
+    const color = groupColor || (tag === 'spc' ? '#10b981' : '#f59e0b');
+    const defaultName = tag === 'spc' ? `Sản phẩm chính F${start}-F${end}` : `Sản phẩm phụ F${start}-F${end}`;
+
     const newGroupId = `group-${Date.now()}`;
     const newGroup = {
       id: newGroupId,
-      name: groupName || `Phân đoạn F${start}-F${end}`,
+      name: groupName.trim() || defaultName,
+      tag: tag, // 'spc' | 'spp'
       range: `F${start} - F${end}`,
       fractionNumbers: numbers,
-      color: groupColor,
+      color: color,
       tlc: null
     };
 
-    // Mark fractions as product or belonging to group
+    // Mark fractions as belonging to group
     const updatedFractions = fractions.map((f) => {
       if (numbers.includes(f.number)) {
         return {
           ...f,
           group: newGroupId,
-          spotPattern: groupColor === '#10b981' ? 'product' : 'impurity',
+          groupTag: tag,
+          groupColor: color,
+          spotPattern: tag === 'spc' ? 'product' : 'impurity',
           tlcChecked: true
         };
       }
@@ -269,6 +288,8 @@ export const ColumnFractionManager = ({
       fractions: updatedFractions,
       fractionGroups: [...fractionGroups, newGroup]
     });
+
+    setGroupName('');
   };
 
   // Remove a group
@@ -276,7 +297,13 @@ export const ColumnFractionManager = ({
     const updatedGroups = fractionGroups.filter((g) => g.id !== groupId);
     const updatedFractions = fractions.map((f) => {
       if (f.group === groupId) {
-        return { ...f, group: null };
+        return {
+          ...f,
+          group: null,
+          groupTag: null,
+          groupColor: null,
+          spotPattern: 'empty'
+        };
       }
       return f;
     });
@@ -296,6 +323,52 @@ export const ColumnFractionManager = ({
     onChange({
       ...columnData,
       fractionGroups: updatedGroups
+    });
+  };
+
+  // Change tag of an existing group
+  const handleUpdateGroupTag = (groupId, newTag) => {
+    const defaultColor = newTag === 'spc' ? '#10b981' : '#f59e0b';
+    const updatedGroups = fractionGroups.map((g) =>
+      g.id === groupId ? { ...g, tag: newTag, color: g.color || defaultColor } : g
+    );
+    const updatedFractions = fractions.map((f) => {
+      if (f.group === groupId) {
+        return {
+          ...f,
+          groupTag: newTag,
+          spotPattern: newTag === 'spc' ? 'product' : 'impurity'
+        };
+      }
+      return f;
+    });
+
+    onChange({
+      ...columnData,
+      fractionGroups: updatedGroups,
+      fractions: updatedFractions
+    });
+  };
+
+  // Change color of an existing group
+  const handleUpdateGroupColor = (groupId, newColor) => {
+    const updatedGroups = fractionGroups.map((g) =>
+      g.id === groupId ? { ...g, color: newColor } : g
+    );
+    const updatedFractions = fractions.map((f) => {
+      if (f.group === groupId) {
+        return {
+          ...f,
+          groupColor: newColor
+        };
+      }
+      return f;
+    });
+
+    onChange({
+      ...columnData,
+      fractionGroups: updatedGroups,
+      fractions: updatedFractions
     });
   };
 
@@ -864,70 +937,97 @@ export const ColumnFractionManager = ({
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
               <Grid className="w-4 h-4 text-indigo-600" />
-              Giá Ống Nghiệm Hứng Phân Đoạn (Bấm 1 chạm vào ống để đổi trạng thái):
+              Giá Ống Nghiệm Hứng Phân Đoạn (Đồng bộ theo nhóm gộp mẫu & TLC):
             </h3>
 
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs">
               <span className="flex items-center gap-1.5 text-slate-600">
-                <span className="w-3 h-3 rounded-full bg-white border border-slate-300"></span> Trống
+                <span className="w-3 h-3 rounded-full bg-white border border-slate-300"></span> Chưa gộp
               </span>
               <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Sản phẩm (P)
+                <span className="w-3 h-3 rounded-full bg-emerald-500"></span> spc (Sản phẩm chính)
               </span>
               <span className="flex items-center gap-1.5 text-amber-700 font-semibold">
-                <span className="w-3 h-3 rounded-full bg-amber-400"></span> Tạp chất
-              </span>
-              <span className="flex items-center gap-1.5 text-purple-700 font-semibold">
-                <span className="w-3 h-3 rounded-full bg-purple-500"></span> Hỗn hợp / Đuôi
+                <span className="w-3 h-3 rounded-full bg-amber-500"></span> spp (Sản phẩm phụ)
               </span>
             </div>
           </div>
 
-          {/* Test Tube Grid with Append Tile */}
+          {/* Test Tube Grid with Synchronized Group Color & Tag */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
-            {fractions.map((f) => (
-              <div key={f.number} className="relative group">
-                <button
-                  type="button"
-                  onClick={() => toggleFractionState(f.number)}
-                  className={`w-full flex flex-col items-center justify-center p-2 rounded-xl border text-xs transition-all transform active:scale-95 shadow-sm min-h-[52px] cursor-pointer ${getTubeColorClass(
-                    f.spotPattern
-                  )}`}
-                  title={`Ống F${f.number}: ${f.spotPattern || 'Trống'} (Bấm để đổi trạng thái)`}
-                >
-                  <span className="font-mono font-bold text-xs">F{f.number}</span>
-                  <span className="text-[10px] opacity-80 uppercase leading-none mt-1">
-                    {f.spotPattern === 'product'
-                      ? 'Pure'
-                      : f.spotPattern === 'impurity'
-                      ? 'Imp'
-                      : f.spotPattern === 'mixed'
-                      ? 'Mix'
-                      : '-'}
-                  </span>
-                </button>
-                {fractions.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteSpecificTube(f.number);
-                    }}
-                    className="absolute -top-1.5 -right-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded-full p-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity no-print cursor-pointer shadow"
-                    title={`Xóa ống F${f.number}`}
+            {fractions.map((f) => {
+              const matchingGroup = fractionGroups.find(
+                (g) => (g.fractionNumbers && g.fractionNumbers.includes(f.number)) || g.id === f.group
+              );
+              const tag = matchingGroup?.tag || f.groupTag;
+              const color = matchingGroup?.color || f.groupColor;
+              const isGrouped = Boolean(matchingGroup || f.group);
+
+              return (
+                <div key={f.number} className="relative group">
+                  <div
+                    className={`w-full flex flex-col items-center justify-center p-2 rounded-xl border text-xs shadow-xs min-h-[56px] select-none transition-all ${
+                      isGrouped
+                        ? 'border-2 font-bold'
+                        : 'bg-white border-slate-200 text-slate-600'
+                    }`}
+                    style={
+                      isGrouped && color
+                        ? {
+                            backgroundColor: `${color}18`,
+                            borderColor: color,
+                            color: '#1e293b'
+                          }
+                        : {}
+                    }
+                    title={
+                      isGrouped
+                        ? `Ống F${f.number}: Thuộc nhóm "${matchingGroup?.name || 'Đã gộp'}" (${tag === 'spc' ? 'Sản phẩm chính' : 'Sản phẩm phụ'})`
+                        : `Ống F${f.number}: Chưa gộp`
+                    }
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    <span
+                      className="font-mono font-bold text-xs"
+                      style={isGrouped && color ? { color: color } : {}}
+                    >
+                      F{f.number}
+                    </span>
+
+                    {isGrouped ? (
+                      <span
+                        className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full text-white mt-1 shadow-xs"
+                        style={{ backgroundColor: color || '#10b981' }}
+                      >
+                        {tag === 'spc' ? 'SPC' : tag === 'spp' ? 'SPP' : (tag || 'GỘP')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 leading-none mt-1">-</span>
+                    )}
+                  </div>
+
+                  {fractions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSpecificTube(f.number);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded-full p-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity no-print cursor-pointer shadow"
+                      title={`Xóa ống F${f.number}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Append Next Tube Slot Button */}
             <button
               type="button"
               onClick={handleAddNextTube}
-              className="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-dashed border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 text-indigo-700 transition-all min-h-[52px] cursor-pointer group no-print"
+              className="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-dashed border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 text-indigo-700 transition-all min-h-[56px] cursor-pointer group no-print"
               title="Bấm để hứng ống tiếp theo"
             >
               <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -1141,48 +1241,108 @@ export const ColumnFractionManager = ({
           </div>
 
           {/* Group Builder Inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 no-print bg-white p-3.5 rounded-2xl border border-indigo-100 shadow-sm">
-            <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-slate-700 block mb-1">Tên mẫu gộp:</label>
-              <input
-                type="text"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                placeholder="VD: Nhóm sản phẩm chính F8-F15 (Pure Product)..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none min-h-[42px]"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <label className="text-xs font-bold text-slate-700 block mb-1">Từ ống:</label>
+          <div className="space-y-3 no-print bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div className="sm:col-span-5">
+                <label className="text-xs font-bold text-slate-700 block mb-1">Tên mẫu gộp:</label>
                 <input
-                  type="number"
-                  min="1"
-                  max={totalFractions}
-                  value={fromFraction}
-                  onChange={(e) => setFromFraction(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center focus:outline-none min-h-[42px]"
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder={groupTag === 'spc' ? 'VD: Sản phẩm chính F8-F15...' : 'VD: Sản phẩm phụ F1-F4...'}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none min-h-[42px]"
                 />
               </div>
-              <div className="flex-1">
-                <label className="text-xs font-bold text-slate-700 block mb-1">Đến ống:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={totalFractions}
-                  value={toFraction}
-                  onChange={(e) => setToFraction(parseInt(e.target.value, 10) || 1)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center focus:outline-none min-h-[42px]"
-                />
+
+              {/* Tag Selection: spc vs spp */}
+              <div className="sm:col-span-4">
+                <label className="text-xs font-bold text-slate-700 block mb-1">Loại mẫu gộp (Tag):</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroupTag('spc');
+                      if (groupColor === '#f59e0b') setGroupColor('#10b981');
+                    }}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[42px] cursor-pointer border ${
+                      groupTag === 'spc'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-500 ring-2 ring-emerald-200 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>spc (Chính)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGroupTag('spp');
+                      if (groupColor === '#10b981') setGroupColor('#f59e0b');
+                    }}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[42px] cursor-pointer border ${
+                      groupTag === 'spp'
+                        ? 'bg-amber-50 text-amber-700 border-amber-500 ring-2 ring-amber-200 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    <span>spp (Phụ)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Range: From / To */}
+              <div className="sm:col-span-3 flex items-center gap-2">
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Từ ống:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalFractions}
+                    value={fromFraction}
+                    onChange={(e) => setFromFraction(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center focus:outline-none min-h-[42px]"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Đến ống:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalFractions}
+                    value={toFraction}
+                    onChange={(e) => setToFraction(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs font-mono font-bold text-center focus:outline-none min-h-[42px]"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex items-end">
+            {/* Color Palette Picker & Action Button */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">Màu nhóm trên giá ống:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {FRACTION_COLOR_PALETTE.map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => setGroupColor(c.hex)}
+                      className={`w-6 h-6 rounded-full transition-transform cursor-pointer border border-white shadow-xs ${
+                        groupColor === c.hex ? 'scale-125 ring-2 ring-indigo-500 ring-offset-1' : 'hover:scale-110 opacity-80'
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={handleAddGroup}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-2 px-3 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[42px] cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>+ Gộp nhóm (Pool)</span>
@@ -1215,15 +1375,70 @@ export const ColumnFractionManager = ({
                       {/* Group Header & Editable Name */}
                       <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                         <div className="flex-1">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-                            <span className="font-mono bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-lg font-bold">
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                            {/* Color Dot & Tag Pill */}
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-white shadow-xs flex-shrink-0"
+                              style={{ backgroundColor: g.color || '#10b981' }}
+                            ></span>
+                            <span
+                              className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full text-white shadow-xs"
+                              style={{ backgroundColor: g.color || '#10b981' }}
+                            >
+                              {g.tag === 'spc' ? 'spc (Sản phẩm chính)' : g.tag === 'spp' ? 'spp (Sản phẩm phụ)' : (g.tag || 'spc')}
+                            </span>
+                            <span className="font-mono bg-indigo-50 text-indigo-800 text-xs px-2 py-0.5 rounded-lg font-bold border border-indigo-200">
                               {g.range}
                             </span>
                             <span className="text-[11px] text-slate-400">
                               ({g.fractionNumbers?.length || 0} ống)
                             </span>
                           </div>
+
+                          {/* Quick Tag & Color Adjuster for existing group */}
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-[10px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateGroupTag(g.id, 'spc')}
+                                className={`px-2 py-0.5 rounded-md transition-colors ${
+                                  (g.tag || 'spc') === 'spc'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                spc
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateGroupTag(g.id, 'spp')}
+                                className={`px-2 py-0.5 rounded-md transition-colors ${
+                                  g.tag === 'spp'
+                                    ? 'bg-amber-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                spp
+                              </button>
+                            </div>
+
+                            {/* Color Swatches for existing group */}
+                            <div className="flex items-center gap-1">
+                              {FRACTION_COLOR_PALETTE.map((c) => (
+                                <button
+                                  key={c.hex}
+                                  type="button"
+                                  onClick={() => handleUpdateGroupColor(g.id, c.hex)}
+                                  className={`w-4 h-4 rounded-full cursor-pointer transition-transform border border-white ${
+                                    (g.color || '#10b981') === c.hex ? 'scale-125 ring-1 ring-slate-800' : 'opacity-70 hover:opacity-100'
+                                  }`}
+                                  style={{ backgroundColor: c.hex }}
+                                  title={c.name}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
                           {/* Editable Group Name */}
                           <input
                             type="text"

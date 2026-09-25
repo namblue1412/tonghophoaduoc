@@ -18,21 +18,44 @@ import {
   Layers
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
   const { experiments, duplicateExperiment, deleteExperiment } = useExperiment();
+  const { currentUser, setIsAuthModalOpen } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [scopeFilter, setScopeFilter] = useState('all'); // 'all' | 'mine'
+
+  // My experiment count
+  const myExperimentsCount = experiments.filter(
+    (exp) =>
+      currentUser &&
+      (exp.creatorId === currentUser.uid ||
+        exp.creatorEmail === currentUser.email ||
+        (currentUser.displayName &&
+          (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase())))
+  ).length;
 
   // Filtered experiments
   const filtered = experiments.filter((exp) => {
     const matchesSearch =
       (exp.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exp.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (exp.researcher || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (exp.researcher || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exp.creatorName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    const matchesScope =
+      scopeFilter === 'all' ||
+      !currentUser ||
+      exp.creatorId === currentUser.uid ||
+      exp.creatorEmail === currentUser.email ||
+      (currentUser.displayName &&
+        (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase()));
+
+    return matchesSearch && matchesStatus && matchesScope;
   });
 
   // Calculate quick stats
@@ -162,41 +185,94 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
         </div>
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Search Input */}
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm theo mã, tên phản ứng, tác giả..."
-            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl pl-10 pr-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
-          />
-        </div>
-
-        {/* Status Filter Buttons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'running', label: 'Đang khuấy' },
-            { id: 'paused', label: 'Tạm dừng' },
-            { id: 'workup', label: 'Xử lý thô' },
-            { id: 'completed', label: 'Hoàn thành' }
-          ].map((tab) => (
+      {/* Scope Filter & Search Toolbar */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+        {/* Scope Tabs: Lab-wide vs Personal */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="inline-flex rounded-xl bg-slate-100 p-1">
             <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-[38px] ${
-                statusFilter === tab.id
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              type="button"
+              onClick={() => setScopeFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                scopeFilter === 'all'
+                  ? 'bg-white text-indigo-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {tab.label}
+              Tất cả trong Lab ({experiments.length})
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentUser) {
+                  setIsAuthModalOpen(true);
+                } else {
+                  setScopeFilter('mine');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                scopeFilter === 'mine'
+                  ? 'bg-white text-indigo-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>Thí nghiệm của tôi</span>
+              {currentUser && (
+                <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
+                  {myExperimentsCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {!currentUser && (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Đăng nhập để lọc thí nghiệm cá nhân</span>
+            </button>
+          )}
+        </div>
+
+        {/* Search Input & Status Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm theo mã, tên phản ứng, tác giả..."
+              className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl pl-10 pr-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+            />
+          </div>
+
+          {/* Status Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'running', label: 'Đang khuấy' },
+              { id: 'paused', label: 'Tạm dừng' },
+              { id: 'workup', label: 'Xử lý thô' },
+              { id: 'completed', label: 'Hoàn thành' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-[38px] cursor-pointer ${
+                  statusFilter === tab.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -233,9 +309,20 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                   </h3>
 
                   {/* Researcher & Lab Room */}
-                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
-                    <User className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{exp.researcher || 'Nghiên cứu viên'}</span>
+                  <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">{exp.researcher || 'Nghiên cứu viên'}</span>
+                    </div>
+                    {currentUser &&
+                      (exp.creatorId === currentUser.uid ||
+                        exp.creatorEmail === currentUser.email ||
+                        (currentUser.displayName &&
+                          (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase()))) && (
+                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-1">
+                          Của tôi
+                        </span>
+                      )}
                   </div>
 
                   {/* Chemistry Key Indicators */}

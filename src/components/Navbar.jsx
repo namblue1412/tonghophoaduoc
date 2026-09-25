@@ -14,9 +14,14 @@ import {
   X,
   FileSpreadsheet,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  User,
+  LogIn,
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
   const {
@@ -33,7 +38,10 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
     lastSaved
   } = useExperiment();
 
+  const { currentUser, setIsAuthModalOpen, logout } = useAuth();
+
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -199,12 +207,91 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               <span className="sm:hidden">Mới</span>
             </button>
 
+            {/* Student Account Button & Profile Dropdown */}
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-200 transition-colors min-h-[44px] cursor-pointer"
+                  title={`Đang đăng nhập: ${currentUser.displayName || currentUser.email}`}
+                >
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow-xs">
+                    {(currentUser.displayName || currentUser.email || 'U')[0]}
+                  </div>
+                  <div className="text-left hidden md:block">
+                    <div className="text-xs font-bold text-white truncate max-w-[120px]">
+                      {currentUser.displayName || 'Sinh viên'}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono leading-none">
+                      {currentUser.studentId ? `MSSV: ${currentUser.studentId}` : currentUser.email}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in">
+                    <div className="px-3.5 py-2.5 border-b border-slate-100">
+                      <p className="text-[11px] text-slate-400 font-medium">Tài khoản sinh viên</p>
+                      <p className="text-sm font-bold text-slate-900 truncate">
+                        {currentUser.displayName || 'Nghiên cứu viên'}
+                      </p>
+                      {currentUser.studentId && (
+                        <p className="text-xs text-indigo-600 font-mono font-semibold">
+                          MSSV: {currentUser.studentId}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{currentUser.email}</p>
+                    </div>
+
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          setIsAuthModalOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <GraduationCap className="w-4 h-4 text-indigo-600" />
+                        <span>Đổi tài khoản khác</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setShowUserMenu(false);
+                          await logout();
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] shadow-sm cursor-pointer"
+                title="Đăng nhập tài khoản sinh viên nghiên cứu"
+              >
+                <User className="w-4 h-4" />
+                <span className="hidden md:inline">Đăng nhập SV</span>
+                <span className="md:hidden">Đăng nhập</span>
+              </button>
+            )}
+
             {/* Desktop Action Buttons */}
             <div className="hidden sm:flex items-center gap-1.5">
               <button
                 onClick={() => activeExperimentId && duplicateExperiment(activeExperimentId)}
                 title="Sao chép thí nghiệm này thành bản ghi mới"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               >
                 <Copy className="w-4 h-4 text-slate-300" />
               </button>
@@ -212,7 +299,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               <button
                 onClick={handlePrint}
                 title="In Phiếu Nhật Ký Thí Nghiệm (Laboratory Notebook Printout)"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-slate-300" />
               </button>
@@ -220,7 +307,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               <button
                 onClick={exportAllToJson}
                 title="Sao lưu toàn bộ nhật ký ra tệp JSON"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               >
                 <Download className="w-4 h-4 text-slate-300" />
               </button>
@@ -228,7 +315,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 title="Khôi phục nhật ký từ tệp JSON"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-slate-300" />
               </button>
@@ -237,7 +324,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
             {/* Mobile Hamburger Menu */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="sm:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="sm:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -246,7 +333,45 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
 
         {/* Mobile slide-down menu */}
         {mobileMenuOpen && (
-          <div className="sm:hidden border-t border-slate-800 py-3 space-y-2 animate-in slide-in-from-top-2">
+          <div className="sm:hidden border-t border-slate-800 py-3 space-y-3 animate-in slide-in-from-top-2">
+            {/* Student Auth Bar in Mobile Menu */}
+            <div className="bg-slate-850 p-2.5 rounded-xl border border-slate-800">
+              {currentUser ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0">
+                      {(currentUser.displayName || currentUser.email || 'U')[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-white truncate">{currentUser.displayName || 'Sinh viên'}</div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">{currentUser.studentId ? `MSSV: ${currentUser.studentId}` : currentUser.email}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setMobileMenuOpen(false);
+                      await logout();
+                    }}
+                    className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 p-1.5 flex-shrink-0 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Thoát</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Đăng nhập tài khoản sinh viên</span>
+                </button>
+              )}
+            </div>
+
             <div className="flex items-center justify-between px-2 text-xs text-slate-400 pb-2 border-b border-slate-800">
               <span className="flex items-center gap-1.5">
                 {syncMode === 'firebase' ? <Cloud className="w-3.5 h-3.5 text-emerald-400" /> : <HardDrive className="w-3.5 h-3.5 text-indigo-400" />}

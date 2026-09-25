@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "experiments": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$experiment_id": {
+        ".validate": "newData.hasChildren(['id', 'code', 'title'])"
+      }
+    },
+    "students": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}

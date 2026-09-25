@@ -1,6 +1,14 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getDatabase, ref, set, get, remove, onValue } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth';
 
 // Check if valid Firebase credentials are provided in environment
 const firebaseConfig = {
@@ -24,6 +32,7 @@ export const isFirebaseConfigured = () => {
 let app = null;
 let database = null;
 let storage = null;
+let auth = null;
 
 if (isFirebaseConfigured()) {
   try {
@@ -38,11 +47,19 @@ if (isFirebaseConfigured()) {
         storage = null;
       }
     }
+    if (firebaseConfig.apiKey) {
+      try {
+        auth = getAuth(app);
+      } catch (err) {
+        auth = null;
+      }
+    }
     console.log('🧪 [MedChem ELN] Connected to Firebase Realtime Database:', firebaseConfig.databaseURL);
   } catch (error) {
     console.warn('⚠️ [MedChem ELN] Firebase init fallback to LocalStorage mode:', error);
     database = null;
     storage = null;
+    auth = null;
   }
 } else {
   console.info('ℹ️ [MedChem ELN] Running in LocalStorage Dual-Mode.');
@@ -213,4 +230,37 @@ export const loadExperimentsData = (onDataUpdate) => {
   const localList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
   onDataUpdate(localList, 'local');
   return () => {};
+};
+
+/**
+ * Authentication Helpers
+ */
+export const isAuthAvailable = () => Boolean(auth && firebaseConfig.apiKey);
+
+export const firebaseSignUp = async (email, password, displayName) => {
+  if (!auth) throw new Error('Firebase Auth chưa được khởi tạo (thiếu API Key)');
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  if (displayName && cred.user) {
+    await updateProfile(cred.user, { displayName });
+  }
+  return cred.user;
+};
+
+export const firebaseSignIn = async (email, password) => {
+  if (!auth) throw new Error('Firebase Auth chưa được khởi tạo (thiếu API Key)');
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  return cred.user;
+};
+
+export const firebaseSignOut = async () => {
+  if (!auth) return;
+  await signOut(auth);
+};
+
+export const subscribeFirebaseAuthState = (onUserChanged) => {
+  if (!auth) {
+    onUserChanged(null);
+    return () => {};
+  }
+  return onAuthStateChanged(auth, onUserChanged);
 };

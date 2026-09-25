@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ExperimentProvider, useExperiment } from './context/ExperimentContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
 import { ExperimentDetail } from './pages/ExperimentDetail';
+import { AuthModal } from './components/AuthModal';
 import { PlusCircle, X, FlaskConical, Beaker } from 'lucide-react';
 
 function AppContent() {
@@ -13,6 +15,8 @@ function AppContent() {
     setActiveExperimentId,
     createNewExperiment
   } = useExperiment();
+
+  const { currentUser, isAuthModalOpen, setIsAuthModalOpen } = useAuth();
 
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'detail'
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -35,10 +39,20 @@ function AppContent() {
   const [newLabRoom, setNewLabRoom] = useState('Phòng Hóa Dược');
   const [newTargetName, setNewTargetName] = useState('');
 
+  // Keep researcher updated if user logs in
+  useEffect(() => {
+    if (currentUser?.displayName) {
+      setNewResearcher(currentUser.displayName);
+    }
+  }, [currentUser]);
+
   const handleOpenNewModal = () => {
     setNewCode(`SYN-${Date.now().toString().slice(-3)}`);
     setNewTitle('');
     setNewTargetName('');
+    if (currentUser?.displayName) {
+      setNewResearcher(currentUser.displayName);
+    }
     setNewModalOpen(true);
   };
 
@@ -52,9 +66,12 @@ function AppContent() {
     const created = await createNewExperiment({
       code: newCode.trim() || 'SYN-EXP',
       title: newTitle.trim(),
-      researcher: newResearcher.trim(),
+      researcher: newResearcher.trim() || currentUser?.displayName || 'Nghiên cứu viên',
       labRoom: newLabRoom.trim(),
-      targetName: newTargetName.trim() || 'Sản phẩm mục tiêu'
+      targetName: newTargetName.trim() || 'Sản phẩm mục tiêu',
+      creatorId: currentUser?.uid || null,
+      creatorEmail: currentUser?.email || null,
+      creatorName: currentUser?.displayName || currentUser?.email || newResearcher.trim()
     });
 
     setNewModalOpen(false);
@@ -218,14 +235,22 @@ function AppContent() {
           </div>
         </div>
       )}
+
+      {/* AUTH MODAL FOR STUDENT SIGN-IN & REGISTER */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <ExperimentProvider>
-      <AppContent />
-    </ExperimentProvider>
+    <AuthProvider>
+      <ExperimentProvider>
+        <AppContent />
+      </ExperimentProvider>
+    </AuthProvider>
   );
 }

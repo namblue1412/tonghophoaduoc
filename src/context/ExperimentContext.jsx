@@ -82,6 +82,9 @@ export const ExperimentProvider = ({ children }) => {
       title: customMeta.title || 'Thí nghiệm tổng hợp mới',
       researcher: customMeta.researcher || 'Nghiên cứu viên',
       labRoom: customMeta.labRoom || 'Phòng Thí Nghiệm Hóa Dược',
+      creatorId: customMeta.creatorId || null,
+      creatorEmail: customMeta.creatorEmail || null,
+      creatorName: customMeta.creatorName || customMeta.researcher || 'Nghiên cứu viên',
       date: new Date().toISOString().split('T')[0],
       status: 'draft',
       // Configurable units: 'g' / 'mol' or 'mg' / 'mmol'
