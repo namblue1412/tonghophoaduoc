@@ -364,7 +364,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(plate)}
-                        className="text-slate-400 hover:text-indigo-600 p-2 rounded-xl hover:bg-indigo-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                        className="text-slate-500 hover:text-teal-700 p-2 rounded-xl hover:bg-teal-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
                         title="Chỉnh sửa thông tin bản mỏng"
                       >
                         <Pencil className="w-4 h-4" />
@@ -372,7 +372,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       <button
                         type="button"
                         onClick={() => handleDeletePlate(plate.id)}
-                        className="text-slate-400 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                        className="text-slate-500 hover:text-rose-700 p-2 rounded-xl hover:bg-rose-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
                         title="Xóa bản mỏng này"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -387,7 +387,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       onClick={() => setActiveTabPerPlate({ ...activeTabPerPlate, [plate.id]: 'uv254' })}
                       className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[40px] ${
                         currentTab === 'uv254'
-                          ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                          ? 'bg-emerald-600 text-white shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -401,7 +401,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       onClick={() => setActiveTabPerPlate({ ...activeTabPerPlate, [plate.id]: 'uv365' })}
                       className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[40px] ${
                         currentTab === 'uv365'
-                          ? 'bg-violet-500 text-white shadow-sm'
+                          ? 'bg-violet-600 text-white shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -415,7 +415,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       onClick={() => setActiveTabPerPlate({ ...activeTabPerPlate, [plate.id]: 'reagent' })}
                       className={`flex-1 py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[40px] truncate ${
                         currentTab === 'reagent'
-                          ? 'bg-amber-500 text-slate-950 shadow-sm'
+                          ? 'bg-amber-500 text-amber-950 shadow-xs'
                           : 'text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -809,7 +809,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                         onClick={() => setSelectedStainName(stain)}
                         className={`text-xs px-2.5 py-1.5 rounded-xl font-medium transition-all ${
                           selectedStainName === stain
-                            ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                            ? 'bg-amber-500 text-amber-950 font-bold shadow-xs'
                             : 'bg-white text-slate-700 border border-slate-300'
                         }`}
                       >
@@ -964,7 +964,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'uv254' })}
               className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 lightboxData.activeType === 'uv254'
-                  ? 'bg-emerald-500 text-slate-950'
+                  ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
@@ -977,7 +977,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'uv365' })}
               className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 lightboxData.activeType === 'uv365'
-                  ? 'bg-violet-500 text-white'
+                  ? 'bg-violet-600 text-white shadow-xs'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
@@ -990,7 +990,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'reagent' })}
               className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 truncate ${
                 lightboxData.activeType === 'reagent'
-                  ? 'bg-amber-500 text-slate-950'
+                  ? 'bg-amber-500 text-amber-950 shadow-xs'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >

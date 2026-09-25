@@ -258,9 +258,9 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
         </div>
 
         {/* Row 3: Rotavapor Parameters (Cô quay) */}
-        <div className="bg-gradient-to-br from-indigo-50/50 to-slate-50 border border-indigo-100 p-4 rounded-2xl">
-          <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Wind className="w-4 h-4 text-indigo-600" />
+        <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Wind className="w-4 h-4 text-teal-600" />
             Thông số máy cô quay chân không (Rotavapor Parameters)
           </h3>
 
@@ -447,7 +447,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
                   key={text}
                   type="button"
                   onClick={() => handleFieldChange('residueAppearance', text)}
-                  className="text-[11px] bg-white hover:bg-indigo-50 text-slate-600 px-2 py-1 rounded-md border border-slate-200"
+                  className="text-[11px] bg-white hover:bg-teal-50 hover:text-teal-800 text-slate-700 px-2 py-1 rounded-md border border-slate-200 transition-colors"
                 >
                   {text}
                 </button>

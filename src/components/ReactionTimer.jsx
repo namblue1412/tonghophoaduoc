@@ -446,7 +446,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                 <button
                   type="button"
                   onClick={handlePause}
-                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-bold text-base sm:text-lg px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-950/40 flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer min-h-[56px] min-w-[180px] justify-center"
+                  className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-amber-950 font-bold text-base sm:text-lg px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-950/40 flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer min-h-[56px] min-w-[180px] justify-center"
                 >
                   <Pause className="w-6 h-6 fill-current" />
                   <span>Tạm dừng (Pause)</span>
@@ -606,7 +606,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                       <button
                         type="button"
                         onClick={() => handleDeleteSession(session.id)}
-                        className="bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-300 p-1.5 rounded-lg transition-all cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                        className="bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-300 p-1.5 rounded-lg transition-all cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                         title="Xoá phiên khuấy này"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

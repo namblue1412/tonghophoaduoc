@@ -251,7 +251,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               value={activeExperiment.title || ''}
               onChange={(e) => handleMetaChange('title', e.target.value)}
               placeholder="Tên phản ứng thí nghiệm..."
-              className="w-full text-lg sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-indigo-500 py-1 focus:outline-none rounded"
+              className="w-full text-lg sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-1 focus:outline-none transition-colors"
             />
           </div>
 

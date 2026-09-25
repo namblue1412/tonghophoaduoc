@@ -252,9 +252,9 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                           setShowUserMenu(false);
                           setIsAuthModalOpen(true);
                         }}
-                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
                       >
-                        <GraduationCap className="w-4 h-4 text-indigo-600" />
+                        <GraduationCap className="w-4 h-4 text-teal-600" />
                         <span>Đổi tài khoản khác</span>
                       </button>
 

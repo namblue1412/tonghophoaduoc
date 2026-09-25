@@ -811,7 +811,7 @@ export const ColumnFractionManager = ({
       case 'product':
         return 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300 font-bold';
       case 'impurity':
-        return 'bg-amber-400 text-slate-900 border-amber-500 font-bold';
+        return 'bg-amber-400 text-amber-950 border-amber-500 font-bold';
       case 'mixed':
         return 'bg-purple-500 text-white border-purple-600 font-bold';
       default:
@@ -1198,7 +1198,7 @@ export const ColumnFractionManager = ({
                         <span>Hiện: <strong className="text-amber-800">{plate.stainName}</strong></span>
                       </div>
                       {plate.notes && (
-                        <div className="bg-amber-50 p-2 rounded-xl border border-amber-200 text-slate-700">
+                        <div className="bg-amber-50 p-2 rounded-xl border border-amber-200 text-amber-950 font-medium">
                           <strong className="text-amber-900 block mb-0.5">Nhận xét:</strong>
                           {plate.notes}
                         </div>
@@ -1210,7 +1210,7 @@ export const ColumnFractionManager = ({
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-2xl bg-white">
-              <Camera className="w-10 h-10 mx-auto text-indigo-300 mb-2" />
+              <Camera className="w-10 h-10 mx-auto text-slate-300 mb-2" />
               <p className="text-xs font-bold text-slate-700">Chưa có bản mỏng kiểm tra phân đoạn nào</p>
               <p className="text-[11px] text-slate-500 mt-0.5 mb-3">
                 Chấm các phân đoạn (ví dụ: F1, F3, F5, F8...) và chụp 3 ảnh để kiểm tra chất
@@ -1218,7 +1218,7 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={handleOpenAddFracTlc}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-sm"
+                className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Chấm bản mỏng phân đoạn
               </button>
@@ -1227,11 +1227,11 @@ export const ColumnFractionManager = ({
         </div>
 
         {/* 3. FRACTION POOLING & POOLED SAMPLE TLC */}
-        <div className="bg-indigo-50/50 border border-indigo-200/80 p-4 sm:p-5 rounded-3xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-200/60 pb-3">
+        <div className="bg-slate-50 border border-slate-200 p-4 sm:p-5 rounded-3xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-indigo-950 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-teal-600" />
                 Gộp Phân Đoạn & TLC Mẫu Gộp
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">

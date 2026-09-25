@@ -121,64 +121,61 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Top Banner & Quick Stats */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Top Banner & Quick Instrument Overview */}
+      <div className="bg-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-lg border border-slate-800 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div>
-            <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 rounded-full text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-2">
-              <FlaskConical className="w-3.5 h-3.5" /> Quản Lý Tổng Hợp Hóa Dược
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược
             </h1>
-            <p className="text-slate-300 text-sm mt-1 max-w-2xl">
-              Ghi chép phản ứng, theo dõi sắc ký bản mỏng (TLC), sắc ký cột và hiệu suất sản phẩm.
+            <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl">
+              Ghi chép quy trình thực nghiệm, giám sát sắc ký bản mỏng (TLC), sắc ký cột và hiệu suất sản phẩm.
             </p>
           </div>
 
           <button
             onClick={onOpenNewModal}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer min-h-[48px] self-start md:self-auto"
+            className="bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white font-bold px-5 py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer min-h-[48px] self-start md:self-auto"
           >
             <Plus className="w-5 h-5" />
             <span>Tạo Thí Nghiệm Mới</span>
           </button>
         </div>
 
-        {/* 4 Quick Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-6 border-t border-slate-800">
-          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+        {/* Unified Laboratory Metric Instrument Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 pt-5 border-t border-slate-800">
+          <div className="bg-slate-850/80 p-3 rounded-xl border border-slate-800">
             <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <FlaskConical className="w-4 h-4 text-indigo-400" /> Tổng thí nghiệm
+              <FlaskConical className="w-3.5 h-3.5 text-teal-400" /> Tổng phản ứng
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono mt-1">
+            <div className="text-xl sm:text-2xl font-extrabold text-white font-mono tabular-nums mt-1">
               {totalCount}
             </div>
           </div>
 
-          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+          <div className="bg-slate-850/80 p-3 rounded-xl border border-slate-800">
             <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-emerald-400" /> Đang khuấy phản ứng
+              <Activity className="w-3.5 h-3.5 text-emerald-400" /> Đang khuấy
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-mono mt-1">
+            <div className="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono tabular-nums mt-1">
               {runningCount}
             </div>
           </div>
 
-          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+          <div className="bg-slate-850/80 p-3 rounded-xl border border-slate-800">
             <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-sky-400" /> Đã hoàn thành
+              <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" /> Hoàn thành
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-sky-400 font-mono mt-1">
+            <div className="text-xl sm:text-2xl font-extrabold text-sky-400 font-mono tabular-nums mt-1">
               {completedCount}
             </div>
           </div>
 
-          <div className="bg-slate-800/60 backdrop-blur-sm p-3.5 rounded-2xl border border-slate-700/60">
+          <div className="bg-slate-850/80 p-3 rounded-xl border border-slate-800">
             <div className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-amber-400" /> Hiệu suất trung bình
+              <Award className="w-3.5 h-3.5 text-amber-400" /> Hiệu suất TB
             </div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-mono mt-1">
+            <div className="text-xl sm:text-2xl font-extrabold text-amber-400 font-mono tabular-nums mt-1">
               {avgYield}{avgYield !== '--' ? '%' : ''}
             </div>
           </div>
@@ -304,7 +301,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-teal-700 transition-colors line-clamp-2">
                     {exp.title || 'Thí nghiệm chưa đặt tên'}
                   </h3>
 
@@ -367,7 +364,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                     <button
                       type="button"
                       onClick={() => duplicateExperiment(exp.id)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="p-2 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                       title="Nhân bản thí nghiệm"
                     >
                       <Copy className="w-4 h-4" />
@@ -379,7 +376,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                           deleteExperiment(exp.id);
                         }
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      className="p-2 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                       title="Xóa thí nghiệm"
                     >
                       <Trash2 className="w-4 h-4" />
