@@ -195,6 +195,8 @@ export const ExperimentProvider = ({ children }) => {
         rotavaporTemp: '40°C',
         rotavaporPressure: '',
         residueAppearance: '',
+        crudeTareMass: '0',
+        crudeGrossMass: '0',
         crudeMass: '0',
         workupNotes: ''
       },
@@ -204,15 +206,18 @@ export const ExperimentProvider = ({ children }) => {
           columnSize: '2.0 cm x 30 cm',
           eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
         },
-        totalFractions: 24,
-        fractions: Array.from({ length: 24 }, (_, i) => ({
-          number: i + 1,
-          tlcChecked: false,
-          spotPattern: 'empty',
-          group: null,
-          note: ''
-        })),
+        totalFractions: 1,
+        fractions: [
+          {
+            number: 1,
+            tlcChecked: false,
+            spotPattern: 'empty',
+            group: null,
+            note: ''
+          }
+        ],
         fractionGroups: [],
+        fractionTlcPlates: [],
         eppendorfYield: {
           tubeTareMass: '0',
           tubeGrossMass: '0',

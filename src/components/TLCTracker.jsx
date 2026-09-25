@@ -13,7 +13,8 @@ import {
   Sun,
   Moon,
   Droplet,
-  ChevronRight
+  ChevronRight,
+  Pencil
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
@@ -21,6 +22,7 @@ import { parseDecimal } from './StoichiometryTable';
 export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) => {
   const { uploadImage } = useExperiment();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingPlateId, setEditingPlateId] = useState(null);
   
   // Lightbox state
   const [lightboxData, setLightboxData] = useState(null);
@@ -74,6 +76,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Open Add Modal
   const handleOpenAddModal = () => {
+    setEditingPlateId(null);
     const currentMins = Math.floor(currentTimerSeconds / 60);
     setNewMinute(currentMins > 0 ? String(currentMins) : '15');
     setNewObservation('');
@@ -87,6 +90,35 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       { label: 'Chất đầu (SM)', rf: '' },
       { label: 'Sản phẩm (P)', rf: '' }
     ]);
+    setModalOpen(true);
+  };
+
+  // Open Edit Modal for an existing TLC plate
+  const handleOpenEditModal = (plate) => {
+    setEditingPlateId(plate.id);
+    setNewMinute(String(plate.minute ?? ''));
+    setNewEluent(plate.eluent || 'Hexan : EtOAc (3 : 1)');
+    const isStandard = COMMON_STAINS.includes(plate.stainName);
+    if (isStandard) {
+      setSelectedStainName(plate.stainName);
+      setCustomStainName('');
+    } else {
+      setSelectedStainName('Khác (Tự nhập)');
+      setCustomStainName(plate.stainName || '');
+    }
+    setNewObservation(plate.observations || '');
+    setNewSpots(
+      plate.spots?.length
+        ? plate.spots.map((s) => ({ label: s.label || '', rf: String(s.rf ?? '') }))
+        : [
+            { label: 'Chất đầu (SM)', rf: '' },
+            { label: 'Sản phẩm (P)', rf: '' }
+          ]
+    );
+    setPhoto254({ preview: plate.images?.uv254 || plate.imageUrl || null, file: null });
+    setPhoto365({ preview: plate.images?.uv365 || null, file: null });
+    setPhotoReagent({ preview: plate.images?.reagent || null, file: null });
+    setActivePhotoSlot('uv254');
     setModalOpen(true);
   };
 
@@ -119,7 +151,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setNewSpots(updated);
   };
 
-  // Save TLC plate with 3 photos
+  // Save or update TLC plate with 3 photos
   const handleSaveTLC = async () => {
     if (!newMinute) {
       alert('Vui lòng nhập thời điểm chấm TLC (phút)');
@@ -167,14 +199,12 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       ? (customStainName.trim() || 'Thuốc thử hiện màu')
       : selectedStainName;
 
-    const newPlate = {
-      id: `tlc-${Date.now()}`,
+    const platePayload = {
       minute: minNum,
       timeFormatted: formattedTime,
       timestamp: new Date().toISOString(),
       eluent: newEluent,
       stainName: finalStain,
-      // 3 separate photos:
       images: {
         uv254: url254 || null,
         uv365: url365 || null,
@@ -185,11 +215,25 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       observations: newObservation || 'Theo dõi tiến trình phản ứng'
     };
 
-    const updatedList = [...tlcList, newPlate].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    let updatedList;
+    if (editingPlateId) {
+      updatedList = tlcList.map((p) =>
+        p.id === editingPlateId ? { ...p, ...platePayload } : p
+      );
+    } else {
+      const newPlate = {
+        id: `tlc-${Date.now()}`,
+        ...platePayload
+      };
+      updatedList = [...tlcList, newPlate];
+    }
+
+    updatedList.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     onChange(updatedList);
 
     setUploading(false);
     setModalOpen(false);
+    setEditingPlateId(null);
   };
 
   // Delete TLC plate
@@ -284,14 +328,24 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePlate(plate.id)}
-                      className="text-slate-400 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-colors no-print"
-                      title="Xóa bản mỏng này"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 no-print">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(plate)}
+                        className="text-slate-400 hover:text-indigo-600 p-2 rounded-xl hover:bg-indigo-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                        title="Chỉnh sửa thông tin bản mỏng"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePlate(plate.id)}
+                        className="text-slate-400 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                        title="Xóa bản mỏng này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* 3 Photos Tab Selector */}
@@ -495,10 +549,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
-                    Thêm Bản Mỏng TLC (3 Ảnh)
+                    {editingPlateId ? 'Chỉnh Sửa Bản Mỏng TLC (3 Ảnh)' : 'Thêm Bản Mỏng TLC (3 Ảnh)'}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Chụp trực tiếp qua Camera điện thoại hoặc chọn từ thư viện
+                    {editingPlateId ? 'Cập nhật thời điểm, hệ dung môi, vết Rf hoặc thay đổi ảnh' : 'Chụp trực tiếp qua Camera điện thoại hoặc chọn từ thư viện'}
                   </p>
                 </div>
               </div>
@@ -823,7 +877,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 disabled={uploading}
                 className="px-6 py-3 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[48px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {uploading ? 'Đang lưu ảnh...' : 'Lưu Bản Mỏng (3 Ảnh)'}
+                {uploading ? 'Đang lưu ảnh...' : (editingPlateId ? 'Cập Nhật Bản Mỏng' : 'Lưu Bản Mỏng (3 Ảnh)')}
               </button>
             </div>
           </div>

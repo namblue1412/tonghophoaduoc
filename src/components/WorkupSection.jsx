@@ -9,8 +9,10 @@ import {
   FileText,
   CheckCircle2,
   Droplets,
-  Wind
+  Wind,
+  Scale
 } from 'lucide-react';
+import { parseDecimal } from './StoichiometryTable';
 
 export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
   const {
@@ -21,6 +23,8 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
     rotavaporTemp = '40°C',
     rotavaporPressure = '250 mbar',
     residueAppearance = '',
+    crudeTareMass = '',
+    crudeGrossMass = '',
     crudeMass = 0,
     workupNotes = ''
   } = workupData || {};
@@ -29,6 +33,21 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
     onChange({
       ...workupData,
       [field]: value
+    });
+  };
+
+  const handleTareOrGrossChange = (field, val) => {
+    const cleanVal = val.replace(/[^0-9.,]/g, '');
+    const tare = parseDecimal(field === 'crudeTareMass' ? cleanVal : crudeTareMass);
+    const gross = parseDecimal(field === 'crudeGrossMass' ? cleanVal : crudeGrossMass);
+    let autoCrude = undefined;
+    if (gross > 0 && tare > 0) {
+      autoCrude = String(parseFloat(Math.max(0, gross - tare).toFixed(4)));
+    }
+    onChange({
+      ...workupData,
+      [field]: cleanVal,
+      ...(autoCrude !== undefined ? { crudeMass: autoCrude } : {})
     });
   };
 
@@ -188,10 +207,10 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
             Thông số máy cô quay chân không (Rotavapor Parameters)
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                <Thermometer className="w-4 h-4 text-rose-500" /> Nhiệt độ bồn nước:
+                <Thermometer className="w-4 h-4 text-rose-500" /> Nhiệt độ bồn nước (°C):
               </label>
               <input
                 type="text"
@@ -214,21 +233,82 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
                 className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none min-h-[44px]"
               />
             </div>
+          </div>
+        </div>
 
+        {/* Eppendorf Tare Weighing for Crude Residue (Cân cắn thô trước khi lên cột) */}
+        <div className="bg-gradient-to-br from-amber-50/70 to-slate-50 border border-amber-200 p-4 sm:p-5 rounded-2xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 pb-3">
             <div>
-              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                <TestTube className="w-4 h-4 text-amber-500" /> Khối lượng cắn thô ({massUnit}):
+              <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <Scale className="w-5 h-5 text-amber-600" />
+                Cân Khối Lượng Cắn Thô Trước Khi Lên Cột (Eppendorf Tare Weighing)
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Cân trừ bì vỏ ống Eppendorf để xác định chính xác khối lượng cắn nạp cột
+              </p>
+            </div>
+            <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-mono font-semibold">
+              Cân phân tích 4 số lẻ
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            {/* m vỏ */}
+            <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-sm">
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                m(vỏ Eppendorf rỗng) ({massUnit}):
               </label>
               <input
                 type="text"
                 inputMode="decimal"
-                value={crudeMass ?? ''}
-                onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="0.000"
-                className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs sm:text-sm font-mono font-bold text-amber-800 focus:outline-none min-h-[44px]"
+                value={crudeTareMass ?? ''}
+                onChange={(e) => handleTareOrGrossChange('crudeTareMass', e.target.value)}
+                placeholder="1.0520"
+                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
               />
+              <span className="text-[11px] text-slate-400 block mt-1">Khối lượng vỏ ống khô</span>
+            </div>
+
+            {/* m vỏ + cắn */}
+            <div className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-sm">
+              <label className="text-xs font-semibold text-slate-700 block mb-1">
+                m(vỏ + cắn thô) sau cô quay ({massUnit}):
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={crudeGrossMass ?? ''}
+                onChange={(e) => handleTareOrGrossChange('crudeGrossMass', e.target.value)}
+                placeholder="2.8450"
+                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
+              />
+              <span className="text-[11px] text-slate-400 block mt-1">Vỏ kèm cắn thô đã cô đuổi dung môi</span>
+            </div>
+
+            {/* m cắn thô thu được */}
+            <div className="bg-amber-100/90 p-3.5 rounded-xl border border-amber-300 shadow-sm flex flex-col justify-between">
+              <div>
+                <label className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
+                  m(cắn thô) nạp cột ({massUnit}):
+                </label>
+                <span className="text-[11px] text-amber-800 font-medium">
+                  = m(vỏ+cắn) - m(vỏ) (hoặc tự nhập)
+                </span>
+              </div>
+              <div className="mt-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={crudeMass ?? ''}
+                  onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
+                  placeholder="0.0000"
+                  className="w-full text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
+                />
+              </div>
             </div>
           </div>
+        </div>
 
           {/* Residue Appearance */}
           <div className="mt-4">
@@ -262,7 +342,6 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
               ))}
             </div>
           </div>
-        </div>
 
         {/* Additional Workup Notes */}
         <div>
