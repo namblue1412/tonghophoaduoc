@@ -103,13 +103,13 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 rounded-full text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-2">
-              <FlaskConical className="w-3.5 h-3.5" /> Hệ Thống Quản Lý Thí Nghiệm Hóa Dược Chuẩn GLP
+              <FlaskConical className="w-3.5 h-3.5" /> Quản Lý Tổng Hợp Hóa Dược
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược
             </h1>
             <p className="text-slate-300 text-sm mt-1 max-w-2xl">
-              Ghi chép chính xác từ cân đong nạp liệu, thời gian phản ứng ngắt quãng, dòng thời gian TLC đến sắc ký cột và hiệu suất cân 4 số lẻ.
+              Ghi chép phản ứng, theo dõi sắc ký bản mỏng (TLC), sắc ký cột và hiệu suất sản phẩm.
             </p>
           </div>
 

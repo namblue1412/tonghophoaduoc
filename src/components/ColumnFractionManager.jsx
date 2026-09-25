@@ -70,13 +70,20 @@ export const ColumnFractionManager = ({
       columnSize: '2.0 cm x 30 cm',
       eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
     },
-    totalFractions = 1,
-    fractions = [
-      { number: 1, tlcChecked: false, spotPattern: 'empty', group: null, note: '' }
-    ],
+    totalFractions = 10,
+    fractions = Array.from({ length: 10 }, (_, i) => ({
+      number: i + 1,
+      tlcChecked: false,
+      spotPattern: 'empty',
+      group: null,
+      note: ''
+    })),
     fractionGroups = [],
     fractionTlcPlates = [],
     eppendorfYield = {
+      tubes: [
+        { id: 'tube-1', label: 'Ống 1', tareMass: '0', grossMass: '0', productMass: 0 }
+      ],
       tubeTareMass: '0',
       tubeGrossMass: '0',
       productMass: 0,
@@ -292,19 +299,24 @@ export const ColumnFractionManager = ({
     });
   };
 
-  // Calculate Eppendorf analytical balance yield
-  const handleEppendorfChange = (field, val) => {
-    const updatedYield = {
-      ...eppendorfYield,
-      [field]: val
-    };
+  // Tubes normalization (backward-compatible)
+  const tubes = (Array.isArray(eppendorfYield?.tubes) && eppendorfYield.tubes.length > 0)
+    ? eppendorfYield.tubes
+    : [
+        {
+          id: 'tube-1',
+          label: 'Ống 1',
+          tareMass: eppendorfYield?.tubeTareMass || '0',
+          grossMass: eppendorfYield?.tubeGrossMass || '0',
+          productMass: eppendorfYield?.productMass || 0
+        }
+      ];
 
-    const tare = parseDecimal(field === 'tubeTareMass' ? val : eppendorfYield.tubeTareMass);
-    const gross = parseDecimal(field === 'tubeGrossMass' ? val : eppendorfYield.tubeGrossMass);
-    const mw = targetMW > 0 ? targetMW : parseDecimal(field === 'targetMW' ? val : eppendorfYield.targetMW);
+  const recalculateYield = (updatedTubes, currentYieldObj = eppendorfYield) => {
+    const totalProdMass = updatedTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
+    const roundedProd = parseFloat(totalProdMass.toFixed(4));
 
-    const productMass = Math.max(0, gross - tare);
-    updatedYield.productMass = parseFloat(productMass.toFixed(4));
+    const mw = targetMW > 0 ? targetMW : parseDecimal(currentYieldObj?.targetMW);
 
     let scale = 1;
     if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
@@ -314,27 +326,97 @@ export const ColumnFractionManager = ({
     let yieldPct = 0;
     if (limitingMoles > 0 && mw > 0) {
       theoYield = limitingMoles * mw * scale;
-      updatedYield.theoreticalYield = parseFloat(theoYield.toFixed(4));
-      if (theoYield > 0 && productMass > 0) {
-        yieldPct = (productMass / theoYield) * 100;
-        updatedYield.yieldPercent = parseFloat(yieldPct.toFixed(2));
-      } else {
-        updatedYield.yieldPercent = 0;
+      if (theoYield > 0 && roundedProd > 0) {
+        yieldPct = (roundedProd / theoYield) * 100;
       }
     }
 
+    const firstTare = updatedTubes[0]?.tareMass || '0';
+    const firstGross = updatedTubes[0]?.grossMass || '0';
+
     onChange({
       ...columnData,
-      eppendorfYield: updatedYield
+      eppendorfYield: {
+        ...currentYieldObj,
+        tubes: updatedTubes,
+        tubeTareMass: firstTare,
+        tubeGrossMass: firstGross,
+        productMass: roundedProd,
+        theoreticalYield: parseFloat(theoYield.toFixed(4)),
+        yieldPercent: parseFloat(yieldPct.toFixed(2))
+      }
+    });
+  };
+
+  const handleTubeChange = (tubeId, field, val) => {
+    const cleanVal = typeof val === 'string' ? val.replace(/[^0-9.,]/g, '') : val;
+    const updatedTubes = tubes.map((t) => {
+      if (t.id !== tubeId) return t;
+      const nextTube = { ...t, [field]: cleanVal };
+      const tare = parseDecimal(field === 'tareMass' ? cleanVal : t.tareMass);
+      const gross = parseDecimal(field === 'grossMass' ? cleanVal : t.grossMass);
+      nextTube.productMass = parseFloat(Math.max(0, gross - tare).toFixed(4));
+      return nextTube;
+    });
+
+    recalculateYield(updatedTubes, eppendorfYield);
+  };
+
+  const handleTubeLabelChange = (tubeId, newLabel) => {
+    const updatedTubes = tubes.map((t) => (t.id === tubeId ? { ...t, label: newLabel } : t));
+    onChange({
+      ...columnData,
+      eppendorfYield: {
+        ...eppendorfYield,
+        tubes: updatedTubes
+      }
+    });
+  };
+
+  const handleAddTube = () => {
+    const nextNum = tubes.length + 1;
+    const newTube = {
+      id: `tube-${Date.now()}`,
+      label: `Ống ${nextNum}`,
+      tareMass: '0',
+      grossMass: '0',
+      productMass: 0
+    };
+    const updatedTubes = [...tubes, newTube];
+    recalculateYield(updatedTubes, eppendorfYield);
+  };
+
+  const handleRemoveTube = (tubeId) => {
+    if (tubes.length <= 1) return;
+    const updatedTubes = tubes.filter((t) => t.id !== tubeId);
+    recalculateYield(updatedTubes, eppendorfYield);
+  };
+
+  const handleEppendorfParamChange = (field, val) => {
+    onChange({
+      ...columnData,
+      eppendorfYield: {
+        ...eppendorfYield,
+        [field]: val
+      }
+    });
+  };
+
+  // Delete a specific fraction tube by number
+  const handleDeleteSpecificTube = (tubeNumber) => {
+    if ((fractions || []).length <= 1) return;
+    const updated = (fractions || []).filter((f) => f.number !== tubeNumber);
+    onChange({
+      ...columnData,
+      totalFractions: updated.length,
+      fractions: updated
     });
   };
 
   // Sync theoretical yield when stoichiometry units, target MW, or limiting moles change
   useEffect(() => {
-    const tare = parseDecimal(eppendorfYield?.tubeTareMass);
-    const gross = parseDecimal(eppendorfYield?.tubeGrossMass);
+    const totalProdMass = tubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
     const mw = targetMW > 0 ? targetMW : parseDecimal(eppendorfYield?.targetMW);
-    const productMass = Math.max(0, gross - tare);
 
     let scale = 1;
     if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
@@ -344,8 +426,8 @@ export const ColumnFractionManager = ({
     let yieldPct = 0;
     if (limitingMoles > 0 && mw > 0) {
       theoYield = limitingMoles * mw * scale;
-      if (theoYield > 0 && productMass > 0) {
-        yieldPct = (productMass / theoYield) * 100;
+      if (theoYield > 0 && totalProdMass > 0) {
+        yieldPct = (totalProdMass / theoYield) * 100;
       }
     }
 
@@ -355,13 +437,14 @@ export const ColumnFractionManager = ({
 
     const newTheo = parseFloat(theoYield.toFixed(4));
     const newPct = parseFloat(yieldPct.toFixed(2));
-    const newProd = parseFloat(productMass.toFixed(4));
+    const newProd = parseFloat(totalProdMass.toFixed(4));
 
     if (newTheo !== currentTheo || newPct !== currentPct || newProd !== currentProd) {
       onChange({
         ...columnData,
         eppendorfYield: {
           ...eppendorfYield,
+          tubes,
           productMass: newProd,
           theoreticalYield: newTheo,
           yieldPercent: newPct
@@ -590,6 +673,51 @@ export const ColumnFractionManager = ({
     setActiveGroupId(null);
   };
 
+  // Keyboard shortcut handlers: Esc to close, Enter to save
+  const handleSaveFracTlcRef = useRef();
+  handleSaveFracTlcRef.current = handleSaveFracTlc;
+
+  const handleSavePoolTlcRef = useRef();
+  handleSavePoolTlcRef.current = handleSavePoolTlc;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (lightboxData) {
+          setLightboxData(null);
+          return;
+        }
+        if (fracTlcModalOpen) {
+          setFracTlcModalOpen(false);
+          return;
+        }
+        if (poolTlcModalOpen) {
+          setPoolTlcModalOpen(false);
+          return;
+        }
+      }
+
+      if (e.key === 'Enter') {
+        if (e.target && e.target.tagName === 'TEXTAREA') return;
+        if (fracTlcModalOpen && !fracUploading) {
+          e.preventDefault();
+          handleSaveFracTlcRef.current?.();
+          return;
+        }
+        if (poolTlcModalOpen && !poolUploading) {
+          e.preventDefault();
+          handleSavePoolTlcRef.current?.();
+          return;
+        }
+      }
+    };
+
+    if (fracTlcModalOpen || poolTlcModalOpen || lightboxData) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [fracTlcModalOpen, poolTlcModalOpen, lightboxData, fracUploading, poolUploading]);
+
   // Lightbox Zoom Handler
   const openLightbox = (images, title, subtitle, stainName) => {
     setLightboxData({
@@ -633,10 +761,10 @@ export const ColumnFractionManager = ({
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              5. Sắc Ký Cột & Cân Cắn Eppendorf (Column & Yield)
+              5. Sắc Ký Cột & Cân Cắn Eppendorf
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Hứng phân đoạn động (F1, F2...), chấm TLC 3 ảnh theo số ống, gộp mẫu và cân phân tích 4 số lẻ
+              Hứng phân đoạn (F1, F2...), chấm TLC kiểm tra, gộp mẫu và cân khối lượng sản phẩm
             </p>
           </div>
         </div>
@@ -650,17 +778,18 @@ export const ColumnFractionManager = ({
             title="Thêm ống tiếp theo vào giá hứng"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Hứng ống F{currentNextTubeNumber}</span>
+            <span>+ Hứng F{currentNextTubeNumber}</span>
           </button>
 
           <button
             type="button"
             onClick={handleRemoveLastTube}
             disabled={fractions.length <= 1}
-            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs px-2 py-1.5 rounded-xl flex items-center gap-1 transition-all min-h-[38px] cursor-pointer disabled:cursor-not-allowed"
-            title="Xóa ống cuối nếu lỡ thêm thừa"
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition-all min-h-[38px] cursor-pointer disabled:cursor-not-allowed"
+            title="Bớt 1 ống cuối"
           >
             <Minus className="w-3.5 h-3.5" />
+            <span>Bớt</span>
           </button>
 
           <div className="w-px h-5 bg-slate-600 mx-1"></div>
@@ -758,26 +887,40 @@ export const ColumnFractionManager = ({
           {/* Test Tube Grid with Append Tile */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
             {fractions.map((f) => (
-              <button
-                key={f.number}
-                type="button"
-                onClick={() => toggleFractionState(f.number)}
-                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs transition-all transform active:scale-95 shadow-sm min-h-[52px] cursor-pointer ${getTubeColorClass(
-                  f.spotPattern
-                )}`}
-                title={`Ống F${f.number}: ${f.spotPattern || 'Trống'} (Bấm để đổi trạng thái)`}
-              >
-                <span className="font-mono font-bold text-xs">F{f.number}</span>
-                <span className="text-[10px] opacity-80 uppercase leading-none mt-1">
-                  {f.spotPattern === 'product'
-                    ? 'Pure'
-                    : f.spotPattern === 'impurity'
-                    ? 'Imp'
-                    : f.spotPattern === 'mixed'
-                    ? 'Mix'
-                    : '-'}
-                </span>
-              </button>
+              <div key={f.number} className="relative group">
+                <button
+                  type="button"
+                  onClick={() => toggleFractionState(f.number)}
+                  className={`w-full flex flex-col items-center justify-center p-2 rounded-xl border text-xs transition-all transform active:scale-95 shadow-sm min-h-[52px] cursor-pointer ${getTubeColorClass(
+                    f.spotPattern
+                  )}`}
+                  title={`Ống F${f.number}: ${f.spotPattern || 'Trống'} (Bấm để đổi trạng thái)`}
+                >
+                  <span className="font-mono font-bold text-xs">F{f.number}</span>
+                  <span className="text-[10px] opacity-80 uppercase leading-none mt-1">
+                    {f.spotPattern === 'product'
+                      ? 'Pure'
+                      : f.spotPattern === 'impurity'
+                      ? 'Imp'
+                      : f.spotPattern === 'mixed'
+                      ? 'Mix'
+                      : '-'}
+                  </span>
+                </button>
+                {fractions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteSpecificTube(f.number);
+                    }}
+                    className="absolute -top-1.5 -right-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded-full p-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity no-print cursor-pointer shadow"
+                    title={`Xóa ống F${f.number}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             ))}
 
             {/* Append Next Tube Slot Button */}
@@ -793,16 +936,16 @@ export const ColumnFractionManager = ({
           </div>
         </div>
 
-        {/* 2. FRACTION TLC PLATES MANAGER (3 PHOTOS + SPOTTED FRACTIONS LIST) */}
+        {/* 2. FRACTION TLC PLATES MANAGER */}
         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-indigo-600" />
-                Sắc Ký Lớp Mỏng Kiểm Tra Phân Đoạn (Fraction TLC Tracker - 3 Ảnh)
+                Bản Mỏng Kiểm Tra Phân Đoạn (TLC)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Chụp 3 ảnh (UV 254 nm, UV 365 nm, Thuốc thử) kèm danh sách các số ống đã chấm (không cần liên tiếp)
+                Chụp 3 ảnh (UV 254, UV 365, Thuốc thử) kèm danh sách các số ống đã chấm
               </p>
             </div>
 
@@ -983,16 +1126,16 @@ export const ColumnFractionManager = ({
           )}
         </div>
 
-        {/* 3. FRACTION POOLING & POOLED SAMPLE TLC (GỘP MẪU & TLC MẪU GỘP) */}
+        {/* 3. FRACTION POOLING & POOLED SAMPLE TLC */}
         <div className="bg-indigo-50/50 border border-indigo-200/80 p-4 sm:p-5 rounded-3xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-200/60 pb-3">
             <div>
               <h3 className="text-sm sm:text-base font-bold text-indigo-950 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-indigo-600" />
-                Gộp Phân Đoạn & Sắc Ký TLC Mẫu Gộp (Fraction Pooling & Pooled TLC)
+                Gộp Phân Đoạn & TLC Mẫu Gộp
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Gộp các ống chứa cùng một chất và chấm TLC kiểm tra lại độ sạch trước khi cô quay thu cắn
+                Gộp các ống chứa cùng một chất và chấm TLC kiểm tra lại trước khi cô quay
               </p>
             </div>
           </div>
@@ -1225,67 +1368,117 @@ export const ColumnFractionManager = ({
           )}
         </div>
 
-        {/* 4. EPPENDORF ANALYTICAL BALANCE YIELD CALCULATOR */}
+        {/* 4. EPPENDORF MULTI-TUBE ANALYTICAL BALANCE YIELD CALCULATOR */}
         <div className="bg-gradient-to-br from-emerald-50/60 to-slate-50 border border-emerald-200/80 p-4 sm:p-5 rounded-3xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/60 pb-3">
             <div>
               <h3 className="text-sm sm:text-base font-bold text-emerald-950 flex items-center gap-2">
                 <Scale className="w-5 h-5 text-emerald-600" />
-                Cân Khối Lượng Cắn Eppendorf Sau Cô Quay & Tính Hiệu Suất (Analytical Balance)
+                Cân Cắn Eppendorf Sau Cô Quay & Tính Hiệu Suất ({tubes.length} ống)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Cân phân tích 4 số lẻ sản phẩm tinh khiết thu được từ các phân đoạn đã gộp
+                Cân khối lượng sản phẩm thu được từ các phân đoạn đã gộp
               </p>
             </div>
-            <span className="text-xs bg-emerald-100 text-emerald-900 px-2.5 py-1 rounded-full font-mono font-semibold">
-              Chuẩn Lab Dược
-            </span>
+
+            <button
+              type="button"
+              onClick={handleAddTube}
+              className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm min-h-[38px] cursor-pointer no-print"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Thêm ống Eppendorf</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {/* m vỏ */}
-            <div className="bg-white p-3.5 rounded-2xl border border-emerald-100 shadow-sm">
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                m(vỏ) Eppendorf ({massUnit}):
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={eppendorfYield.tubeTareMass ?? ''}
-                onChange={(e) => handleEppendorfChange('tubeTareMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="1.0520"
-                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl p-2 focus:outline-none min-h-[44px]"
-              />
-              <span className="text-[11px] text-slate-400 block mt-1">Khối lượng vỏ ống rỗng</span>
-            </div>
+          {/* List of Eppendorf Tubes */}
+          <div className="space-y-2.5">
+            {tubes.map((tube, index) => (
+              <div
+                key={tube.id || index}
+                className="bg-white p-3 sm:p-3.5 rounded-2xl border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3"
+              >
+                {/* Tube Label */}
+                <div className="flex items-center gap-2 md:w-36 flex-shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  <input
+                    type="text"
+                    value={tube.label}
+                    onChange={(e) => handleTubeLabelChange(tube.id, e.target.value)}
+                    placeholder={`Ống ${index + 1}`}
+                    className="font-bold text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none w-full"
+                    title="Nhấn để đổi tên ống"
+                  />
+                </div>
 
-            {/* m vỏ + cắn */}
-            <div className="bg-white p-3.5 rounded-2xl border border-emerald-100 shadow-sm">
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                m(vỏ + cắn) sau cô quay ({massUnit}):
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={eppendorfYield.tubeGrossMass ?? ''}
-                onChange={(e) => handleEppendorfChange('tubeGrossMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="2.4962"
-                className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl p-2 focus:outline-none min-h-[44px]"
-              />
-              <span className="text-[11px] text-slate-400 block mt-1">Vỏ kèm sản phẩm đã khô</span>
-            </div>
+                {/* 3 Mass inputs */}
+                <div className="grid grid-cols-3 gap-2 flex-1">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                      m(vỏ) ({massUnit}):
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={tube.tareMass ?? ''}
+                      onChange={(e) => handleTubeChange(tube.id, 'tareMass', e.target.value)}
+                      placeholder="1.0520"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                    />
+                  </div>
 
-            {/* m sản phẩm thực tế */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                      m(vỏ+cắn) ({massUnit}):
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={tube.grossMass ?? ''}
+                      onChange={(e) => handleTubeChange(tube.id, 'grossMass', e.target.value)}
+                      placeholder="2.4962"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                    />
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase leading-none">
+                      m(sản phẩm):
+                    </span>
+                    <span className="font-mono font-extrabold text-emerald-950 text-xs sm:text-sm text-right mt-1">
+                      {(tube.productMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Delete Tube button if > 1 tube */}
+                {tubes.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTube(tube.id)}
+                    className="text-slate-400 hover:text-rose-500 p-2 rounded-lg no-print self-end md:self-center cursor-pointer"
+                    title="Xóa ống này"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Aggregate Yield & Summary Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+            {/* Tổng sản phẩm thu được */}
             <div className="bg-emerald-100/70 p-3.5 rounded-2xl border border-emerald-300 shadow-sm flex flex-col justify-between">
               <div className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-                m(sản phẩm) thu được:
+                Tổng m(sản phẩm) thu được:
               </div>
               <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right my-1">
-                {eppendorfYield.productMass !== undefined ? eppendorfYield.productMass.toFixed(4) : '0.0000'}{' '}
+                {(eppendorfYield.productMass || 0).toFixed(4)}{' '}
                 <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
               </div>
               <div className="text-[11px] text-emerald-800 font-medium">
-                = m(vỏ+cắn) - m(vỏ)
+                = Tổng khối lượng các ống
               </div>
             </div>
 
@@ -1302,103 +1495,98 @@ export const ColumnFractionManager = ({
                 Lý thuyết: {eppendorfYield.theoreticalYield?.toFixed(4) || '0.0000'} {massUnit}
               </div>
             </div>
+
+            {/* Purity & Constants */}
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                  Độ tinh khiết HPLC / NMR (%):
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={eppendorfYield.purityHplc ?? ''}
+                  onChange={(e) => handleEppendorfParamChange('purityHplc', e.target.value.replace(/[^0-9.,]/g, ''))}
+                  placeholder="98.5%"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-indigo-700 focus:outline-none min-h-[36px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                  Điểm nóng chảy (Tnc °C):
+                </label>
+                <input
+                  type="text"
+                  value={eppendorfYield.meltingPoint || ''}
+                  onChange={(e) => handleEppendorfParamChange('meltingPoint', e.target.value)}
+                  placeholder="VD: 185 - 187°C"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono focus:outline-none min-h-[36px]"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Product Appearance & Quality Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                Điểm nóng chảy (Tnc °C):
-              </label>
-              <input
-                type="text"
-                value={eppendorfYield.meltingPoint || ''}
-                onChange={(e) => handleEppendorfChange('meltingPoint', e.target.value)}
-                placeholder="VD: 185 - 187°C"
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-mono focus:outline-none min-h-[44px]"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                Độ tinh khiết HPLC / NMR (%):
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={eppendorfYield.purityHplc ?? ''}
-                onChange={(e) => handleEppendorfChange('purityHplc', e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="98.5%"
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-mono font-bold text-indigo-700 focus:outline-none min-h-[44px]"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
-                Cảm quan sản phẩm tinh khiết:
-              </label>
-              <input
-                type="text"
-                value={eppendorfYield.productAppearance || ''}
-                onChange={(e) => handleEppendorfChange('productAppearance', e.target.value)}
-                placeholder="VD: Tinh thể hình kim màu trắng ngà..."
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
-              />
-            </div>
+          {/* Cảm quan */}
+          <div className="bg-white p-3 rounded-2xl border border-slate-200">
+            <label className="text-xs font-semibold text-slate-700 block mb-1">
+              Cảm quan sản phẩm tinh khiết:
+            </label>
+            <input
+              type="text"
+              value={eppendorfYield.productAppearance || ''}
+              onChange={(e) => handleEppendorfParamChange('productAppearance', e.target.value)}
+              placeholder="VD: Tinh thể hình kim màu trắng ngà..."
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[40px]"
+            />
           </div>
         </div>
       </div>
 
-      {/* MODAL 1: ADD / EDIT FRACTION TLC PLATE (3 PHOTOS + SPOTTED FRACTIONS) */}
+      {/* MODAL 1: ADD / EDIT FRACTION TLC PLATE */}
       {fracTlcModalOpen && (
         <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
+            <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
                   <Camera className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
-                    {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Chấm Bản Mỏng Phân Đoạn (3 Ảnh)'}
+                    {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Bản Mỏng Phân Đoạn (TLC)'}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Lưu các số ống nghiệm đã chấm và chụp 3 ảnh (254, 365, Thuốc thử)
-                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setFracTlcModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                title="Đóng (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 touch-pan-y">
-              {/* Spotted Fractions Input + Quick Chip Selectors */}
-              <div className="bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-2xl space-y-2">
-                <label className="text-xs font-bold text-amber-950 flex items-center justify-between">
-                  <span>Số các phân đoạn đã chấm (Spotted Fractions):</span>
-                  <span className="text-[11px] font-normal text-amber-800">Không cần liên tiếp</span>
-                </label>
-                <input
-                  type="text"
-                  value={fracSpottedInput}
-                  onChange={(e) => setFracSpottedInput(e.target.value)}
-                  placeholder="VD: F1, F3, F5, F8, F12 hoặc F8-F15"
-                  className="w-full bg-white border border-amber-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
-                />
-
-                {/* Quick tap chips for current tubes */}
-                <div className="pt-1">
-                  <span className="text-[10px] text-slate-500 block mb-1 font-semibold">
-                    Bấm để chọn/bỏ chọn nhanh các ống đang có trên giá:
-                  </span>
-                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 bg-white rounded-xl border border-slate-200">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 space-y-3 touch-pan-y">
+              {/* Compact 3-Column Top Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                {/* Col 1: Spotted Tubes */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Ống đã chấm:
+                  </label>
+                  <input
+                    type="text"
+                    value={fracSpottedInput}
+                    onChange={(e) => setFracSpottedInput(e.target.value)}
+                    placeholder="VD: F1, F3, F5..."
+                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
+                  />
+                  {/* Single-row horizontal scrollable quick chips */}
+                  <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
                     {fractions.map((f) => {
                       const isSelected = fracSpottedInput.includes(`F${f.number}`);
                       return (
@@ -1406,10 +1594,10 @@ export const ColumnFractionManager = ({
                           key={f.number}
                           type="button"
                           onClick={() => toggleSpottedTube(f.number)}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all ${
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold flex-shrink-0 transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'
                           }`}
                         >
                           F{f.number}
@@ -1418,29 +1606,27 @@ export const ColumnFractionManager = ({
                     })}
                   </div>
                 </div>
-              </div>
 
-              {/* Eluent and Stain */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Col 2: Eluent */}
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Hệ dung môi khai triển (Eluent):
+                    Hệ dung môi:
                   </label>
                   <input
                     type="text"
                     value={fracEluent}
                     onChange={(e) => setFracEluent(e.target.value)}
-                    placeholder="Hexan : EtOAc (4 : 1)"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none min-h-[44px]"
+                    placeholder="Hexan:EtOAc (4:1)"
+                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none min-h-[38px]"
                   />
-                  {/* Common Presets */}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
+                  {/* Quick eluent pills */}
+                  <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
                     {['Hexan:EtOAc (4:1)', 'Hexan:EtOAc (3:1)', 'Hexan:EtOAc (2:1)', 'DCM:MeOH (95:5)'].map((p) => (
                       <button
                         key={p}
                         type="button"
                         onClick={() => setFracEluent(p)}
-                        className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded"
+                        className="text-[10px] bg-white hover:bg-slate-200 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded flex-shrink-0 cursor-pointer"
                       >
                         {p}
                       </button>
@@ -1448,6 +1634,7 @@ export const ColumnFractionManager = ({
                   </div>
                 </div>
 
+                {/* Col 3: Stain */}
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Thuốc thử hiện màu:
@@ -1455,7 +1642,7 @@ export const ColumnFractionManager = ({
                   <select
                     value={fracStain}
                     onChange={(e) => setFracStain(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none min-h-[44px]"
+                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2 py-1.5 text-xs text-slate-900 focus:outline-none min-h-[38px]"
                   >
                     {COMMON_STAINS.map((stain) => (
                       <option key={stain} value={stain}>
@@ -1468,180 +1655,169 @@ export const ColumnFractionManager = ({
                       type="text"
                       value={customFracStain}
                       onChange={(e) => setCustomFracStain(e.target.value)}
-                      placeholder="Nhập tên thuốc thử..."
-                      className="w-full mt-1.5 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none min-h-[38px]"
+                      placeholder="Tên thuốc thử..."
+                      className="w-full mt-1 bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs focus:outline-none min-h-[32px]"
                     />
                   )}
                 </div>
               </div>
 
               {/* 3 Photo Slots Switcher */}
-              <div className="space-y-3">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                  Chụp / Tải 3 Ảnh Bản Mỏng Phân Đoạn:
-                </span>
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setFracSlot('uv254')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] cursor-pointer ${
+                    fracSlot === 'uv254' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>1. UV 254</span>
+                  {fracPhoto254.preview && <span className="w-2 h-2 rounded-full bg-emerald-300"></span>}
+                </button>
 
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-2xl">
-                  <button
-                    type="button"
-                    onClick={() => setFracSlot('uv254')}
-                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[42px] ${
-                      fracSlot === 'uv254' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-700 hover:bg-white'
-                    }`}
-                  >
-                    <Sun className="w-3.5 h-3.5" />
-                    <span>1. UV 254</span>
-                    {fracPhoto254.preview && <span className="w-2 h-2 rounded-full bg-emerald-300"></span>}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setFracSlot('uv365')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] cursor-pointer ${
+                    fracSlot === 'uv365' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  <span>2. UV 365</span>
+                  {fracPhoto365.preview && <span className="w-2 h-2 rounded-full bg-violet-300"></span>}
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setFracSlot('uv365')}
-                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[42px] ${
-                      fracSlot === 'uv365' ? 'bg-violet-600 text-white shadow-md' : 'text-slate-700 hover:bg-white'
-                    }`}
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                    <span>2. UV 365</span>
-                    {fracPhoto365.preview && <span className="w-2 h-2 rounded-full bg-violet-300"></span>}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setFracSlot('reagent')}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] truncate cursor-pointer ${
+                    fracSlot === 'reagent' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-700 hover:bg-white'
+                  }`}
+                >
+                  <Droplet className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="truncate">3. Thuốc Thử</span>
+                  {fracPhotoReagent.preview && <span className="w-2 h-2 rounded-full bg-amber-300 flex-shrink-0"></span>}
+                </button>
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setFracSlot('reagent')}
-                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[42px] truncate ${
-                      fracSlot === 'reagent' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-700 hover:bg-white'
-                    }`}
-                  >
-                    <Droplet className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="truncate">3. Thuốc Thử</span>
-                    {fracPhotoReagent.preview && <span className="w-2 h-2 rounded-full bg-amber-300 flex-shrink-0"></span>}
-                  </button>
+              {/* Photo Viewer & Immediate Camera/Upload Controls */}
+              <div className="bg-slate-900 rounded-2xl p-3 text-white border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold flex items-center gap-1.5">
+                    {fracSlot === 'uv254' && <Sun className="w-3.5 h-3.5 text-emerald-400" />}
+                    {fracSlot === 'uv365' && <Moon className="w-3.5 h-3.5 text-violet-400" />}
+                    {fracSlot === 'reagent' && <Droplet className="w-3.5 h-3.5 text-amber-400" />}
+                    <span>
+                      {fracSlot === 'uv254' ? 'Đèn UV 254 nm' : fracSlot === 'uv365' ? 'Đèn UV 365 nm' : 'Thuốc thử hiện màu'}
+                    </span>
+                  </span>
+
+                  {/* Clear Button */}
+                  {((fracSlot === 'uv254' && fracPhoto254.preview) ||
+                    (fracSlot === 'uv365' && fracPhoto365.preview) ||
+                    (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fracSlot === 'uv254') setFracPhoto254({ preview: null, file: null });
+                        if (fracSlot === 'uv365') setFracPhoto365({ preview: null, file: null });
+                        if (fracSlot === 'reagent') setFracPhotoReagent({ preview: null, file: null });
+                      }}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" /> Xóa ảnh
+                    </button>
+                  )}
                 </div>
 
-                {/* Active Photo Slot interactive preview */}
-                <div className="bg-slate-900 rounded-3xl p-4 text-white border border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-bold flex items-center gap-2">
-                      {fracSlot === 'uv254' && <Sun className="w-4 h-4 text-emerald-400" />}
-                      {fracSlot === 'uv365' && <Moon className="w-4 h-4 text-violet-400" />}
-                      {fracSlot === 'reagent' && <Droplet className="w-4 h-4 text-amber-400" />}
-                      <span>
-                        {fracSlot === 'uv254'
-                          ? '1. Đèn UV 254 nm'
-                          : fracSlot === 'uv365'
-                          ? '2. Đèn UV 365 nm'
-                          : '3. Hiện màu bằng Thuốc Thử'}
-                      </span>
-                    </span>
+                <div className="relative aspect-[16/9] sm:aspect-[2/1] max-h-[200px] bg-black/80 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                  {fracSlot === 'uv254' && fracPhoto254.preview && (
+                    <img src={fracPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
+                  )}
+                  {fracSlot === 'uv365' && fracPhoto365.preview && (
+                    <img src={fracPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
+                  )}
+                  {fracSlot === 'reagent' && fracPhotoReagent.preview && (
+                    <img src={fracPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
+                  )}
 
-                    {/* Clear Button */}
-                    {((fracSlot === 'uv254' && fracPhoto254.preview) ||
-                      (fracSlot === 'uv365' && fracPhoto365.preview) ||
-                      (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (fracSlot === 'uv254') setFracPhoto254({ preview: null, file: null });
-                          if (fracSlot === 'uv365') setFracPhoto365({ preview: null, file: null });
-                          if (fracSlot === 'reagent') setFracPhotoReagent({ preview: null, file: null });
-                        }}
-                        className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Xóa ảnh
-                      </button>
-                    )}
-                  </div>
+                  {!((fracSlot === 'uv254' && fracPhoto254.preview) ||
+                    (fracSlot === 'uv365' && fracPhoto365.preview) ||
+                    (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
+                    <div className="text-center p-3 text-slate-400">
+                      <Camera className="w-8 h-8 mx-auto mb-1 opacity-50 text-indigo-400" />
+                      <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
+                    </div>
+                  )}
+                </div>
 
-                  <div className="relative aspect-[4/3] bg-black/80 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                    {fracSlot === 'uv254' && fracPhoto254.preview && (
-                      <img src={fracPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
-                    )}
-                    {fracSlot === 'uv365' && fracPhoto365.preview && (
-                      <img src={fracPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
-                    )}
-                    {fracSlot === 'reagent' && fracPhotoReagent.preview && (
-                      <img src={fracPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
-                    )}
+                {/* Camera and Upload Buttons - VISIBLE WITHOUT SCROLL */}
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <label className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md select-none touch-manipulation min-h-[44px]">
+                    <Camera className="w-4 h-4 flex-shrink-0" />
+                    <span>Mở Camera</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
+                        else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
+                        else handlePhotoSelect(e, setFracPhotoReagent);
+                      }}
+                      className="sr-only"
+                    />
+                  </label>
 
-                    {!((fracSlot === 'uv254' && fracPhoto254.preview) ||
-                      (fracSlot === 'uv365' && fracPhoto365.preview) ||
-                      (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
-                      <div className="text-center p-6 text-slate-400">
-                        <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-indigo-400" />
-                        <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Nhấn một trong 2 nút bên dưới</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Native Camera and Upload Buttons */}
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <label className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3 px-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md select-none touch-manipulation min-h-[48px]">
-                      <Camera className="w-4 h-4 flex-shrink-0" />
-                      <span>Mở Camera Chụp</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => {
-                          if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
-                          else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
-                          else handlePhotoSelect(e, setFracPhotoReagent);
-                        }}
-                        className="sr-only"
-                      />
-                    </label>
-
-                    <label className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold py-3 px-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm select-none touch-manipulation min-h-[48px] border border-slate-700">
-                      <Upload className="w-4 h-4 flex-shrink-0" />
-                      <span>Chọn Từ Thư Viện</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
-                          else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
-                          else handlePhotoSelect(e, setFracPhotoReagent);
-                        }}
-                        className="sr-only"
-                      />
-                    </label>
-                  </div>
+                  <label className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm select-none touch-manipulation min-h-[44px] border border-slate-700">
+                    <Upload className="w-4 h-4 flex-shrink-0" />
+                    <span>Chọn Từ Máy</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
+                        else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
+                        else handlePhotoSelect(e, setFracPhotoReagent);
+                      }}
+                      className="sr-only"
+                    />
+                  </label>
                 </div>
               </div>
 
-              {/* Observation Notes */}
+              {/* Compact Observation Notes */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Nhận xét các phân đoạn trên bản mỏng:
+                  Ghi chú:
                 </label>
-                <textarea
-                  rows="2"
+                <input
+                  type="text"
                   value={fracNotes}
                   onChange={(e) => setFracNotes(e.target.value)}
-                  placeholder="VD: Ống F8 bắt đầu có vết sản phẩm sạch, F14 xuất hiện vết tạp sau..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs sm:text-sm focus:outline-none min-h-[44px]"
-                ></textarea>
+                  placeholder="VD: F8-F12 vết sạch, F14 xuất hiện tạp..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none min-h-[38px]"
+                />
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
+            <div className="p-3 px-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setFracTlcModalOpen(false)}
-                className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[44px]"
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[40px] cursor-pointer"
               >
-                Hủy
+                Hủy (Esc)
               </button>
               <button
                 type="button"
                 onClick={handleSaveFracTlc}
                 disabled={fracUploading}
-                className="px-6 py-2.5 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[44px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-5 py-2 rounded-xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[40px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {fracUploading ? 'Đang lưu ảnh...' : editingFracTlcId ? 'Cập Nhật Bản Mỏng' : 'Lưu Bản Mỏng Phân Đoạn'}
+                {fracUploading ? 'Đang lưu...' : editingFracTlcId ? 'Cập Nhật (Enter)' : 'Lưu Bản Mỏng (Enter)'}
               </button>
             </div>
           </div>
@@ -1662,15 +1838,13 @@ export const ColumnFractionManager = ({
                   <h3 className="font-bold text-base text-slate-900">
                     Sắc Ký TLC Mẫu Gộp: {activeGroup.name}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Kiểm tra độ tinh khiết mẫu gộp ({activeGroup.range}) trước khi cô quay thu sản phẩm
-                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setPoolTlcModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                title="Đóng (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1860,9 +2034,9 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={() => setPoolTlcModalOpen(false)}
-                className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[44px]"
+                className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[44px] cursor-pointer"
               >
-                Hủy
+                Hủy (Esc)
               </button>
               <button
                 type="button"
@@ -1870,7 +2044,7 @@ export const ColumnFractionManager = ({
                 disabled={poolUploading}
                 className="px-6 py-2.5 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[44px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {poolUploading ? 'Đang lưu ảnh...' : 'Lưu TLC Mẫu Gộp'}
+                {poolUploading ? 'Đang lưu...' : 'Lưu TLC Mẫu Gộp (Enter)'}
               </button>
             </div>
           </div>
@@ -1895,6 +2069,7 @@ export const ColumnFractionManager = ({
               type="button"
               onClick={() => setLightboxData(null)}
               className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full cursor-pointer"
+              title="Đóng (Esc)"
             >
               <X className="w-6 h-6" />
             </button>

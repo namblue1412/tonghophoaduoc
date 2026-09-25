@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FileImage,
   Camera,
@@ -236,6 +236,38 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setEditingPlateId(null);
   };
 
+  // Keyboard shortcut handlers: Esc to close, Enter to save
+  const handleSaveTLCRef = useRef();
+  handleSaveTLCRef.current = handleSaveTLC;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (lightboxData) {
+          setLightboxData(null);
+          return;
+        }
+        if (modalOpen) {
+          setModalOpen(false);
+          return;
+        }
+      }
+
+      if (e.key === 'Enter') {
+        if (e.target && e.target.tagName === 'TEXTAREA') return;
+        if (modalOpen && !uploading) {
+          e.preventDefault();
+          handleSaveTLCRef.current?.();
+        }
+      }
+    };
+
+    if (modalOpen || lightboxData) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [modalOpen, lightboxData, uploading]);
+
   // Delete TLC plate
   const handleDeletePlate = (id) => {
     if (window.confirm('Xóa bản mỏng TLC này?')) {
@@ -270,13 +302,13 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              3. Sắc Ký Mỏng (3 Ảnh: UV 254 / UV 365 / Thuốc Thử)
+              3. Sắc Ký Lớp Mỏng (TLC)
               <span className="text-xs bg-indigo-500/30 text-indigo-300 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-medium">
                 {tlcList.length} bản mỏng
               </span>
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Soi 3 ảnh đồng thời: UV 254 nm, UV 365 nm và 1 thuốc thử hiện màu
+              Theo dõi tiến trình phản ứng (UV 254 nm, UV 365 nm, Thuốc thử)
             </p>
           </div>
         </div>
@@ -288,7 +320,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
           className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs sm:text-sm font-bold px-4 py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer no-print min-h-[48px] w-full sm:w-auto"
         >
           <Camera className="w-4 h-4" />
-          <span>Thêm Bản Mỏng (3 Ảnh)</span>
+          <span>+ Thêm Bản Mỏng TLC</span>
         </button>
       </div>
 
@@ -549,17 +581,18 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
-                    {editingPlateId ? 'Chỉnh Sửa Bản Mỏng TLC (3 Ảnh)' : 'Thêm Bản Mỏng TLC (3 Ảnh)'}
+                    {editingPlateId ? 'Chỉnh Sửa Bản Mỏng TLC' : 'Thêm Bản Mỏng TLC'}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    {editingPlateId ? 'Cập nhật thời điểm, hệ dung môi, vết Rf hoặc thay đổi ảnh' : 'Chụp trực tiếp qua Camera điện thoại hoặc chọn từ thư viện'}
+                    Thời điểm, hệ dung môi, vết Rf & 3 ảnh
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                title="Đóng (Esc)"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -667,13 +700,13 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       {activePhotoSlot === 'uv254' && (
                         <>
                           <Sun className="w-4 h-4 text-emerald-400" />
-                          <span className="text-emerald-400">1. Đèn UV 254 nm (Soi tắt huỳnh quang)</span>
+                          <span className="text-emerald-400">1. Đèn UV 254 nm</span>
                         </>
                       )}
                       {activePhotoSlot === 'uv365' && (
                         <>
                           <Moon className="w-4 h-4 text-violet-400" />
-                          <span className="text-violet-400">2. Đèn UV 365 nm (Soi phát huỳnh quang)</span>
+                          <span className="text-violet-400">2. Đèn UV 365 nm</span>
                         </>
                       )}
                       {activePhotoSlot === 'reagent' && (
@@ -867,9 +900,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="px-4 py-3 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[48px]"
+                className="px-4 py-3 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[48px] cursor-pointer"
               >
-                Hủy
+                Hủy (Esc)
               </button>
               <button
                 type="button"
@@ -877,7 +910,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 disabled={uploading}
                 className="px-6 py-3 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[48px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {uploading ? 'Đang lưu ảnh...' : (editingPlateId ? 'Cập Nhật Bản Mỏng' : 'Lưu Bản Mỏng (3 Ảnh)')}
+                {uploading ? 'Đang lưu...' : (editingPlateId ? 'Cập Nhật (Enter)' : 'Lưu Bản Mỏng (Enter)')}
               </button>
             </div>
           </div>
@@ -901,7 +934,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
             <button
               type="button"
               onClick={() => setLightboxData(null)}
-              className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full"
+              className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full cursor-pointer"
+              title="Đóng (Esc)"
             >
               <X className="w-6 h-6" />
             </button>

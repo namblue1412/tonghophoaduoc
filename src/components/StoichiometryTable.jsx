@@ -257,7 +257,7 @@ export const StoichiometryTable = ({
               </span>
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Hỗ trợ nhập dấu phẩy (,) và chấm (.) • Tự động tính mol ($n$) & đương lượng ($eq$)
+              Bảng tính số mol và đương lượng phản ứng
             </p>
           </div>
         </div>
@@ -295,7 +295,7 @@ export const StoichiometryTable = ({
             type="button"
             onClick={autoScaleTheoreticalMass}
             className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs px-3.5 py-2 rounded-2xl flex items-center gap-1.5 transition-all cursor-pointer font-bold border border-indigo-400/30 min-h-[44px]"
-            title="Tự động tính khối lượng lý thuyết từ đương lượng (eq)"
+            title="Tính khối lượng lý thuyết từ đương lượng (eq)"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
             <span>Tính m theo eq</span>

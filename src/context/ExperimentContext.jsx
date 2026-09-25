@@ -206,19 +206,20 @@ export const ExperimentProvider = ({ children }) => {
           columnSize: '2.0 cm x 30 cm',
           eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
         },
-        totalFractions: 1,
-        fractions: [
-          {
-            number: 1,
-            tlcChecked: false,
-            spotPattern: 'empty',
-            group: null,
-            note: ''
-          }
-        ],
+        totalFractions: 10,
+        fractions: Array.from({ length: 10 }, (_, i) => ({
+          number: i + 1,
+          tlcChecked: false,
+          spotPattern: 'empty',
+          group: null,
+          note: ''
+        })),
         fractionGroups: [],
         fractionTlcPlates: [],
         eppendorfYield: {
+          tubes: [
+            { id: 'tube-1', label: 'Ống 1', tareMass: '0', grossMass: '0', productMass: 0 }
+          ],
           tubeTareMass: '0',
           tubeGrossMass: '0',
           productMass: 0,

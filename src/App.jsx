@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExperimentProvider, useExperiment } from './context/ExperimentContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
@@ -16,6 +16,17 @@ function AppContent() {
 
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'detail'
   const [newModalOpen, setNewModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!newModalOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setNewModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [newModalOpen]);
 
   // New Experiment Form State
   const [newCode, setNewCode] = useState('');
@@ -84,7 +95,7 @@ function AppContent() {
             <span>MedChem ELN - Nhật Ký Nghiên Cứu Tổng Hợp Hóa Dược</span>
           </div>
           <div>
-            Hỗ trợ chế độ Kép (Firebase Realtime Cloud & Offline LocalStorage) • Chuẩn GLP Lab Dược
+            Lưu trữ Realtime Database & Offline LocalStorage • Nhật ký nghiên cứu thực nghiệm
           </div>
         </div>
       </footer>

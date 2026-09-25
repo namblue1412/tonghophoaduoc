@@ -242,14 +242,14 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
             <div>
               <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
                 <Scale className="w-5 h-5 text-amber-600" />
-                Cân Khối Lượng Cắn Thô Trước Khi Lên Cột (Eppendorf Tare Weighing)
+                Cân Khối Lượng Cắn Thô (Ống Eppendorf)
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Cân trừ bì vỏ ống Eppendorf để xác định chính xác khối lượng cắn nạp cột
+                Cân trừ bì vỏ ống để xác định khối lượng cắn thô nạp cột
               </p>
             </div>
-            <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-mono font-semibold">
-              Cân phân tích 4 số lẻ
+            <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full font-mono font-medium">
+              Trừ bì tự động
             </span>
           </div>
 

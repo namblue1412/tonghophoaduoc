@@ -110,6 +110,24 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     }
   };
 
+  const confirmPauseRef = useRef(confirmPause);
+  confirmPauseRef.current = confirmPause;
+
+  useEffect(() => {
+    if (!pauseNoteModal) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPauseNoteModal(false);
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.target.tagName !== 'TEXTAREA')) {
+        e.preventDefault();
+        confirmPauseRef.current();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pauseNoteModal]);
+
   // RESUME
   const handleResume = () => {
     handleStart();
@@ -169,10 +187,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              2. Quản lý Thời Gian Phản Ứng (Reaction Session Timer)
+              2. Thời Gian Phản Ứng
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Hỗ trợ phản ứng ngắt quãng qua đêm/nhiều phiên & tích lũy tổng thời gian khuấy thực tế
+              Theo dõi thời gian khuấy và lưu lịch sử các phiên phản ứng
             </p>
           </div>
         </div>
@@ -329,10 +347,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <History className="w-4 h-4 text-indigo-600" />
-              Lịch sử các phiên khuấy ngắt quãng ({intervals?.length || 0})
+              Lịch sử các phiên khuấy ({intervals?.length || 0})
             </h3>
             <span className="text-xs text-slate-500">
-              Ghi nhận đầy đủ cho hồ sơ GLP / Dược điển
+              Chi tiết các lần khuấy
             </span>
           </div>
 
@@ -415,14 +433,14 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                 onClick={() => setPauseNoteModal(false)}
                 className="px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-medium min-h-[44px]"
               >
-                Hủy
+                Hủy (Esc)
               </button>
               <button
                 type="button"
                 onClick={confirmPause}
                 className="px-5 py-2.5 rounded-xl text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-md min-h-[44px]"
               >
-                Xác nhận Tạm dừng
+                Xác nhận Tạm dừng (Enter)
               </button>
             </div>
           </div>
