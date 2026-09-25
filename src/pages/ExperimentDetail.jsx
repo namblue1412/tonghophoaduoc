@@ -139,10 +139,16 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     });
   };
 
+  const handleUnitsChange = (newUnits) => {
+    updateExperiment(activeExperiment.id, {
+      units: newUnits
+    });
+  };
+
   // Find limiting reagent moles & target MW for yield calculation
   const limitingReagent = activeExperiment.stoichiometry?.find((r) => r.isLimiting) || activeExperiment.stoichiometry?.[0];
-  const limitingMoles = limitingReagent ? parseFloat(limitingReagent.moles) || 0 : 0;
-  const targetMW = parseFloat(activeExperiment.targetMolecule?.molecularWeight) || 0;
+  const limitingMoles = limitingReagent ? parseFloat(String(limitingReagent.moles).replace(',', '.')) || 0 : 0;
+  const targetMW = parseFloat(String(activeExperiment.targetMolecule?.molecularWeight).replace(',', '.')) || 0;
 
   const handleManualSave = () => {
     updateExperiment(activeExperiment.id, {});
@@ -327,6 +333,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
           onChange={handleStoichiometryChange}
           targetMolecule={activeExperiment.targetMolecule}
           onTargetChange={handleTargetChange}
+          units={activeExperiment.units || { mass: 'g', mole: 'mol' }}
+          onUnitsChange={handleUnitsChange}
         />
       </section>
 
@@ -354,6 +362,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <WorkupSection
           workupData={activeExperiment.workup}
           onChange={handleWorkupChange}
+          massUnit={activeExperiment.units?.mass || 'g'}
         />
       </section>
 
@@ -364,6 +373,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
           onChange={handleColumnChange}
           limitingMoles={limitingMoles}
           targetMW={targetMW}
+          massUnit={activeExperiment.units?.mass || 'g'}
+          moleUnit={activeExperiment.units?.mole || 'mol'}
         />
       </section>
 

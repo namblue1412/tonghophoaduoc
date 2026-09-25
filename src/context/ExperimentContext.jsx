@@ -16,7 +16,7 @@ export const ExperimentProvider = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
 
-  // Initialize and load experiments (NO auto-seed of sample data)
+  // Initialize and load experiments
   useEffect(() => {
     // Purge old sample experiment if it exists in localStorage
     try {
@@ -73,7 +73,7 @@ export const ExperimentProvider = ({ children }) => {
     setLastSaved(new Date());
   };
 
-  // Create new experiment
+  // Create new experiment with rich multi-substance chemistry setup
   const createNewExperiment = async (customMeta = {}) => {
     const newId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
     const newExperiment = {
@@ -84,45 +84,99 @@ export const ExperimentProvider = ({ children }) => {
       labRoom: customMeta.labRoom || 'Phòng Thí Nghiệm Hóa Dược',
       date: new Date().toISOString().split('T')[0],
       status: 'draft',
+      // Configurable units: 'g' / 'mol' or 'mg' / 'mmol'
+      units: {
+        mass: customMeta.massUnit || 'g', // 'g' | 'mg'
+        mole: customMeta.moleUnit || 'mol', // 'mol' | 'mmol'
+      },
       targetMolecule: {
         name: customMeta.targetName || 'Sản phẩm mục tiêu',
         molecularFormula: '',
-        molecularWeight: 0,
+        molecularWeight: '0',
         smiles: '',
         appearance: ''
       },
+      // Realistic Multi-Reagent Starting Template: SM + Reagent + Catalyst + Base/Acid + Solvent
       stoichiometry: [
         {
           id: `reagent-${Date.now()}-1`,
           type: 'starting_material',
-          name: 'Chất đầu A',
+          name: 'Chất đầu A (Starting Material)',
           formula: '',
-          mw: 100,
-          purity: 99.0,
-          density: 1.0,
+          mw: '150.0',
+          purity: '99.0',
+          density: '1.0',
           isLimiting: true,
-          theoMass: 1.0,
-          actualMass: 1.0,
-          actualVolume: 1.0,
+          theoMass: '1.50',
+          actualMass: '1.50',
+          actualVolume: '0',
           moles: 0.0099,
           eq: 1.0,
-          notes: 'Chất giới hạn'
+          notes: 'Chất giới hạn (1.00 eq)'
         },
         {
           id: `reagent-${Date.now()}-2`,
           type: 'reagent',
-          name: 'Thuốc thử B',
+          name: 'Thuốc thử B (Reagent)',
           formula: '',
-          mw: 120,
-          purity: 98.0,
-          density: 1.0,
+          mw: '120.0',
+          purity: '98.0',
+          density: '1.0',
           isLimiting: false,
-          theoMass: 1.2,
-          actualMass: 1.2,
-          actualVolume: 1.2,
-          moles: 0.0098,
-          eq: 0.99,
-          notes: ''
+          theoMass: '1.45',
+          actualMass: '1.45',
+          actualVolume: '1.45',
+          moles: 0.0118,
+          eq: 1.19,
+          notes: 'Thuốc thử chính (lấy dư)'
+        },
+        {
+          id: `reagent-${Date.now()}-3`,
+          type: 'catalyst',
+          name: 'Xúc tác C (Catalyst)',
+          formula: '',
+          mw: '98.0',
+          purity: '98.0',
+          density: '1.84',
+          isLimiting: false,
+          theoMass: '0.15',
+          actualMass: '0.15',
+          actualVolume: '0.08',
+          moles: 0.0015,
+          eq: 0.15,
+          notes: '0.15 eq xúc tác'
+        },
+        {
+          id: `reagent-${Date.now()}-4`,
+          type: 'base_acid',
+          name: 'Môi trường (Base / Acid)',
+          formula: '',
+          mw: '101.0',
+          purity: '99.0',
+          density: '0.73',
+          isLimiting: false,
+          theoMass: '1.05',
+          actualMass: '1.05',
+          actualVolume: '1.44',
+          moles: 0.0103,
+          eq: 1.04,
+          notes: 'Chất điều chỉnh môi trường phản ứng'
+        },
+        {
+          id: `reagent-${Date.now()}-5`,
+          type: 'solvent',
+          name: 'Dung môi phản ứng (Solvent)',
+          formula: '',
+          mw: '46.0',
+          purity: '99.5',
+          density: '0.789',
+          isLimiting: false,
+          theoMass: '0',
+          actualMass: '15.8',
+          actualVolume: '20.0',
+          moles: 0,
+          eq: 0,
+          notes: 'Dung môi hòa tan'
         }
       ],
       reactionTimer: {
@@ -141,12 +195,12 @@ export const ExperimentProvider = ({ children }) => {
         rotavaporTemp: '40°C',
         rotavaporPressure: '',
         residueAppearance: '',
-        crudeMass: 0,
+        crudeMass: '0',
         workupNotes: ''
       },
       columnAndYield: {
         columnParams: {
-          silicaMass: 30,
+          silicaMass: '30',
           columnSize: '2.0 cm x 30 cm',
           eluentGradient: 'Hexan : EtOAc (9:1) -> (4:1)'
         },
@@ -160,13 +214,13 @@ export const ExperimentProvider = ({ children }) => {
         })),
         fractionGroups: [],
         eppendorfYield: {
-          tubeTareMass: 0,
-          tubeGrossMass: 0,
+          tubeTareMass: '0',
+          tubeGrossMass: '0',
           productMass: 0,
-          targetMW: 0,
+          targetMW: '0',
           theoreticalYield: 0,
           yieldPercent: 0,
-          purityHplc: 0,
+          purityHplc: '0',
           meltingPoint: '',
           productAppearance: '',
           fractionTlcImages: []

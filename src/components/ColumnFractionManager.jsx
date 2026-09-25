@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Grid,
   Filter,
@@ -18,12 +18,15 @@ import {
   X
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { parseDecimal } from './StoichiometryTable';
 
 export const ColumnFractionManager = ({
   columnData,
   onChange,
   limitingMoles = 0,
-  targetMW = 0
+  targetMW = 0,
+  massUnit = 'g',
+  moleUnit = 'mol'
 }) => {
   const { uploadImage } = useExperiment();
   const fileInputRef = useRef(null);
@@ -168,18 +171,21 @@ export const ColumnFractionManager = ({
       [field]: val
     };
 
-    const tare = field === 'tubeTareMass' ? parseFloat(val) || 0 : parseFloat(eppendorfYield.tubeTareMass) || 0;
-    const gross = field === 'tubeGrossMass' ? parseFloat(val) || 0 : parseFloat(eppendorfYield.tubeGrossMass) || 0;
-    const mw = targetMW > 0 ? targetMW : (field === 'targetMW' ? parseFloat(val) || 0 : parseFloat(eppendorfYield.targetMW) || 0);
+    const tare = parseDecimal(field === 'tubeTareMass' ? val : eppendorfYield.tubeTareMass);
+    const gross = parseDecimal(field === 'tubeGrossMass' ? val : eppendorfYield.tubeGrossMass);
+    const mw = targetMW > 0 ? targetMW : parseDecimal(field === 'targetMW' ? val : eppendorfYield.targetMW);
 
     const productMass = Math.max(0, gross - tare);
     updatedYield.productMass = parseFloat(productMass.toFixed(4));
 
-    // Theoretical yield: moles_limiting * targetMW
+    let scale = 1;
+    if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
+    if (moleUnit === 'mol' && massUnit === 'mg') scale = 1000;
+
     let theoYield = 0;
     let yieldPct = 0;
     if (limitingMoles > 0 && mw > 0) {
-      theoYield = limitingMoles * mw;
+      theoYield = limitingMoles * mw * scale;
       updatedYield.theoreticalYield = parseFloat(theoYield.toFixed(4));
       if (theoYield > 0 && productMass > 0) {
         yieldPct = (productMass / theoYield) * 100;
@@ -194,6 +200,47 @@ export const ColumnFractionManager = ({
       eppendorfYield: updatedYield
     });
   };
+
+  // Sync theoretical yield when stoichiometry units, target MW, or limiting moles change
+  useEffect(() => {
+    const tare = parseDecimal(eppendorfYield?.tubeTareMass);
+    const gross = parseDecimal(eppendorfYield?.tubeGrossMass);
+    const mw = targetMW > 0 ? targetMW : parseDecimal(eppendorfYield?.targetMW);
+    const productMass = Math.max(0, gross - tare);
+
+    let scale = 1;
+    if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
+    if (moleUnit === 'mol' && massUnit === 'mg') scale = 1000;
+
+    let theoYield = 0;
+    let yieldPct = 0;
+    if (limitingMoles > 0 && mw > 0) {
+      theoYield = limitingMoles * mw * scale;
+      if (theoYield > 0 && productMass > 0) {
+        yieldPct = (productMass / theoYield) * 100;
+      }
+    }
+
+    const currentTheo = eppendorfYield?.theoreticalYield || 0;
+    const currentPct = eppendorfYield?.yieldPercent || 0;
+    const currentProd = eppendorfYield?.productMass || 0;
+
+    const newTheo = parseFloat(theoYield.toFixed(4));
+    const newPct = parseFloat(yieldPct.toFixed(2));
+    const newProd = parseFloat(productMass.toFixed(4));
+
+    if (newTheo !== currentTheo || newPct !== currentPct || newProd !== currentProd) {
+      onChange({
+        ...columnData,
+        eppendorfYield: {
+          ...eppendorfYield,
+          productMass: newProd,
+          theoreticalYield: newTheo,
+          yieldPercent: newPct
+        }
+      });
+    }
+  }, [limitingMoles, targetMW, massUnit, moleUnit]);
 
   // Upload fraction TLC plate
   const handleUploadFractionTlc = async (e) => {
@@ -257,12 +304,13 @@ export const ColumnFractionManager = ({
           <div>
             <span className="font-semibold text-slate-600 block mb-1">Khối lượng Silicagel (g):</span>
             <input
-              type="number"
-              value={columnParams.silicaMass || ''}
+              type="text"
+              inputMode="decimal"
+              value={columnParams.silicaMass ?? ''}
               onChange={(e) =>
                 onChange({
                   ...columnData,
-                  columnParams: { ...columnParams, silicaMass: parseFloat(e.target.value) || 0 }
+                  columnParams: { ...columnParams, silicaMass: e.target.value.replace(/[^0-9.,]/g, '') }
                 })
               }
               placeholder="VD: 30"
@@ -453,14 +501,13 @@ export const ColumnFractionManager = ({
             {/* m vỏ */}
             <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-sm">
               <label className="text-xs font-semibold text-slate-600 block mb-1">
-                m(vỏ) Eppendorf (g):
+                m(vỏ) Eppendorf ({massUnit}):
               </label>
               <input
-                type="number"
-                step="0.0001"
-                min="0"
-                value={eppendorfYield.tubeTareMass || ''}
-                onChange={(e) => handleEppendorfChange('tubeTareMass', e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={eppendorfYield.tubeTareMass ?? ''}
+                onChange={(e) => handleEppendorfChange('tubeTareMass', e.target.value.replace(/[^0-9.,]/g, ''))}
                 placeholder="1.0520"
                 className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
               />
@@ -470,14 +517,13 @@ export const ColumnFractionManager = ({
             {/* m vỏ + cắn */}
             <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-sm">
               <label className="text-xs font-semibold text-slate-600 block mb-1">
-                m(vỏ + cắn) sau cô quay (g):
+                m(vỏ + cắn) sau cô quay ({massUnit}):
               </label>
               <input
-                type="number"
-                step="0.0001"
-                min="0"
-                value={eppendorfYield.tubeGrossMass || ''}
-                onChange={(e) => handleEppendorfChange('tubeGrossMass', e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={eppendorfYield.tubeGrossMass ?? ''}
+                onChange={(e) => handleEppendorfChange('tubeGrossMass', e.target.value.replace(/[^0-9.,]/g, ''))}
                 placeholder="2.4962"
                 className="w-full text-right font-mono font-bold text-base bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-lg p-2 focus:outline-none min-h-[44px]"
               />
@@ -490,8 +536,8 @@ export const ColumnFractionManager = ({
                 m(sản phẩm) thu được:
               </div>
               <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right my-1">
-                {eppendorfYield.productMass?.toFixed(4) || '0.0000'}{' '}
-                <span className="text-sm font-normal text-emerald-700">g</span>
+                {eppendorfYield.productMass !== undefined ? eppendorfYield.productMass.toFixed(4) : '0.0000'}{' '}
+                <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
               </div>
               <div className="text-[11px] text-emerald-800 font-medium">
                 = m(vỏ+cắn) - m(vỏ)
@@ -508,7 +554,7 @@ export const ColumnFractionManager = ({
                 {eppendorfYield.yieldPercent ? `${eppendorfYield.yieldPercent.toFixed(1)}%` : '0.0%'}
               </div>
               <div className="text-[11px] text-slate-300 font-mono">
-                Lý thuyết: {eppendorfYield.theoreticalYield?.toFixed(4) || '0.0000'} g
+                Lý thuyết: {eppendorfYield.theoreticalYield?.toFixed(4) || '0.0000'} {massUnit}
               </div>
             </div>
           </div>
@@ -533,12 +579,10 @@ export const ColumnFractionManager = ({
                 Độ tinh khiết HPLC / NMR (%):
               </label>
               <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
-                value={eppendorfYield.purityHplc || ''}
-                onChange={(e) => handleEppendorfChange('purityHplc', parseFloat(e.target.value) || 0)}
+                type="text"
+                inputMode="decimal"
+                value={eppendorfYield.purityHplc ?? ''}
+                onChange={(e) => handleEppendorfChange('purityHplc', e.target.value.replace(/[^0-9.,]/g, ''))}
                 placeholder="98.5%"
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-mono font-bold text-indigo-700 focus:outline-none min-h-[44px]"
               />
@@ -560,25 +604,34 @@ export const ColumnFractionManager = ({
 
           {/* Upload Fraction TLC Plates */}
           <div className="pt-2 border-t border-emerald-200/60">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Camera className="w-4 h-4 text-indigo-600" />
                 Ảnh bản mỏng TLC kiểm tra các phân đoạn cạnh nhau:
               </label>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm no-print min-h-[36px]"
-              >
-                <Upload className="w-3.5 h-3.5" /> Tải ảnh TLC phân đoạn
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                onChange={handleUploadFractionTlc}
-                className="hidden"
-              />
+              <div className="flex items-center gap-2 no-print">
+                <label className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm min-h-[38px] cursor-pointer select-none font-bold">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Chụp ảnh</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleUploadFractionTlc}
+                    className="sr-only"
+                  />
+                </label>
+                <label className="bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm min-h-[38px] cursor-pointer select-none font-semibold">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Chọn tệp</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadFractionTlc}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
             </div>
 
             {/* Gallery of Fraction TLCs */}

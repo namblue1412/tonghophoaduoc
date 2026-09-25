@@ -12,7 +12,7 @@ import {
   Wind
 } from 'lucide-react';
 
-export const WorkupSection = ({ workupData, onChange }) => {
+export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
   const {
     quenching = '',
     extractionSolvent = '',
@@ -217,14 +217,13 @@ export const WorkupSection = ({ workupData, onChange }) => {
 
             <div>
               <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                <TestTube className="w-4 h-4 text-amber-500" /> Khối lượng cắn thô (g):
+                <TestTube className="w-4 h-4 text-amber-500" /> Khối lượng cắn thô ({massUnit}):
               </label>
               <input
-                type="number"
-                step="0.001"
-                min="0"
-                value={crudeMass || ''}
-                onChange={(e) => handleFieldChange('crudeMass', parseFloat(e.target.value) || 0)}
+                type="text"
+                inputMode="decimal"
+                value={crudeMass ?? ''}
+                onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
                 placeholder="0.000"
                 className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs sm:text-sm font-mono font-bold text-amber-800 focus:outline-none min-h-[44px]"
               />
