@@ -53,22 +53,22 @@ export const ExperimentProvider = ({ children }) => {
   // Save/Update experiment
   const updateExperiment = async (id, updatedFields) => {
     setIsSyncing(true);
-    let target = experiments.find((e) => e.id === id);
-    if (!target) {
-      setIsSyncing(false);
-      return;
+    let merged = null;
+
+    setExperiments((prev) => {
+      const target = prev.find((e) => e.id === id);
+      if (!target) return prev;
+      merged = {
+        ...target,
+        ...updatedFields,
+        updatedAt: new Date().toISOString()
+      };
+      return prev.map((e) => (e.id === id ? merged : e));
+    });
+
+    if (merged) {
+      await saveExperimentData(merged);
     }
-
-    const merged = {
-      ...target,
-      ...updatedFields,
-      updatedAt: new Date().toISOString()
-    };
-
-    const newExperiments = experiments.map((e) => (e.id === id ? merged : e));
-    setExperiments(newExperiments);
-
-    await saveExperimentData(merged);
     setIsSyncing(false);
     setLastSaved(new Date());
   };

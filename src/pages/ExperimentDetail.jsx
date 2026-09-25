@@ -109,10 +109,14 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     });
   };
 
-  const handleTimerChange = (newTimerData) => {
-    updateExperiment(activeExperiment.id, {
+  const handleTimerChange = (newTimerData, newStatus) => {
+    const patch = {
       reactionTimer: newTimerData
-    });
+    };
+    if (newStatus && newStatus !== activeExperiment.status) {
+      patch.status = newStatus;
+    }
+    updateExperiment(activeExperiment.id, patch);
   };
 
   const handleStatusChange = (newStatus) => {
