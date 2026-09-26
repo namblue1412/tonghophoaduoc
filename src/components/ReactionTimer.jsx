@@ -347,40 +347,40 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden card-print">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 rounded-xl shadow-md text-white">
-            <Timer className="w-5 h-5 sm:w-6 sm:h-6" />
+      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="p-2 sm:p-2.5 bg-emerald-600 rounded-2xl shadow-md text-white flex-shrink-0 mt-0.5 sm:mt-0">
+            <Timer className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-lg font-bold text-white leading-snug">
               2. Thời Gian Phản Ứng
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">
               Theo dõi thời gian khuấy và lưu lịch sử các phiên phản ứng
             </p>
           </div>
         </div>
 
         {/* Status Indicator */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {status === 'running' && (
-            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 animate-pulse">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Đang đếm thời gian
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 animate-pulse whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Đang đếm giờ
             </span>
           )}
           {status === 'paused' && (
-            <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Đang tạm dừng
+            <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span> Tạm dừng
             </span>
           )}
           {status === 'stopped' && (
-            <span className="bg-slate-700 text-slate-300 border border-slate-600 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> Đã hoàn tất khuấy
+            <span className="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> Đã hoàn tất
             </span>
           )}
           {status === 'idle' && (
-            <span className="bg-slate-800 text-slate-400 border border-slate-700 px-3 py-1 rounded-full text-xs font-semibold">
+            <span className="bg-slate-800 text-slate-400 border border-slate-700 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap">
               Chưa bắt đầu
             </span>
           )}

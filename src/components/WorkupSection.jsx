@@ -146,44 +146,44 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden card-print">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 rounded-xl shadow-md text-white">
-            <Waves className="w-5 h-5 sm:w-6 sm:h-6" />
+      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="p-2 sm:p-2.5 bg-blue-600 rounded-2xl shadow-md text-white flex-shrink-0 mt-0.5 sm:mt-0">
+            <Waves className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-lg font-bold text-white leading-snug">
               4. Xử Lý Thô & Cô Quay
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Quy trình dập phản ứng, chiết tách pha hữu cơ, làm khô và thông số cô quay chân không
+            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">
+              Quy trình dập phản ứng, chiết tách pha hữu cơ, làm khô và cô quay
             </p>
           </div>
         </div>
 
         {/* Quick Presets for Gloved Lab Work */}
-        <div className="flex flex-wrap items-center gap-1.5 no-print">
-          <span className="text-[11px] text-slate-400 font-medium mr-1">Quy trình mẫu:</span>
+        <div className="flex overflow-x-auto sm:flex-wrap items-center gap-1.5 no-print w-full sm:w-auto pb-0.5 sm:pb-0 no-scrollbar">
+          <span className="text-[11px] text-slate-400 font-medium mr-1 whitespace-nowrap flex-shrink-0">Mẫu nhanh:</span>
           <button
             type="button"
             onClick={() => applyPreset('etac_brine')}
-            className="text-xs bg-indigo-800/60 hover:bg-indigo-700 text-indigo-200 px-2.5 py-1.5 rounded-lg border border-indigo-500/30 transition-colors"
+            className="text-[11px] sm:text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors whitespace-nowrap flex-shrink-0 cursor-pointer"
           >
-            EtOAc / Nước muối bão hòa
+            EtOAc / Nước muối
           </button>
           <button
             type="button"
             onClick={() => applyPreset('dcm_wash')}
-            className="text-xs bg-indigo-800/60 hover:bg-indigo-700 text-indigo-200 px-2.5 py-1.5 rounded-lg border border-indigo-500/30 transition-colors"
+            className="text-[11px] sm:text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors whitespace-nowrap flex-shrink-0 cursor-pointer"
           >
             DCM / NH4Cl
           </button>
           <button
             type="button"
             onClick={() => applyPreset('buchner_filter')}
-            className="text-xs bg-indigo-800/60 hover:bg-indigo-700 text-indigo-200 px-2.5 py-1.5 rounded-lg border border-indigo-500/30 transition-colors"
+            className="text-[11px] sm:text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors whitespace-nowrap flex-shrink-0 cursor-pointer"
           >
-            Lọc kết tủa Buchner
+            Lọc Buchner
           </button>
         </div>
       </div>

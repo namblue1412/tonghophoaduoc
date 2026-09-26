@@ -35,13 +35,30 @@ button, input, select, textarea {
   }
 }
 
-/* Safe area padding for iPhone Home Indicator bar */
+/* Safe area padding for iPhone Dynamic Island / Status Bar & Home Indicator */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 .pb-safe {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .bottom-safe {
   bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbar for horizontal chip carousels on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom Smooth Scrollbar */

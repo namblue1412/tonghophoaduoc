@@ -276,7 +276,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
 
   if (isPage) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 pt-safe pb-safe">
         {content}
         <div className="mt-6 text-center text-xs text-slate-400">
           MedChem ELN • Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược • Phiên bản Lab 2026
@@ -286,7 +286,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 pt-safe pb-safe animate-in fade-in">
       {content}
     </div>
   );

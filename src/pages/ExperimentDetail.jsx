@@ -241,64 +241,65 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5 pb-32 sm:pb-20">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-4 sm:space-y-5 pb-28 sm:pb-20">
       {/* Top Navigation & Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 no-print">
+      <div className="flex items-center justify-between gap-2 no-print">
         <button
           onClick={onBackToDashboard}
-          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 px-3.5 py-2.5 rounded-2xl border border-slate-200 transition-colors shadow-sm min-h-[44px]"
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-teal-700 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl border border-slate-200 transition-colors shadow-sm min-h-[40px] sm:min-h-[44px] cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 flex-shrink-0" />
           <span>Danh Sách</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {saveToast && (
-            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-2 rounded-xl border border-emerald-300 flex items-center gap-1 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Đã lưu!
+            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-2 rounded-xl border border-emerald-300 flex items-center gap-1 animate-in fade-in">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã lưu!
             </span>
           )}
 
           <button
             onClick={handleManualSave}
             disabled={isSyncing}
-            className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-2xl flex items-center gap-1.5 transition-all shadow-md min-h-[44px] cursor-pointer"
+            className="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl flex items-center gap-1.5 transition-all shadow-md min-h-[40px] sm:min-h-[44px] cursor-pointer"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 flex-shrink-0" />
             <span>{isSyncing ? 'Đang lưu...' : 'Lưu Sổ Tay'}</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-sm min-h-[44px]"
+            className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-sm min-h-[40px] sm:min-h-[44px] cursor-pointer"
             title="In phiếu nhật ký phòng thí nghiệm"
           >
-            <Printer className="w-4 h-4 text-slate-500" />
+            <Printer className="w-4 h-4 text-slate-500 flex-shrink-0" />
             <span className="hidden sm:inline">In sổ tay</span>
           </button>
         </div>
       </div>
 
       {/* Main Experiment Header & Metadata Dossier */}
-      <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4 card-print">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-          <div className="flex-1 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-sm space-y-3 sm:space-y-4 card-print">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 sm:gap-4">
+          <div className="flex-1 space-y-2.5 sm:space-y-3 min-w-0">
+            {/* Single-row Metadata Bar on Mobile & Desktop */}
+            <div className="grid grid-cols-12 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2">
               <input
                 type="text"
                 value={activeExperiment.code || ''}
                 onChange={(e) => handleMetaChange('code', e.target.value)}
                 placeholder="Mã TN (SYN-01)"
-                className="font-mono font-bold text-xs sm:text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-2 rounded-xl focus:outline-none min-h-[44px] w-32 uppercase"
+                className="col-span-3 sm:w-28 font-mono tabular-nums font-bold text-xs sm:text-sm bg-teal-50 border border-teal-200 text-teal-800 px-2.5 py-2 rounded-xl focus:outline-none focus:border-teal-500 min-h-[40px] sm:min-h-[44px] uppercase"
               />
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl min-h-[44px]">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <div className="col-span-5 sm:w-auto flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 sm:px-3 py-2 rounded-xl min-h-[40px] sm:min-h-[44px] min-w-0">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 hidden xs:inline sm:inline" />
                 <input
                   type="date"
                   value={activeExperiment.date || ''}
                   onChange={(e) => handleMetaChange('date', e.target.value)}
-                  className="bg-transparent text-xs text-slate-700 focus:outline-none"
+                  className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none w-full min-w-0"
                 />
               </div>
 
@@ -306,14 +307,14 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               <select
                 value={activeExperiment.status || 'draft'}
                 onChange={(e) => handleStatusChange(e.target.value)}
-                className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[44px]"
+                className="col-span-4 sm:w-auto text-xs font-bold px-2 sm:px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[40px] sm:min-h-[44px] truncate"
               >
                 <option value="draft">Bản nháp</option>
                 <option value="running">Đang khuấy</option>
                 <option value="paused">Tạm dừng</option>
                 <option value="workup">Xử lý thô</option>
                 <option value="purification">Sắc ký cột</option>
-                <option value="completed">Đã hoàn thành</option>
+                <option value="completed">Hoàn thành</option>
               </select>
             </div>
 
@@ -323,31 +324,31 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               value={activeExperiment.title || ''}
               onChange={(e) => handleMetaChange('title', e.target.value)}
               placeholder="Tên phản ứng thí nghiệm..."
-              className="w-full text-lg sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-1 focus:outline-none transition-colors"
+              className="w-full text-base sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 sm:py-1 focus:outline-none transition-colors"
             />
           </div>
 
-          {/* Researcher & Lab Room */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-200 lg:w-72">
-            <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+          {/* Researcher & Lab Room - Side by side on mobile to save vertical space */}
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 sm:p-3 rounded-2xl border border-slate-200 lg:w-72">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 flex-shrink-0" />
               <input
                 type="text"
                 value={activeExperiment.researcher || ''}
                 onChange={(e) => handleMetaChange('researcher', e.target.value)}
                 placeholder="Người thực hiện..."
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:outline-none min-h-[40px]"
+                className="w-full min-w-0 bg-white border border-slate-200 rounded-xl px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-800 focus:outline-none min-h-[38px] sm:min-h-[40px] truncate"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <Building className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 flex-shrink-0" />
               <input
                 type="text"
                 value={activeExperiment.labRoom || ''}
                 onChange={(e) => handleMetaChange('labRoom', e.target.value)}
                 placeholder="Phòng thí nghiệm..."
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium focus:outline-none min-h-[40px]"
+                className="w-full min-w-0 bg-white border border-slate-200 rounded-xl px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-medium text-slate-700 focus:outline-none min-h-[38px] sm:min-h-[40px] truncate"
               />
             </div>
           </div>
@@ -355,11 +356,11 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </div>
 
       {/* Desktop Sticky Quick-Jump Section Navigator */}
-      <div className="hidden md:flex sticky top-16 sm:top-18 z-30 bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 items-center justify-between gap-1 overflow-x-auto no-print">
+      <div className="hidden md:flex sticky top-16 z-30 bg-slate-900/95 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 items-center justify-between gap-1 overflow-x-auto no-print">
         <button
           type="button"
           onClick={() => scrollToSection('section-apparatus', 'apparatus')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
           <FlaskConical className="w-4 h-4 text-teal-400" />
           <span>0. Dụng cụ</span>
@@ -368,16 +369,16 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
-          <Scale className="w-4 h-4 text-indigo-400" />
+          <Scale className="w-4 h-4 text-teal-400" />
           <span>1. Cân đong</span>
         </button>
 
         <button
           type="button"
           onClick={() => scrollToSection('section-timer', 'timer')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
           <Timer className="w-4 h-4 text-emerald-400" />
           <span>2. Thời gian</span>
@@ -386,7 +387,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-tlc', 'tlc')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
           <Layers className="w-4 h-4 text-sky-400" />
           <span>3. Sắc ký TLC</span>
@@ -395,7 +396,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-workup', 'workup')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
           <Waves className="w-4 h-4 text-blue-400" />
           <span>4. Xử lý thô</span>
@@ -404,7 +405,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <button
           type="button"
           onClick={() => scrollToSection('section-column', 'column')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[44px] cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
         >
           <Filter className="w-4 h-4 text-amber-400" />
           <span>5. Cột & Hiệu suất</span>
@@ -412,7 +413,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </div>
 
       {/* Module 0: Apparatus & Glassware Preparation */}
-      <section id="section-apparatus" className="scroll-mt-28">
+      <section id="section-apparatus" className="scroll-mt-24">
         <ApparatusPreparation
           equipment={activeExperiment.equipment || []}
           onChange={handleEquipmentChange}
@@ -420,7 +421,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 1: Stoichiometry Table */}
-      <section id="section-stoichiometry" className="scroll-mt-28">
+      <section id="section-stoichiometry" className="scroll-mt-24">
         <StoichiometryTable
           reagents={activeExperiment.stoichiometry || []}
           onChange={handleStoichiometryChange}
@@ -432,7 +433,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 2: Reaction Session Timer */}
-      <section id="section-timer" className="scroll-mt-28">
+      <section id="section-timer" className="scroll-mt-24">
         <ReactionTimer
           timerData={activeExperiment.reactionTimer}
           onChange={handleTimerChange}
@@ -442,7 +443,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 3: TLC Timeline Monitor (3 Photos: UV 254, UV 365, Reagent) */}
-      <section id="section-tlc" className="scroll-mt-28">
+      <section id="section-tlc" className="scroll-mt-24">
         <TLCTracker
           tlcList={activeExperiment.tlcTimeline || []}
           onChange={handleTlcChange}
@@ -451,7 +452,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 4: Workup & Rotavapor Section */}
-      <section id="section-workup" className="scroll-mt-28">
+      <section id="section-workup" className="scroll-mt-24">
         <WorkupSection
           workupData={activeExperiment.workup}
           onChange={handleWorkupChange}
@@ -460,7 +461,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       </section>
 
       {/* Module 5: Column Chromatography & Eppendorf Yield */}
-      <section id="section-column" className="scroll-mt-28">
+      <section id="section-column" className="scroll-mt-24">
         <ColumnFractionManager
           columnData={activeExperiment.columnAndYield}
           onChange={handleColumnChange}
@@ -490,18 +491,18 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
 
       {/* FLOATING MINI LIVE TIMER BAR (Visible on mobile/tablet when running) */}
       {activeExperiment.reactionTimer?.status === 'running' && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden animate-in slide-in-from-bottom-4 no-print">
+        <div className="fixed bottom-16 left-3 right-3 z-40 md:hidden mb-safe animate-in slide-in-from-bottom-4 no-print">
           <div
             onClick={() => scrollToSection('section-timer', 'timer')}
-            className="bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center justify-between cursor-pointer"
+            className="bg-slate-900/95 text-white p-2.5 sm:p-3 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
               <div>
-                <div className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold">
-                  Phản ứng đang khuấy:
+                <div className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold leading-none">
+                  Phản ứng đang khuấy
                 </div>
-                <div className="font-mono text-base font-extrabold text-white">
+                <div className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-white mt-0.5">
                   {formatTime(totalCurrentTimer)}
                 </div>
               </div>
@@ -513,7 +514,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
                 e.stopPropagation();
                 scrollToSection('section-timer', 'timer');
               }}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-xl"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
             >
               Xem đồng hồ
             </button>
@@ -521,76 +522,94 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Zone Optimized) */}
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Zone Optimized & Compact) */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 md:hidden no-print pb-safe">
-        <div className="grid grid-cols-6 h-16 items-center px-1">
+        <div className="grid grid-cols-6 h-14 items-center px-1">
           <button
             type="button"
             onClick={() => scrollToSection('section-apparatus', 'apparatus')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
               activeNav === 'apparatus' ? 'text-teal-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <FlaskConical className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Dụng cụ</span>
+            {activeNav === 'apparatus' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-teal-400" />
+            )}
+            <FlaskConical className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Dụng cụ</span>
           </button>
 
           <button
             type="button"
             onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors ${
-              activeNav === 'stoichiometry' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
+              activeNav === 'stoichiometry' ? 'text-teal-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Scale className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Cân đong</span>
+            {activeNav === 'stoichiometry' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-teal-400" />
+            )}
+            <Scale className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Cân đong</span>
           </button>
 
           <button
             type="button"
             onClick={() => scrollToSection('section-timer', 'timer')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors relative ${
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
               activeNav === 'timer' ? 'text-emerald-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Timer className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Bấm giờ</span>
+            {activeNav === 'timer' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-emerald-400" />
+            )}
+            <Timer className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Bấm giờ</span>
             {activeExperiment.reactionTimer?.status === 'running' && (
-              <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             )}
           </button>
 
           <button
             type="button"
             onClick={() => scrollToSection('section-tlc', 'tlc')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
               activeNav === 'tlc' ? 'text-sky-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Layers className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">TLC</span>
+            {activeNav === 'tlc' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-sky-400" />
+            )}
+            <Layers className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">TLC</span>
           </button>
 
           <button
             type="button"
             onClick={() => scrollToSection('section-workup', 'workup')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
               activeNav === 'workup' ? 'text-blue-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Waves className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Xử lý</span>
+            {activeNav === 'workup' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-blue-400" />
+            )}
+            <Waves className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Xử lý</span>
           </button>
 
           <button
             type="button"
             onClick={() => scrollToSection('section-column', 'column')}
-            className={`flex flex-col items-center justify-center py-1 transition-colors ${
+            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
               activeNav === 'column' ? 'text-amber-400 font-bold' : 'text-slate-400'
             }`}
           >
-            <Filter className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Cột & Hiệu suất</span>
+            {activeNav === 'column' && (
+              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-amber-400" />
+            )}
+            <Filter className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">Sắc ký cột</span>
           </button>
         </div>
       </nav>

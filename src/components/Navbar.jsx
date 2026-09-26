@@ -117,37 +117,37 @@ export const Navbar = ({
   };
 
   return (
-    <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b border-slate-800 no-print">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-18">
+    <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b border-slate-800 no-print pt-safe">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2">
           {/* Logo & Experiment Selector */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-1 min-w-0">
             <button
               type="button"
               onClick={onGoToDashboard}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 p-2 sm:p-2.5 rounded-xl shadow-md transition-all cursor-pointer text-left focus:outline-none flex-shrink-0"
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 p-2 sm:p-2.5 rounded-xl shadow-md transition-all cursor-pointer text-left focus:outline-none flex-shrink-0 min-h-[38px] min-w-[38px] justify-center"
               title="Về trang tổng quan danh sách thí nghiệm / dự án"
             >
-              <FlaskConical className="w-5 h-5 sm:w-6 sm:h-6 text-white flex-shrink-0" />
+              <FlaskConical className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white flex-shrink-0" />
               <div className="hidden sm:block text-left">
                 <div className="font-extrabold text-sm sm:text-base tracking-tight leading-none text-white">MedChem ELN</div>
-                <div className="text-[10px] text-indigo-200 font-medium tracking-wider uppercase mt-0.5">Sổ Tay Hóa Dược</div>
+                <div className="text-[10px] text-teal-100 font-medium tracking-wider uppercase mt-0.5">Sổ Tay Hóa Dược</div>
               </div>
             </button>
 
-            {/* Quick Home / Dashboard button */}
+            {/* Quick Home / Dashboard button (Desktop/Tablet) */}
             <button
               type="button"
               onClick={onGoToDashboard}
-              className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[40px] flex-shrink-0 border ${
+              className={`hidden md:flex p-2 rounded-xl text-xs font-semibold items-center gap-1.5 transition-colors cursor-pointer min-h-[40px] flex-shrink-0 border ${
                 currentView === 'dashboard'
-                  ? 'bg-indigo-700/70 border-indigo-500 text-white'
+                  ? 'bg-teal-700/70 border-teal-500 text-white'
                   : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
               }`}
               title="Xem danh sách tất cả các dự án / thí nghiệm"
             >
               <LayoutDashboard className="w-4 h-4 text-teal-400" />
-              <span className="hidden md:inline">Dự án</span>
+              <span>Dự án</span>
             </button>
 
             {/* Experiment selector: Only show Code (kí hiệu) so status badge is never covered */}
@@ -161,7 +161,7 @@ export const Navbar = ({
                     setShowDropdown(!showDropdown);
                   }
                 }}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-indigo-400 min-h-[40px] cursor-pointer flex-shrink-0"
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 transition-colors focus:ring-2 focus:ring-teal-400 min-h-[38px] sm:min-h-[40px] cursor-pointer flex-shrink-0 whitespace-nowrap"
                 title={
                   activeExperiment
                     ? `${activeExperiment.code}: ${activeExperiment.title} ${currentView === 'dashboard' ? '(Nhấn để vào xem)' : '(Nhấn để đổi thí nghiệm)'}`
@@ -169,11 +169,11 @@ export const Navbar = ({
                 }
               >
                 {activeExperiment ? (
-                  <span className="text-indigo-400 font-mono font-extrabold text-xs sm:text-sm tracking-wide">
+                  <span className="text-teal-300 font-mono tabular-nums font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap">
                     {activeExperiment.code}
                   </span>
                 ) : (
-                  <span className="text-slate-400 text-xs">Chưa chọn</span>
+                  <span className="text-slate-400 text-xs whitespace-nowrap">Chưa chọn</span>
                 )}
                 <ChevronDown
                   className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"
@@ -208,7 +208,7 @@ export const Navbar = ({
                         setShowDropdown(false);
                         onOpenNewModal?.();
                       }}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
+                      className="text-xs text-teal-600 hover:text-teal-800 font-semibold flex items-center gap-1"
                     >
                       <PlusCircle className="w-3.5 h-3.5" /> Tạo mới
                     </button>
@@ -223,14 +223,14 @@ export const Navbar = ({
                             onSelectExperiment?.(exp.id);
                             setShowDropdown(false);
                           }}
-                          className={`px-3 py-2.5 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors ${
-                            exp.id === activeExperimentId ? 'bg-indigo-50/70 font-semibold text-indigo-950' : ''
+                          className={`px-3 py-2.5 hover:bg-teal-50 cursor-pointer flex items-center justify-between transition-colors ${
+                            exp.id === activeExperimentId ? 'bg-teal-50/70 font-semibold text-slate-900' : ''
                           }`}
                         >
                           <div className="min-w-0 pr-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">{exp.code}</span>
-                              <span className="text-xs text-slate-400 font-mono">{exp.date}</span>
+                              <span className="text-xs font-mono tabular-nums font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">{exp.code}</span>
+                              <span className="text-xs text-slate-400 font-mono tabular-nums">{exp.date}</span>
                             </div>
                             <div className="text-xs truncate text-slate-700 mt-1">{exp.title}</div>
                           </div>
@@ -252,18 +252,18 @@ export const Navbar = ({
           </div>
 
           {/* Sync Mode Indicator & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
             {/* Dual Mode Indicator */}
             <div
               className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
                 syncMode === 'firebase'
                   ? 'bg-emerald-950/60 border-emerald-600 text-emerald-400'
-                  : 'bg-indigo-950/60 border-indigo-700 text-indigo-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-300'
               }`}
               title={
                 syncMode === 'firebase'
                   ? 'Đang đồng bộ trực tuyến với Firebase Realtime Database & Storage'
-                  : 'Đang lưu nội bộ trên máy (LocalStorage Dual-Mode Fallback) - Không sợ mất điện hay rớt mạng'
+                  : 'Đang lưu nội bộ trên máy - Không sợ mất điện hay rớt mạng'
               }
             >
               {syncMode === 'firebase' ? (
@@ -273,7 +273,7 @@ export const Navbar = ({
                 </>
               ) : (
                 <>
-                  <HardDrive className="w-3.5 h-3.5 text-indigo-400" />
+                  <HardDrive className="w-3.5 h-3.5 text-teal-400" />
                   <span>Lưu trên máy</span>
                 </>
               )}
@@ -283,23 +283,23 @@ export const Navbar = ({
             {/* Primary Action: Tạo thí nghiệm mới */}
             <button
               onClick={onOpenNewModal}
-              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-900/30 transition-all cursor-pointer min-h-[44px]"
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 shadow-md shadow-emerald-900/30 transition-all cursor-pointer min-h-[38px] sm:min-h-[42px] whitespace-nowrap"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-4 h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Thí nghiệm mới</span>
               <span className="sm:hidden">Mới</span>
             </button>
 
-            {/* Student Account Button & Profile Dropdown */}
+            {/* Student Account Button & Profile Dropdown (Desktop & Tablet) */}
             {currentUser ? (
-              <div className="relative">
+              <div className="relative hidden sm:block">
                 <button
                   type="button"
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-200 transition-colors min-h-[44px] cursor-pointer"
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-200 transition-colors min-h-[42px] cursor-pointer"
                   title={`Đang đăng nhập: ${currentUser.displayName || currentUser.email}`}
                 >
-                  <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow-xs">
+                  <div className="w-7 h-7 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow-xs">
                     {(currentUser.displayName || currentUser.email || 'U')[0]}
                   </div>
                   <div className="text-left hidden md:block">
@@ -310,7 +310,7 @@ export const Navbar = ({
                       {currentUser.studentId ? `MSSV: ${currentUser.studentId}` : currentUser.email}
                     </div>
                   </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                 </button>
 
                 {showUserMenu && (
@@ -321,7 +321,7 @@ export const Navbar = ({
                         {currentUser.displayName || 'Nghiên cứu viên'}
                       </p>
                       {currentUser.studentId && (
-                        <p className="text-xs text-indigo-600 font-mono font-semibold">
+                        <p className="text-xs text-teal-700 font-mono font-semibold">
                           MSSV: {currentUser.studentId}
                         </p>
                       )}
@@ -360,12 +360,11 @@ export const Navbar = ({
               <button
                 type="button"
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] shadow-sm cursor-pointer"
+                className="hidden sm:flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[42px] shadow-sm cursor-pointer"
                 title="Đăng nhập tài khoản sinh viên nghiên cứu"
               >
                 <User className="w-4 h-4" />
-                <span className="hidden md:inline">Đăng nhập SV</span>
-                <span className="md:hidden">Đăng nhập</span>
+                <span>Đăng nhập</span>
               </button>
             )}
 
@@ -374,7 +373,7 @@ export const Navbar = ({
               <button
                 onClick={handleInstallClick}
                 title="Thêm vào Màn hình chính (iPhone / iPad / Android)"
-                className="bg-slate-800 hover:bg-slate-700 text-teal-300 p-2.5 rounded-xl text-xs font-medium transition-colors border border-teal-500/40 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-teal-300 p-2.5 rounded-xl text-xs font-medium transition-colors border border-teal-500/40 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Smartphone className="w-4 h-4 text-teal-400" />
               </button>
@@ -382,7 +381,7 @@ export const Navbar = ({
               <button
                 onClick={() => activeExperimentId && duplicateExperiment(activeExperimentId)}
                 title="Sao chép thí nghiệm này thành bản ghi mới"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Copy className="w-4 h-4 text-slate-300" />
               </button>
@@ -390,7 +389,7 @@ export const Navbar = ({
               <button
                 onClick={handlePrint}
                 title="In sổ tay thí nghiệm"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-slate-300" />
               </button>
@@ -398,7 +397,7 @@ export const Navbar = ({
               <button
                 onClick={exportAllToJson}
                 title="Sao lưu toàn bộ nhật ký ra tệp JSON"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Download className="w-4 h-4 text-slate-300" />
               </button>
@@ -406,7 +405,7 @@ export const Navbar = ({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 title="Khôi phục nhật ký từ tệp JSON"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-slate-300" />
               </button>
@@ -415,7 +414,8 @@ export const Navbar = ({
             {/* Mobile Hamburger Menu */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="sm:hidden p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+              className="sm:hidden p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 hover:text-white min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+              aria-label="Mở menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -431,18 +431,18 @@ export const Navbar = ({
                 setMobileMenuOpen(false);
                 onGoToDashboard?.();
               }}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600/80 hover:bg-indigo-600 text-white p-2.5 rounded-xl text-xs font-bold min-h-[44px] cursor-pointer transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white p-2.5 rounded-xl text-xs font-bold min-h-[42px] cursor-pointer transition-colors"
             >
-              <LayoutDashboard className="w-4 h-4 text-teal-300" />
+              <LayoutDashboard className="w-4 h-4 text-white" />
               <span>Xem danh sách tất cả thí nghiệm</span>
             </button>
 
             {/* Student Auth Bar in Mobile Menu */}
-            <div className="bg-slate-850 p-2.5 rounded-xl border border-slate-800">
+            <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
               {currentUser ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 pr-1">
+                    <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-xs uppercase flex-shrink-0">
                       {(currentUser.displayName || currentUser.email || 'U')[0]}
                     </div>
                     <div className="min-w-0">
@@ -450,16 +450,27 @@ export const Navbar = ({
                       <div className="text-[10px] text-slate-400 font-mono truncate">{currentUser.studentId ? `MSSV: ${currentUser.studentId}` : currentUser.email}</div>
                     </div>
                   </div>
-                  <button
-                    onClick={async () => {
-                      setMobileMenuOpen(false);
-                      await logout();
-                    }}
-                    className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 p-1.5 flex-shrink-0 cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Thoát</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setIsAuthModalOpen(true);
+                      }}
+                      className="text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg font-medium cursor-pointer"
+                    >
+                      Đổi TK
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setMobileMenuOpen(false);
+                        await logout();
+                      }}
+                      className="text-[11px] bg-rose-950/80 border border-rose-800/60 text-rose-300 hover:text-rose-200 flex items-center gap-1 px-2.5 py-1.5 rounded-lg cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Thoát</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -467,7 +478,7 @@ export const Navbar = ({
                     setMobileMenuOpen(false);
                     setIsAuthModalOpen(true);
                   }}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <User className="w-4 h-4" />
                   <span>Đăng nhập tài khoản sinh viên</span>

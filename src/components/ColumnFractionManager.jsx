@@ -984,16 +984,16 @@ export const ColumnFractionManager = ({
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 rounded-2xl shadow-md text-white flex-shrink-0">
-            <Filter className="w-5 h-5 sm:w-6 sm:h-6" />
+      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="p-2 sm:p-2.5 bg-amber-600 rounded-2xl shadow-md text-white flex-shrink-0 mt-0.5 sm:mt-0">
+            <Filter className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-lg font-bold text-white leading-snug">
               5. Sắc Ký Cột & Cân Cắn Eppendorf
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">
               Hứng phân đoạn (F1, F2...), chấm TLC kiểm tra, gộp mẫu và cân khối lượng sản phẩm
             </p>
           </div>

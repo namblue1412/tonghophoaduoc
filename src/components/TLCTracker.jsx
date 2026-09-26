@@ -358,19 +358,21 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-600 rounded-2xl shadow-md text-white flex-shrink-0">
-            <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
+      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="p-2 sm:p-2.5 bg-sky-600 rounded-2xl shadow-md text-white flex-shrink-0 mt-0.5 sm:mt-0">
+            <Layers className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              3. Sắc Ký Lớp Mỏng
-              <span className="text-xs bg-indigo-500/30 text-indigo-300 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-medium">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h2 className="text-sm sm:text-lg font-bold text-white leading-snug">
+                3. Sắc Ký Lớp Mỏng
+              </h2>
+              <span className="text-[11px] sm:text-xs bg-sky-500/20 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded-full font-mono tabular-nums font-semibold whitespace-nowrap flex-shrink-0">
                 {tlcList.length} bản mỏng
               </span>
-            </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
+            </div>
+            <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 line-clamp-1 sm:line-clamp-none">
               Theo dõi tiến trình phản ứng (UV 254 nm, UV 365 nm, Thuốc thử)
             </p>
           </div>
