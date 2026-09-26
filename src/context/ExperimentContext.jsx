@@ -5,7 +5,10 @@ import {
   deleteExperimentData,
   loadExperimentsData,
   isFirebaseConfigured,
-  uploadImage
+  uploadImage,
+  getDeletedIds,
+  markDeletedId,
+  isDeletedRecord
 } from '../services/firebase';
 
 const ExperimentContext = createContext();
@@ -14,6 +17,7 @@ export const ExperimentProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const [allExperiments, setAllExperiments] = useState([]);
   const allExperimentsRef = useRef([]);
+  const pendingSaveIdsRef = useRef(new Set());
   const [activeExperimentId, setActiveExperimentId] = useState(null);
   const [syncMode, setSyncMode] = useState('local'); // 'firebase' | 'local'
   const [isSyncing, setIsSyncing] = useState(false);
@@ -21,10 +25,11 @@ export const ExperimentProvider = ({ children }) => {
 
   // Initialize and load experiments
   useEffect(() => {
-    // Purge old sample experiment if it exists in localStorage
+    // Purge deleted or sample experiments if they exist in localStorage
     try {
+      const deletedSet = new Set(getDeletedIds());
       const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-      const cleaned = existing.filter((e) => e.id !== 'EXP-2025-COU-01');
+      const cleaned = existing.filter((e) => !isDeletedRecord(e, deletedSet));
       if (cleaned.length !== existing.length) {
         localStorage.setItem('medchem_experiments', JSON.stringify(cleaned));
       }
@@ -37,8 +42,11 @@ export const ExperimentProvider = ({ children }) => {
 
     const unsubscribe = loadExperimentsData((loadedData, mode) => {
       setSyncMode(mode);
-      const incoming = loadedData || [];
-      // Merge with any newer in-memory state so active edits are never overwritten by an older network snapshot
+      const deletedSet = new Set(getDeletedIds());
+      const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item, deletedSet));
+
+      // Merge only with active in-flight edits or strictly newer in-memory state;
+      // NEVER resurrect an item that was deleted on the cloud or another tab!
       const currentMem = allExperimentsRef.current || [];
       const mergedMap = new Map();
 
@@ -46,10 +54,13 @@ export const ExperimentProvider = ({ children }) => {
         if (item && item.id) mergedMap.set(item.id, item);
       }
       for (const memItem of currentMem) {
-        if (!memItem || !memItem.id) continue;
+        if (isDeletedRecord(memItem, deletedSet)) continue;
         const incItem = mergedMap.get(memItem.id);
         if (!incItem) {
-          mergedMap.set(memItem.id, memItem);
+          // Only preserve in-memory item if it is currently being saved in this tab
+          if (pendingSaveIdsRef.current.has(memItem.id)) {
+            mergedMap.set(memItem.id, memItem);
+          }
         } else {
           const tMem = new Date(memItem.updatedAt || memItem.createdAt || 0).getTime();
           const tInc = new Date(incItem.updatedAt || incItem.createdAt || 0).getTime();
@@ -66,16 +77,32 @@ export const ExperimentProvider = ({ children }) => {
       setAllExperiments(finalData);
     });
 
+    // Listen for cross-tab deletion or storage updates within the same browser
+    const handleStorageEvent = (e) => {
+      if (e.key === 'medchem_deleted_ids' || e.key === 'medchem_experiments') {
+        const deletedSet = new Set(getDeletedIds());
+        const filtered = (allExperimentsRef.current || []).filter((exp) => !isDeletedRecord(exp, deletedSet));
+        if (filtered.length !== (allExperimentsRef.current || []).length) {
+          allExperimentsRef.current = filtered;
+          setAllExperiments(filtered);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
+      window.removeEventListener('storage', handleStorageEvent);
     };
   }, []);
 
   // Strict Per-User Data Isolation: Each student only sees their own experiments!
   const experiments = useMemo(() => {
     if (!currentUser) return [];
+    const deletedSet = new Set(getDeletedIds());
 
     return allExperiments.filter((exp) => {
+      if (isDeletedRecord(exp, deletedSet)) return false;
       // 1. Matches creatorId
       if (exp.creatorId && currentUser.uid && exp.creatorId === currentUser.uid) {
         return true;
@@ -119,10 +146,12 @@ export const ExperimentProvider = ({ children }) => {
   const updateExperiment = async (id, updatedFields) => {
     if (!id) return;
     setIsSyncing(true);
+    pendingSaveIdsRef.current.add(id);
 
     const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
     const target = baseList.find((e) => e.id === id);
     if (!target) {
+      pendingSaveIdsRef.current.delete(id);
       setIsSyncing(false);
       return;
     }
@@ -143,6 +172,7 @@ export const ExperimentProvider = ({ children }) => {
     } catch (err) {
       console.error('Failed to save experiment:', err);
     } finally {
+      pendingSaveIdsRef.current.delete(id);
       setIsSyncing(false);
     }
   };
@@ -337,17 +367,25 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
+    pendingSaveIdsRef.current.add(newId);
     const nextCreatedList = [newExperiment, ...allExperimentsRef.current];
     allExperimentsRef.current = nextCreatedList;
     setAllExperiments(nextCreatedList);
     setActiveExperimentId(newId);
-    await saveExperimentData(newExperiment);
-    setLastSaved(new Date());
+    try {
+      await saveExperimentData(newExperiment);
+      setLastSaved(new Date());
+    } finally {
+      pendingSaveIdsRef.current.delete(newId);
+    }
     return newExperiment;
   };
 
   // Delete experiment
   const deleteExperiment = async (id) => {
+    if (!id) return;
+    markDeletedId(id);
+    pendingSaveIdsRef.current.delete(id);
     const nextDeletedList = allExperimentsRef.current.filter((e) => e.id !== id);
     allExperimentsRef.current = nextDeletedList;
     setAllExperiments(nextDeletedList);
@@ -389,12 +427,17 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
+    pendingSaveIdsRef.current.add(dupId);
     const nextDupList = [duplicated, ...allExperimentsRef.current];
     allExperimentsRef.current = nextDupList;
     setAllExperiments(nextDupList);
     setActiveExperimentId(dupId);
-    await saveExperimentData(duplicated);
-    setLastSaved(new Date());
+    try {
+      await saveExperimentData(duplicated);
+      setLastSaved(new Date());
+    } finally {
+      pendingSaveIdsRef.current.delete(dupId);
+    }
   };
 
   // Export all user's data to JSON
