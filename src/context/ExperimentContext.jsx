@@ -102,8 +102,8 @@ export const ExperimentProvider = ({ children }) => {
       // Equipment / Glassware Preparation Checklist
       equipment: [
         { id: `eq-${Date.now()}-1`, name: 'Bình cầu 2 cổ 100 mL', quantity: 1, checked: false, notes: 'Sấy khô 110°C' },
-        { id: `eq-${Date.now()}-2`, name: 'Sinh hàn hồi lưu (Condenser)', quantity: 1, checked: false, notes: 'Nối ống nước làm mát' },
-        { id: `eq-${Date.now()}-3`, name: 'Cá từ khuấy (Stirring bar)', quantity: 1, checked: false, notes: 'Teflon sạch' },
+        { id: `eq-${Date.now()}-2`, name: 'Sinh hàn hồi lưu', quantity: 1, checked: false, notes: 'Nối ống nước làm mát' },
+        { id: `eq-${Date.now()}-3`, name: 'Cá từ khuấy', quantity: 1, checked: false, notes: 'Teflon sạch' },
         { id: `eq-${Date.now()}-4`, name: 'Bếp khuấy từ gia nhiệt', quantity: 1, checked: false, notes: 'Kiểm tra tốc độ khuấy' },
         { id: `eq-${Date.now()}-5`, name: 'Ống đong 50 mL', quantity: 1, checked: false, notes: 'Đong dung môi' },
         { id: `eq-${Date.now()}-6`, name: 'Phễu chiết 125 mL', quantity: 1, checked: false, notes: 'Chuẩn bị cho bước chiết' },
@@ -114,7 +114,7 @@ export const ExperimentProvider = ({ children }) => {
         {
           id: `reagent-${Date.now()}-1`,
           type: 'starting_material',
-          name: 'Chất tham gia 1 (Reactant 1)',
+          name: 'Chất tham gia 1',
           formula: '',
           mw: '150.0',
           purity: '99.0',
@@ -131,7 +131,7 @@ export const ExperimentProvider = ({ children }) => {
         {
           id: `reagent-${Date.now()}-2`,
           type: 'reagent',
-          name: 'Thuốc thử 2 (Reagent 2)',
+          name: 'Thuốc thử 2',
           formula: '',
           mw: '120.0',
           purity: '98.0',
@@ -148,7 +148,7 @@ export const ExperimentProvider = ({ children }) => {
         {
           id: `reagent-${Date.now()}-3`,
           type: 'catalyst',
-          name: 'Xúc tác 3 (Catalyst)',
+          name: 'Xúc tác 3',
           formula: '',
           mw: '98.0',
           purity: '98.0',

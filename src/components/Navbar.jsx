@@ -22,12 +22,20 @@ import {
   Smartphone,
   Share2,
   PlusSquare,
-  Sparkles
+  Sparkles,
+  LayoutDashboard,
+  Home
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { useAuth } from '../context/AuthContext';
 
-export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
+export const Navbar = ({
+  onOpenNewModal,
+  onToggleListDrawer,
+  onSelectExperiment,
+  onGoToDashboard,
+  currentView
+}) => {
   const {
     experiments,
     activeExperiment,
@@ -113,22 +121,52 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-18">
           {/* Logo & Experiment Selector */}
-          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-            <div className="flex items-center gap-2.5 bg-indigo-600 hover:bg-indigo-500 p-2 sm:p-2.5 rounded-xl shadow-md transition-all">
-              <FlaskConical className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={onGoToDashboard}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 p-2 sm:p-2.5 rounded-xl shadow-md transition-all cursor-pointer text-left focus:outline-none flex-shrink-0"
+              title="Về trang tổng quan danh sách thí nghiệm / dự án"
+            >
+              <FlaskConical className="w-5 h-5 sm:w-6 sm:h-6 text-white flex-shrink-0" />
               <div className="hidden sm:block text-left">
-                <div className="font-extrabold text-base tracking-tight leading-none text-white">MedChem ELN</div>
+                <div className="font-extrabold text-sm sm:text-base tracking-tight leading-none text-white">MedChem ELN</div>
                 <div className="text-[10px] text-indigo-200 font-medium tracking-wider uppercase mt-0.5">Sổ Tay Hóa Dược</div>
               </div>
-            </div>
+            </button>
+
+            {/* Quick Home / Dashboard button */}
+            <button
+              type="button"
+              onClick={onGoToDashboard}
+              className={`p-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[40px] flex-shrink-0 border ${
+                currentView === 'dashboard'
+                  ? 'bg-indigo-700/70 border-indigo-500 text-white'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+              }`}
+              title="Xem danh sách tất cả các dự án / thí nghiệm"
+            >
+              <LayoutDashboard className="w-4 h-4 text-teal-400" />
+              <span className="hidden md:inline">Dự án</span>
+            </button>
 
             {/* Experiment selector: Only show Code (kí hiệu) so status badge is never covered */}
-            <div className="relative flex items-center gap-2 min-w-0">
+            <div className="relative flex items-center gap-1.5 min-w-0">
               <button
                 type="button"
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-indigo-400 min-h-[40px] cursor-pointer flex-shrink-0"
-                title={activeExperiment ? `${activeExperiment.code}: ${activeExperiment.title}` : 'Chọn thí nghiệm'}
+                onClick={() => {
+                  if (currentView === 'dashboard' && activeExperiment) {
+                    onSelectExperiment?.(activeExperiment.id);
+                  } else {
+                    setShowDropdown(!showDropdown);
+                  }
+                }}
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-indigo-400 min-h-[40px] cursor-pointer flex-shrink-0"
+                title={
+                  activeExperiment
+                    ? `${activeExperiment.code}: ${activeExperiment.title} ${currentView === 'dashboard' ? '(Nhấn để vào xem)' : '(Nhấn để đổi thí nghiệm)'}`
+                    : 'Chọn thí nghiệm'
+                }
               >
                 {activeExperiment ? (
                   <span className="text-indigo-400 font-mono font-extrabold text-xs sm:text-sm tracking-wide">
@@ -137,12 +175,26 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                 ) : (
                   <span className="text-slate-400 text-xs">Chưa chọn</span>
                 )}
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <ChevronDown
+                  className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDropdown(!showDropdown);
+                  }}
+                />
               </button>
 
               {/* Status badge: ALWAYS fully visible on mobile & desktop */}
               {activeExperiment && (
-                <div className="flex-shrink-0">
+                <div
+                  className="flex-shrink-0 cursor-pointer"
+                  onClick={() => {
+                    if (currentView === 'dashboard') {
+                      onSelectExperiment?.(activeExperiment.id);
+                    }
+                  }}
+                  title={currentView === 'dashboard' ? 'Nhấn để mở chi tiết thí nghiệm' : undefined}
+                >
                   {getStatusBadge(activeExperiment.status)}
                 </div>
               )}
@@ -168,6 +220,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                           key={exp.id}
                           onClick={() => {
                             setActiveExperimentId(exp.id);
+                            onSelectExperiment?.(exp.id);
                             setShowDropdown(false);
                           }}
                           className={`px-3 py-2.5 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors ${
@@ -372,6 +425,18 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
         {/* Mobile slide-down menu */}
         {mobileMenuOpen && (
           <div className="sm:hidden border-t border-slate-800 py-3 space-y-3 animate-in slide-in-from-top-2">
+            {/* Quick Home / Dashboard button */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onGoToDashboard?.();
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600/80 hover:bg-indigo-600 text-white p-2.5 rounded-xl text-xs font-bold min-h-[44px] cursor-pointer transition-colors"
+            >
+              <LayoutDashboard className="w-4 h-4 text-teal-300" />
+              <span>Xem danh sách tất cả thí nghiệm</span>
+            </button>
+
             {/* Student Auth Bar in Mobile Menu */}
             <div className="bg-slate-850 p-2.5 rounded-xl border border-slate-800">
               {currentUser ? (

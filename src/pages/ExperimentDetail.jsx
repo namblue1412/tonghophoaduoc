@@ -590,7 +590,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             }`}
           >
             <Filter className="w-4.5 h-4.5 mb-0.5" />
-            <span className="text-[9px] sm:text-[10px] leading-tight">Cột & Yield</span>
+            <span className="text-[9px] sm:text-[10px] leading-tight">Cột & Hiệu suất</span>
           </button>
         </div>
       </nav>

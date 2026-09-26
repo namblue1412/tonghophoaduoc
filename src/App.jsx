@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
 import { ExperimentDetail } from './pages/ExperimentDetail';
 import { AuthModal } from './components/AuthModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { PlusCircle, X, FlaskConical, Beaker } from 'lucide-react';
 
 function AppContent() {
@@ -88,20 +89,25 @@ function AppContent() {
       {/* Navbar with Dual-mode indicator & quick actions */}
       <Navbar
         onOpenNewModal={handleOpenNewModal}
+        onSelectExperiment={handleSelectExperiment}
+        onGoToDashboard={() => setCurrentView('dashboard')}
+        currentView={currentView}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 pb-16">
-        {currentView === 'dashboard' || !activeExperiment ? (
-          <Dashboard
-            onSelectExperiment={handleSelectExperiment}
-            onOpenNewModal={handleOpenNewModal}
-          />
-        ) : (
-          <ExperimentDetail
-            onBackToDashboard={() => setCurrentView('dashboard')}
-          />
-        )}
+        <ErrorBoundary onReset={() => setCurrentView('dashboard')}>
+          {currentView === 'dashboard' || !activeExperiment ? (
+            <Dashboard
+              onSelectExperiment={handleSelectExperiment}
+              onOpenNewModal={handleOpenNewModal}
+            />
+          ) : (
+            <ExperimentDetail
+              onBackToDashboard={() => setCurrentView('dashboard')}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer */}
