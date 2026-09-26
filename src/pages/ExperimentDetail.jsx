@@ -406,6 +406,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             onChange={handleColumnChange}
             limitingMoles={limitingMoles}
             targetMW={targetMW}
+            crudeMass={crudeMassVal}
             massUnit={activeExperiment.units?.mass || 'g'}
             moleUnit={activeExperiment.units?.mole || 'mol'}
           />

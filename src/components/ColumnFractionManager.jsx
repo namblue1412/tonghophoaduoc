@@ -72,6 +72,7 @@ export const ColumnFractionManager = ({
   onChange,
   limitingMoles = 0,
   targetMW = 0,
+  crudeMass = 0,
   massUnit = 'g',
   moleUnit = 'mol'
 }) => {
@@ -1085,7 +1086,14 @@ export const ColumnFractionManager = ({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
             {/* Silica Mass */}
             <div className="sm:col-span-3">
-              <span className="font-semibold text-slate-700 block mb-1">Khối lượng Silicagel (g):</span>
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="font-semibold text-slate-700">Khối lượng Silicagel (g):</span>
+                {crudeMass > 0 && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                    Cắn: {crudeMass}{massUnit}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 inputMode="decimal"
@@ -1097,8 +1105,42 @@ export const ColumnFractionManager = ({
                   })
                 }
                 placeholder="VD: 30"
-                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono tabular-nums focus:outline-none focus:border-teal-600 min-h-[42px]"
+                className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold tabular-nums focus:outline-none focus:border-teal-600 min-h-[42px]"
               />
+              <div className="flex flex-wrap items-center gap-1 mt-1.5 no-print">
+                <span className="text-[10px] font-semibold text-slate-500">Tính từ cắn:</span>
+                {[
+                  { mult: 25, label: '×25 (Dễ tách)' },
+                  { mult: 30, label: '×30 (Chuẩn)' },
+                  { mult: 40, label: '×40 (Khó tách)' }
+                ].map((opt) => (
+                  <button
+                    key={opt.mult}
+                    type="button"
+                    onClick={() => {
+                      const baseG = crudeMass > 0 ? (massUnit === 'mg' ? crudeMass / 1000 : crudeMass) : 1.0;
+                      const calcSilica = parseFloat((baseG * opt.mult).toFixed(1));
+                      let recCol = '2.0 cm x 30 cm';
+                      if (calcSilica <= 15) recCol = '1.5 cm x 25 cm';
+                      else if (calcSilica <= 35) recCol = '2.0 cm x 30 cm';
+                      else if (calcSilica <= 70) recCol = '3.0 cm x 35 cm';
+                      else recCol = '4.0 cm x 40 cm';
+                      onChange({
+                        ...columnData,
+                        columnParams: {
+                          ...columnParams,
+                          silicaMass: String(calcSilica),
+                          columnSize: recCol
+                        }
+                      });
+                    }}
+                    className="text-[10px] font-bold bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded-md cursor-pointer transition-colors"
+                    title="Tự động tính khối lượng Silicagel theo khối lượng cắn thô và gợi ý đường kính cột"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Column Size */}
@@ -1116,6 +1158,23 @@ export const ColumnFractionManager = ({
                 placeholder="VD: 2.0 cm x 30 cm"
                 className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-teal-600 min-h-[42px]"
               />
+              <div className="flex flex-wrap items-center gap-1 mt-1.5 no-print">
+                {['1.5 cm x 25 cm', '2.0 cm x 30 cm', '3.0 cm x 35 cm'].map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        ...columnData,
+                        columnParams: { ...columnParams, columnSize: sz }
+                      })
+                    }
+                    className="text-[10px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-md cursor-pointer transition-colors"
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Eluent Fields depending on Mode */}
@@ -1953,9 +2012,9 @@ export const ColumnFractionManager = ({
                 </div>
 
                 {/* 3 Mass inputs */}
-                <div className="grid grid-cols-3 gap-2 flex-1">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                <div className="grid grid-cols-3 gap-2 flex-1 items-end">
+                  <div className="min-w-0">
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                       m(vỏ) ({massUnit}):
                     </label>
                     <input
@@ -1964,12 +2023,12 @@ export const ColumnFractionManager = ({
                       value={tube.tareMass ?? ''}
                       onChange={(e) => handleTubeChange(tube.id, 'tareMass', e.target.value)}
                       placeholder="1.0520"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                  <div className="min-w-0">
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                       m(vỏ+cắn) ({massUnit}):
                     </label>
                     <input
@@ -1978,15 +2037,15 @@ export const ColumnFractionManager = ({
                       value={tube.grossMass ?? ''}
                       onChange={(e) => handleTubeChange(tube.id, 'grossMass', e.target.value)}
                       placeholder="2.4962"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
                     />
                   </div>
 
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase leading-none">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-1.5 flex flex-col justify-center min-h-[40px] min-w-0">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase leading-none whitespace-nowrap truncate">
                       m(sản phẩm):
                     </span>
-                    <span className="font-mono font-extrabold text-emerald-950 text-xs sm:text-sm text-right mt-1">
+                    <span className="font-mono font-extrabold text-emerald-950 text-xs sm:text-sm text-right mt-1 truncate">
                       {(tube.productMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
                     </span>
                   </div>

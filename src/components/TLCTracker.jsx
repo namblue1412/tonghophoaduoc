@@ -36,9 +36,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const [selectedStainName, setSelectedStainName] = useState('Vanillin / H2SO4');
   const [customStainName, setCustomStainName] = useState('');
   const [newObservation, setNewObservation] = useState('');
+  const [solventFrontCm, setSolventFrontCm] = useState('5.0');
   const [newSpots, setNewSpots] = useState([
-    { label: 'Chất tham gia', rf: '' },
-    { label: 'Sản phẩm', rf: '' }
+    { label: 'Chất tham gia', distCm: '', rf: '' },
+    { label: 'Sản phẩm', distCm: '', rf: '' }
   ]);
 
   // Active slot inside modal: 'uv254' | 'uv365' | 'reagent'
@@ -87,9 +88,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setActivePhotoSlot('uv254');
     setCustomStainName('');
     setSelectedStainName('Vanillin / H2SO4');
+    setSolventFrontCm('5.0');
     setNewSpots([
-      { label: 'Chất tham gia', rf: '' },
-      { label: 'Sản phẩm', rf: '' }
+      { label: 'Chất tham gia', distCm: '', rf: '' },
+      { label: 'Sản phẩm', distCm: '', rf: '' }
     ]);
     setModalOpen(true);
   };
@@ -108,12 +110,17 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       setCustomStainName(plate.stainName || '');
     }
     setNewObservation(plate.observations || '');
+    setSolventFrontCm(plate.solventFrontCm || '5.0');
     setNewSpots(
       plate.spots?.length
-        ? plate.spots.map((s) => ({ label: s.label || '', rf: String(s.rf ?? '') }))
+        ? plate.spots.map((s) => ({
+            label: s.label || '',
+            distCm: String(s.distCm ?? ''),
+            rf: String(s.rf ?? '')
+          }))
         : [
-            { label: 'Chất tham gia', rf: '' },
-            { label: 'Sản phẩm', rf: '' }
+            { label: 'Chất tham gia', distCm: '', rf: '' },
+            { label: 'Sản phẩm', distCm: '', rf: '' }
           ]
     );
     setPhoto254({ preview: plate.images?.uv254 || plate.imageUrl || null, file: null });
@@ -138,20 +145,45 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Add/remove custom Rf spot row
   const addSpotRow = () => {
-    setNewSpots([...newSpots, { label: `Vết phụ ${newSpots.length}`, rf: '' }]);
+    setNewSpots([...newSpots, { label: `Vết phụ ${newSpots.length}`, distCm: '', rf: '' }]);
   };
 
   const removeSpotRow = (idx) => {
     setNewSpots(newSpots.filter((_, i) => i !== idx));
   };
 
+  const handleSolventFrontChange = (rawVal) => {
+    const cleaned = rawVal.replace(/[^0-9.,]/g, '');
+    setSolventFrontCm(cleaned);
+    const frontNum = parseFloat(cleaned.replace(',', '.')) || 0;
+    if (frontNum > 0) {
+      setNewSpots((prev) =>
+        prev.map((s) => {
+          const dNum = parseFloat(String(s.distCm || '').replace(',', '.')) || 0;
+          if (dNum > 0) {
+            return { ...s, rf: (dNum / frontNum).toFixed(2) };
+          }
+          return s;
+        })
+      );
+    }
+  };
+
   const updateSpotRow = (idx, field, rawVal) => {
     const updated = [...newSpots];
-    // Allow comma ',' in Rf input, keep full text for label
-    updated[idx][field] =
-      field === 'rf' && typeof rawVal === 'string'
-        ? rawVal.replace(/[^0-9.,-]/g, '')
-        : rawVal;
+    if (field === 'distCm') {
+      const cleanedDist = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,]/g, '') : rawVal;
+      updated[idx].distCm = cleanedDist;
+      const distNum = parseFloat(String(cleanedDist).replace(',', '.')) || 0;
+      const frontNum = parseFloat(String(solventFrontCm).replace(',', '.')) || 0;
+      if (distNum > 0 && frontNum > 0) {
+        updated[idx].rf = (distNum / frontNum).toFixed(2);
+      }
+    } else if (field === 'rf') {
+      updated[idx].rf = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,-]/g, '') : rawVal;
+    } else {
+      updated[idx][field] = rawVal;
+    }
     setNewSpots(updated);
   };
 
@@ -209,6 +241,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       timestamp: new Date().toISOString(),
       eluent: newEluent,
       stainName: finalStain,
+      solventFrontCm: solventFrontCm || '',
       images: {
         uv254: url254 || null,
         uv365: url365 || null,
@@ -687,7 +720,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
             {/* Modal Scrollable Body */}
             <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 touch-pan-y">
               {/* Time Point & Eluent */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Thời điểm (phút):
@@ -704,10 +737,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     <button
                       type="button"
                       onClick={() => setNewMinute(String(Math.floor(currentTimerSeconds / 60)))}
-                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-2.5 rounded-xl border border-indigo-200 text-xs font-bold whitespace-nowrap min-h-[44px]"
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl border border-indigo-200 text-xs font-bold whitespace-nowrap min-h-[44px] cursor-pointer"
                       title="Lấy số phút từ đồng hồ đang chạy"
                     >
-                      Đồng bộ ({Math.floor(currentTimerSeconds / 60)} phút)
+                      Đồng bộ ({Math.floor(currentTimerSeconds / 60)}p)
                     </button>
                   </div>
                 </div>
@@ -723,6 +756,18 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     placeholder="Hexan : EtOAc (3 : 1)"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none min-h-[44px]"
                   />
+                  <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
+                    {COMMON_ELUENTS.map((el) => (
+                      <button
+                        key={el}
+                        type="button"
+                        onClick={() => setNewEluent(el)}
+                        className="text-[10px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-lg whitespace-nowrap flex-shrink-0 cursor-pointer"
+                      >
+                        {el}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -916,51 +961,84 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 </div>
               </div>
 
-              {/* Rf Spots Table (Comma Supported) */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-700">
-                    Hệ số lưu giữ Rf:
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addSpotRow}
-                    className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 min-h-[36px]"
-                  >
-                    <Plus className="w-4 h-4" /> Thêm vết
-                  </button>
+              {/* Rf Spots Table with Automatic Ruler Calculator (Rf = d_vet / d_dm) */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 block">
+                      Hệ số lưu giữ Rf (Nhập trực tiếp hoặc đo thước cm):
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      Nếu nhập d(vết) và tuyến dung môi d(dm), phần mềm tự chia Rf = d(vết)/d(dm)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-slate-300">
+                      <span className="text-[11px] font-semibold text-slate-600">d(dm):</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={solventFrontCm}
+                        onChange={(e) => handleSolventFrontChange(e.target.value)}
+                        placeholder="5.0"
+                        className="w-12 text-center font-mono font-bold text-xs text-teal-800 focus:outline-none"
+                      />
+                      <span className="text-[11px] font-mono text-slate-400">cm</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addSpotRow}
+                      className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1.5 rounded-xl font-bold flex items-center gap-1 min-h-[34px] cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Thêm vết
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   {newSpots.map((spot, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
                       <input
                         type="text"
                         value={spot.label}
                         onChange={(e) => updateSpotRow(idx, 'label', e.target.value)}
                         placeholder="Tên vết (VD: Chất tham gia, Sản phẩm...)"
-                        className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
+                        className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:outline-none min-h-[38px]"
                       />
-                      <div className="flex items-center gap-1 w-28">
-                        <span className="text-xs font-mono text-slate-500">Rf:</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={spot.rf}
-                          onChange={(e) => updateSpotRow(idx, 'rf', e.target.value)}
-                          placeholder="0.45"
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 text-xs sm:text-sm font-mono font-bold text-indigo-700 text-center min-h-[44px]"
-                        />
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] font-mono text-slate-500">d(vết):</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={spot.distCm || ''}
+                            onChange={(e) => updateSpotRow(idx, 'distCm', e.target.value)}
+                            placeholder="cm"
+                            title="Khoảng cách vết chạy (cm) để tự chia Rf"
+                            className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:outline-none min-h-[38px]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] font-mono font-bold text-indigo-700">Rf:</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={spot.rf}
+                            onChange={(e) => updateSpotRow(idx, 'rf', e.target.value)}
+                            placeholder="0.45"
+                            className="w-16 bg-indigo-50/60 border border-indigo-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-mono font-bold text-indigo-800 text-center focus:outline-none min-h-[38px]"
+                          />
+                        </div>
+                        {newSpots.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSpotRow(idx)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 min-h-[38px] cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
-                      {newSpots.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeSpotRow(idx)}
-                          className="p-2 text-slate-400 hover:text-rose-600 min-h-[44px]"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>

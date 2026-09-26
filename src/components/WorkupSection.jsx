@@ -337,9 +337,9 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
                 </div>
 
                 {/* 3 Mass inputs */}
-                <div className="grid grid-cols-3 gap-2 flex-1">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                <div className="grid grid-cols-3 gap-2 flex-1 items-end">
+                  <div className="min-w-0">
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                       m(vỏ) ({massUnit}):
                     </label>
                     <input
@@ -348,13 +348,13 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
                       value={tube.tareMass ?? ''}
                       onChange={(e) => handleCrudeTubeChange(tube.id, 'tareMass', e.target.value)}
                       placeholder="1.0520"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
-                      m(vỏ+cắn thô) ({massUnit}):
+                  <div className="min-w-0">
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
+                      m(vỏ+cắn) ({massUnit}):
                     </label>
                     <input
                       type="text"
@@ -362,15 +362,15 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
                       value={tube.grossMass ?? ''}
                       onChange={(e) => handleCrudeTubeChange(tube.id, 'grossMass', e.target.value)}
                       placeholder="2.8450"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 focus:outline-none min-h-[40px]"
+                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-amber-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
                     />
                   </div>
 
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 flex flex-col justify-center">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase leading-none">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 flex flex-col justify-center min-h-[40px] min-w-0">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase leading-none whitespace-nowrap truncate">
                       m(cắn thô):
                     </span>
-                    <span className="font-mono font-extrabold text-amber-950 text-xs sm:text-sm text-right mt-1">
+                    <span className="font-mono font-extrabold text-amber-950 text-xs sm:text-sm text-right mt-1 truncate">
                       {(tube.crudeMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
                     </span>
                   </div>
