@@ -984,7 +984,7 @@ export const ColumnFractionManager = ({
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print space-y-6">
       {/* Header */}
-      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <div className="p-2 sm:p-2.5 bg-amber-600 rounded-2xl shadow-md text-white flex-shrink-0 mt-0.5 sm:mt-0">
             <Filter className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
@@ -1000,52 +1000,55 @@ export const ColumnFractionManager = ({
         </div>
 
         {/* Dynamic Tube Action Bar in Header */}
-        <div className="flex items-center gap-2 no-print bg-slate-800/90 px-3 py-1.5 rounded-2xl border border-slate-700">
-          <button
-            type="button"
-            onClick={handleAddNextTube}
-            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-sm transition-all min-h-[38px] cursor-pointer"
-            title="Thêm ống tiếp theo vào giá hứng"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Hứng F{currentNextTubeNumber}</span>
-          </button>
+        <div className="flex items-center justify-between sm:justify-end gap-2 no-print bg-slate-800/90 px-3 py-1.5 rounded-2xl border border-slate-700 w-full sm:w-auto">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddNextTube}
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-sm transition-all min-h-[38px] cursor-pointer whitespace-nowrap"
+              title="Thêm ống tiếp theo vào giá hứng"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Hứng F{currentNextTubeNumber}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={handleRemoveLastTube}
-            disabled={fractions.length <= 1}
-            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition-all min-h-[38px] cursor-pointer disabled:cursor-not-allowed"
-            title="Bớt 1 ống cuối"
-          >
-            <Minus className="w-3.5 h-3.5" />
-            <span>Bớt</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleRemoveLastTube}
+              disabled={fractions.length <= 1}
+              className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1 transition-all min-h-[38px] cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+              title="Bớt 1 ống cuối"
+            >
+              <Minus className="w-3.5 h-3.5" />
+              <span>Bớt</span>
+            </button>
+          </div>
 
-          <div className="w-px h-5 bg-slate-600 mx-1"></div>
-
-          <span className="text-xs text-slate-300 font-medium">Tổng:</span>
-          <input
-            type="number"
-            min="1"
-            max="200"
-            value={totalFractions}
-            onChange={(e) => handleFractionCountChange(e.target.value)}
-            className="w-14 bg-slate-900 text-indigo-300 font-mono font-bold text-center border border-slate-600 rounded-lg py-1 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
-            title="Nhập trực tiếp tổng số ống"
-          />
-          <span className="text-xs text-slate-400 font-mono">ống</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-px h-5 bg-slate-600 mx-0.5 hidden sm:block"></div>
+            <span className="text-xs text-slate-300 font-medium whitespace-nowrap">Tổng:</span>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={totalFractions}
+              onChange={(e) => handleFractionCountChange(e.target.value)}
+              className="w-14 bg-slate-900 text-indigo-300 font-mono font-bold text-center border border-slate-600 rounded-lg py-1 px-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              title="Nhập trực tiếp tổng số ống"
+            />
+            <span className="text-xs text-slate-400 font-mono">ống</span>
+          </div>
         </div>
       </div>
 
       <div className="p-4 sm:p-6 space-y-6">
         {/* Column Setup Parameters & Eluent Mode Selector */}
         <div className="bg-slate-50 p-4 sm:p-5 rounded-3xl border border-slate-200 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 pb-3">
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-teal-600" />
-                Thông số cột & Hệ dung môi giải hấp:
+                <FlaskConical className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                <span>Thông số cột & Hệ dung môi giải hấp:</span>
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 Chọn chạy cố định 1 hệ hoặc chạy gradient tăng dần độ phân cực
@@ -1053,7 +1056,7 @@ export const ColumnFractionManager = ({
             </div>
 
             {/* Elution Mode Toggle: Isocratic vs Gradient */}
-            <div className="inline-flex rounded-xl bg-slate-200/90 p-1 text-xs font-bold shadow-xs">
+            <div className="inline-flex rounded-xl bg-slate-200/90 p-1 text-xs font-bold shadow-xs self-start sm:self-auto">
               <button
                 type="button"
                 onClick={() => handleUpdateEluentMode('isocratic')}
@@ -1312,11 +1315,11 @@ export const ColumnFractionManager = ({
 
         {/* 2. FRACTION TLC PLATES MANAGER */}
         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-indigo-600" />
-                Bản Mỏng Kiểm Tra Phân Đoạn
+                <Camera className="w-5 h-5 text-indigo-600 flex-shrink-0" />
+                <span>Bản Mỏng Kiểm Tra Phân Đoạn</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Chụp 3 ảnh (UV 254, UV 365, Thuốc thử) kèm danh sách các số ống đã chấm
@@ -1326,7 +1329,7 @@ export const ColumnFractionManager = ({
             <button
               type="button"
               onClick={handleOpenAddFracTlc}
-              className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-2xl flex items-center gap-2 shadow-md cursor-pointer transition-all min-h-[44px] no-print"
+              className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all min-h-[44px] w-full sm:w-auto no-print"
             >
               <Plus className="w-4 h-4" />
               <span>Chấm bản TLC phân đoạn</span>

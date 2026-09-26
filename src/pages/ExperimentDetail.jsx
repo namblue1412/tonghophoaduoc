@@ -461,57 +461,136 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   );
 
   // ============================================================================
-  // LAYOUT 1: MAC / LAPTOP WIDESCREEN WORKSTATION (2-Column Sticky Left Sidebar)
+  // LAYOUT 1: MAC / LAPTOP WIDESCREEN WORKSTATION (Full-Width 1440px Canvas)
   // ============================================================================
   if (isMac) {
     return (
-      <div className="max-w-[1440px] mx-auto px-6 py-6 pb-20">
-        <div className="grid grid-cols-12 gap-6 items-start">
-          {/* LEFT STICKY WORKSTATION SIDEBAR */}
-          <aside className="col-span-3 sticky top-20 space-y-4 no-print">
-            {/* Dossier Control & Metadata Card */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
-              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                <button
-                  onClick={onBackToDashboard}
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Danh sách</span>
-                </button>
+      <div className="max-w-[1440px] mx-auto px-6 py-5 space-y-5 pb-20">
+        {/* Top Action, Live Timer & View Mode Bar */}
+        <div className="flex items-center justify-between gap-4 no-print">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={onBackToDashboard}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-teal-700 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Danh sách phản ứng</span>
+            </button>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={handleManualSave}
-                    disabled={isSyncing}
-                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>{saveToast ? 'Đã lưu!' : 'Lưu'}</span>
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl cursor-pointer"
-                    title="In sổ tay"
-                  >
-                    <Printer className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+            {/* Segmented Mode Switcher: Toàn trang vs Từng mục */}
+            <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-xs inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => setViewMode('all')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span>Toàn trang</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('focus')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors ${
+                  viewMode === 'focus'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Từng mục</span>
+              </button>
+            </div>
+          </div>
 
-              {/* Code & Status */}
-              <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2.5">
+            {/* Live Reaction Timer Pill */}
+            <button
+              type="button"
+              onClick={() => handleStageSelect('section-timer', 'timer')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                activeExperiment.reactionTimer?.status === 'running'
+                  ? 'bg-slate-900 text-white border-emerald-500/60 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300 shadow-xs'
+              }`}
+              title="Chuyển đến đồng hồ phản ứng"
+            >
+              <Timer
+                className={`w-4 h-4 ${
+                  activeExperiment.reactionTimer?.status === 'running'
+                    ? 'text-emerald-400 animate-spin'
+                    : 'text-teal-600'
+                }`}
+              />
+              <span className="text-slate-400 font-medium">Thời gian khuấy:</span>
+              <span className="font-mono tabular-nums font-extrabold text-sm">
+                {formatTime(totalCurrentTimer)}
+              </span>
+              {activeExperiment.reactionTimer?.status === 'running' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => duplicateExperiment(activeExperiment.id)}
+              className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Copy className="w-3.5 h-3.5 text-slate-500" />
+              <span>Nhân bản</span>
+            </button>
+
+            <button
+              onClick={handleManualSave}
+              disabled={isSyncing}
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>{saveToast ? 'Đã lưu!' : isSyncing ? 'Đang lưu...' : 'Lưu sổ tay'}</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="In sổ tay"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span>In sổ tay</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Full-Width Widescreen Experiment Dossier Card */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm card-print">
+          <div className="grid grid-cols-12 gap-5 items-center">
+            {/* Left 8 cols: Code, Date, Status + Title */}
+            <div className="col-span-8 space-y-2.5">
+              <div className="flex items-center gap-2.5">
                 <input
                   type="text"
                   value={activeExperiment.code || ''}
                   onChange={(e) => handleMetaChange('code', e.target.value)}
                   placeholder="Mã TN"
-                  className="font-mono tabular-nums font-bold text-xs bg-teal-50 border border-teal-200 text-teal-800 px-2.5 py-2 rounded-xl focus:outline-none uppercase"
+                  className="w-32 font-mono tabular-nums font-bold text-xs bg-teal-50 border border-teal-200 text-teal-800 px-3 py-1.5 rounded-xl focus:outline-none uppercase"
                 />
+
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <input
+                    type="date"
+                    value={activeExperiment.date || ''}
+                    onChange={(e) => handleMetaChange('date', e.target.value)}
+                    className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none"
+                  />
+                </div>
+
                 <select
                   value={activeExperiment.status || 'draft'}
                   onChange={(e) => handleStatusChange(e.target.value)}
-                  className="text-xs font-bold px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none"
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none"
                 >
                   <option value="draft">Bản nháp</option>
                   <option value="running">Đang khuấy</option>
@@ -522,150 +601,78 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
                 </select>
               </div>
 
-              {/* Date */}
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <input
+                type="text"
+                value={activeExperiment.title || ''}
+                onChange={(e) => handleMetaChange('title', e.target.value)}
+                placeholder="Tên phản ứng thí nghiệm..."
+                className="w-full text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Right 4 cols: Researcher & Lab Room */}
+            <div className="col-span-4 grid grid-cols-1 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
                 <input
-                  type="date"
-                  value={activeExperiment.date || ''}
-                  onChange={(e) => handleMetaChange('date', e.target.value)}
-                  className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none w-full"
+                  type="text"
+                  value={activeExperiment.researcher || ''}
+                  onChange={(e) => handleMetaChange('researcher', e.target.value)}
+                  placeholder="Nghiên cứu viên..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none"
                 />
               </div>
-
-              {/* Researcher & Lab Room */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-                  <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={activeExperiment.researcher || ''}
-                    onChange={(e) => handleMetaChange('researcher', e.target.value)}
-                    placeholder="Nghiên cứu viên..."
-                    className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none w-full"
-                  />
-                </div>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
-                  <Building className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={activeExperiment.labRoom || ''}
-                    onChange={(e) => handleMetaChange('labRoom', e.target.value)}
-                    placeholder="Phòng thí nghiệm..."
-                    className="bg-transparent text-xs font-medium text-slate-700 focus:outline-none w-full"
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+                <Building className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={activeExperiment.labRoom || ''}
+                  onChange={(e) => handleMetaChange('labRoom', e.target.value)}
+                  placeholder="Phòng thí nghiệm..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none"
+                />
               </div>
             </div>
-
-            {/* Live Reaction Timer Widget in Sidebar */}
-            <div
-              onClick={() => handleStageSelect('section-timer', 'timer')}
-              className={`rounded-2xl p-3.5 border cursor-pointer transition-all ${
-                activeExperiment.reactionTimer?.status === 'running'
-                  ? 'bg-slate-900 text-white border-emerald-500/60 shadow-md'
-                  : 'bg-white text-slate-800 border-slate-200 shadow-sm hover:border-teal-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Timer
-                    className={`w-3.5 h-3.5 ${
-                      activeExperiment.reactionTimer?.status === 'running'
-                        ? 'text-emerald-400 animate-spin'
-                        : 'text-teal-600'
-                    }`}
-                  />
-                  <span>Đồng hồ phản ứng</span>
-                </span>
-                {activeExperiment.reactionTimer?.status === 'running' && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                )}
-              </div>
-              <div className="font-mono tabular-nums text-xl font-extrabold mt-1">
-                {formatTime(totalCurrentTimer)}
-              </div>
-            </div>
-
-            {/* Vertical 6-Stage Navigation Menu */}
-            <div className="bg-slate-900 text-white rounded-2xl p-2.5 border border-slate-800 shadow-md space-y-1">
-              <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-800 mb-1">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Quy trình thực nghiệm
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setViewMode(viewMode === 'all' ? 'focus' : 'all')}
-                  className="text-[11px] font-semibold text-teal-400 hover:text-teal-300 cursor-pointer"
-                >
-                  {viewMode === 'all' ? 'Từng mục' : 'Toàn trang'}
-                </button>
-              </div>
-
-              {WORKFLOW_STAGES.map((stage) => {
-                const Icon = stage.icon;
-                const isActive = activeNav === stage.id;
-                return (
-                  <button
-                    key={stage.id}
-                    type="button"
-                    onClick={() => handleStageSelect(stage.sectionId, stage.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                      isActive
-                        ? stage.activeBg
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : stage.accent}`} />
-                      <span className="truncate">{stage.fullLabel}</span>
-                    </span>
-                    <span
-                      className={`font-mono tabular-nums text-[10px] px-2 py-0.5 rounded-md ml-1 ${
-                        isActive
-                          ? 'bg-black/20 text-white'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}
-                    >
-                      {getStageBadgeText(stage.id)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
-          {/* RIGHT MAIN WORKSTATION CANVAS */}
-          <div className="col-span-9 space-y-5 min-w-0">
-            {/* Experiment Title Banner */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm card-print">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-mono font-bold text-teal-700 mb-1">
-                    {activeExperiment.code} • {activeExperiment.date} • {activeExperiment.researcher} ({activeExperiment.labRoom})
-                  </div>
-                  <input
-                    type="text"
-                    value={activeExperiment.title || ''}
-                    onChange={(e) => handleMetaChange('title', e.target.value)}
-                    placeholder="Tên phản ứng thí nghiệm..."
-                    className="w-full text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => duplicateExperiment(activeExperiment.id)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer flex-shrink-0 no-print"
-                >
-                  <Copy className="w-4 h-4 text-slate-500" />
-                  <span>Nhân bản</span>
-                </button>
-              </div>
-            </div>
-
-            {renderModules()}
           </div>
+        </div>
+
+        {/* Sticky 6-Stage Horizontal Workstation Bar */}
+        <div className="sticky top-16 z-30 bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-md border border-slate-800 grid grid-cols-6 gap-1.5 no-print">
+          {WORKFLOW_STAGES.map((stage) => {
+            const Icon = stage.icon;
+            const isActive = activeNav === stage.id;
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => handleStageSelect(stage.sectionId, stage.id)}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? stage.activeBg + ' shadow-sm'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : stage.accent}`} />
+                  <span className="truncate">{stage.fullLabel}</span>
+                </span>
+                <span
+                  className={`font-mono tabular-nums text-[10px] px-2 py-0.5 rounded-md ml-1.5 flex-shrink-0 ${
+                    isActive
+                      ? 'bg-black/20 text-white'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {getStageBadgeText(stage.id)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* FULL-WIDTH MAIN WORKSTATION CANVAS (100% of 1440px width) */}
+        <div className="min-w-0">
+          {renderModules()}
         </div>
       </div>
     );

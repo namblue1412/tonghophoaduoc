@@ -147,8 +147,11 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   const updateSpotRow = (idx, field, rawVal) => {
     const updated = [...newSpots];
-    // Allow comma ',' in Rf input
-    updated[idx][field] = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,-]/g, '') : rawVal;
+    // Allow comma ',' in Rf input, keep full text for label
+    updated[idx][field] =
+      field === 'rf' && typeof rawVal === 'string'
+        ? rawVal.replace(/[^0-9.,-]/g, '')
+        : rawVal;
     setNewSpots(updated);
   };
 

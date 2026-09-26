@@ -90,8 +90,21 @@ export const StoichiometryTable = ({
   };
 
   // Update cell change
+  const NUMERIC_FIELDS = [
+    'mw',
+    'purity',
+    'actualMass',
+    'theoMass',
+    'actualVolume',
+    'density',
+    'concentrationPercent'
+  ];
+
   const handleCellChange = (id, field, rawValue) => {
-    const cleaned = typeof rawValue === 'string' ? rawValue.replace(/[^0-9.,-]/g, '') : rawValue;
+    const cleaned =
+      NUMERIC_FIELDS.includes(field) && typeof rawValue === 'string'
+        ? rawValue.replace(/[^0-9.,-]/g, '')
+        : rawValue;
 
     const updated = reagents.map((r) => {
       if (r.id !== id) return r;
@@ -672,21 +685,21 @@ export const StoichiometryTable = ({
         {/* MAC / LAPTOP (AND OPTIONAL IPAD) SPREADSHEET TABLE */}
         {(isMac || (isIPad && ipadTableMode)) && (
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
-          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[900px]">
+          <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[960px]">
             <thead>
               <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-semibold uppercase text-[11px] tracking-wider">
-                <th className="py-3 px-3 text-center w-16">Giới hạn</th>
-                <th className="py-3 px-3 w-40">Phân loại</th>
-                <th className="py-3 px-3">Tên hóa chất / Công thức</th>
-                <th className="py-3 px-2 text-right w-24">M (g/mol)</th>
-                <th className="py-3 px-2 text-right w-24">Độ sạch (%)</th>
-                <th className="py-3 px-2 text-right w-28">m thực ({massUnit})</th>
-                <th className="py-3 px-2 text-right w-24">V (mL)</th>
-                <th className="py-3 px-2 text-right w-24">d (g/mL)</th>
-                <th className="py-3 px-2 text-right w-28 bg-indigo-50/60 text-indigo-900 font-bold">Số mol ({moleUnit})</th>
-                <th className="py-3 px-2 text-right w-28 bg-emerald-50/60 text-emerald-900 font-bold">Tỉ lệ mol</th>
-                <th className="py-3 px-3 w-40">Ghi chú</th>
-                <th className="py-3 px-2 text-center w-12 no-print">Xóa</th>
+                <th className="py-3 px-2 text-center w-14 whitespace-nowrap">Mốc</th>
+                <th className="py-3 px-2.5 w-36 min-w-[135px]">Phân loại</th>
+                <th className="py-3 px-3 min-w-[240px] w-[26%]">Tên hóa chất / Công thức</th>
+                <th className="py-3 px-2 text-right w-22 min-w-[84px] whitespace-nowrap">M (g/mol)</th>
+                <th className="py-3 px-2 text-right w-20 min-w-[76px] whitespace-nowrap">Độ sạch (%)</th>
+                <th className="py-3 px-2 text-right w-24 min-w-[92px] whitespace-nowrap">m thực ({massUnit})</th>
+                <th className="py-3 px-2 text-right w-20 min-w-[76px] whitespace-nowrap">V (mL)</th>
+                <th className="py-3 px-2 text-right w-20 min-w-[76px] whitespace-nowrap">d (g/mL)</th>
+                <th className="py-3 px-2 text-right w-24 min-w-[96px] bg-indigo-50/60 text-indigo-900 font-bold whitespace-nowrap">Số mol ({moleUnit})</th>
+                <th className="py-3 px-2 text-right w-22 min-w-[84px] bg-emerald-50/60 text-emerald-900 font-bold whitespace-nowrap">Tỉ lệ mol</th>
+                <th className="py-3 px-3 min-w-[150px] w-[15%]">Ghi chú</th>
+                <th className="py-3 px-2 text-center w-10 no-print">Xóa</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -886,10 +899,10 @@ export const StoichiometryTable = ({
           </h3>
         </div>
 
-        <div className={`grid gap-4 ${isIPad || isMac ? 'grid-cols-2 items-start' : 'grid-cols-1'}`}>
+        <div className="space-y-4">
         {/* 1. DUNG DỊCH MÔI TRƯỜNG (BASE / ACID) */}
         <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-purple-200 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-purple-100 text-purple-700 rounded-lg">
                 <TestTube2 className="w-4 h-4" />
@@ -907,7 +920,7 @@ export const StoichiometryTable = ({
             <button
               type="button"
               onClick={() => addReagent('base_acid')}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 min-h-[38px] cursor-pointer no-print"
+              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 min-h-[38px] cursor-pointer no-print flex-shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Thêm môi trường</span>
@@ -935,74 +948,78 @@ export const StoichiometryTable = ({
               Chưa có dung dịch môi trường.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {mediumReagents.map((mRow) => (
                 <div
                   key={mRow.id}
-                  className="bg-purple-50/30 border border-purple-100 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  className="bg-purple-50/30 border border-purple-100 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
                 >
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    {/* Tên môi trường */}
-                    <div className="sm:col-span-5">
-                      <span className="text-[10px] text-purple-700 font-bold block sm:hidden">Môi trường:</span>
-                      <input
-                        type="text"
-                        value={mRow.name || ''}
-                        onChange={(e) => handleCellChange(mRow.id, 'name', e.target.value)}
-                        placeholder="Tên môi trường (VD: Dung dịch HCl 10%)..."
-                        className="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-950 focus:outline-none min-h-[38px]"
-                      />
-                    </div>
+                  {/* Tên môi trường */}
+                  <div className="sm:col-span-4">
+                    <span className="text-[11px] text-purple-900 font-semibold block mb-1">
+                      Tên dung dịch môi trường:
+                    </span>
+                    <input
+                      type="text"
+                      value={mRow.name || ''}
+                      onChange={(e) => handleCellChange(mRow.id, 'name', e.target.value)}
+                      placeholder="VD: Dung dịch HCl 10%..."
+                      className="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-purple-950 focus:outline-none min-h-[38px]"
+                    />
+                  </div>
 
-                    {/* Nồng độ C% */}
-                    <div className="sm:col-span-3">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px] text-slate-500 whitespace-nowrap font-medium">Nồng độ C%:</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={mRow.concentrationPercent || mRow.purity || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9.,-]/g, '');
-                            handleCellChange(mRow.id, 'concentrationPercent', val);
-                            handleCellChange(mRow.id, 'purity', val);
-                          }}
-                          placeholder="10%"
-                          className="w-full bg-white border border-purple-200 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-center text-purple-900 focus:outline-none min-h-[38px]"
-                        />
-                      </div>
-                    </div>
+                  {/* Nồng độ C% */}
+                  <div className="sm:col-span-2">
+                    <span className="text-[11px] text-slate-600 font-semibold block mb-1">
+                      Nồng độ (C%):
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={mRow.concentrationPercent || mRow.purity || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9.,-]/g, '');
+                        handleCellChange(mRow.id, 'concentrationPercent', val);
+                        handleCellChange(mRow.id, 'purity', val);
+                      }}
+                      placeholder="10%"
+                      className="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono font-bold text-center text-purple-900 focus:outline-none min-h-[38px]"
+                    />
+                  </div>
 
-                    {/* Thể tích V (mL) */}
-                    <div className="sm:col-span-4">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px] text-slate-500 whitespace-nowrap font-medium">Thể tích:</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={mRow.actualVolume || ''}
-                          onChange={(e) => handleCellChange(mRow.id, 'actualVolume', e.target.value)}
-                          placeholder="V (mL)"
-                          className="w-full bg-white border border-purple-200 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
-                        />
-                        <span className="text-xs text-slate-500 font-semibold">mL</span>
-                      </div>
-                    </div>
+                  {/* Thể tích V (mL) */}
+                  <div className="sm:col-span-2">
+                    <span className="text-[11px] text-slate-600 font-semibold block mb-1">
+                      Thể tích (mL):
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={mRow.actualVolume || ''}
+                      onChange={(e) => handleCellChange(mRow.id, 'actualVolume', e.target.value)}
+                      placeholder="mL"
+                      className="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
+                    />
                   </div>
 
                   {/* Ghi chú & Nút Xoá */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={mRow.notes || ''}
-                      onChange={(e) => handleCellChange(mRow.id, 'notes', e.target.value)}
-                      placeholder="Ghi chú (nhỏ giọt, pH...)..."
-                      className="bg-transparent border-0 border-b border-purple-200 text-xs text-purple-800 px-2 py-1 focus:outline-none w-full sm:w-48 min-h-[36px]"
-                    />
+                  <div className="sm:col-span-4 flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] text-slate-600 font-semibold block mb-1">
+                        Ghi chú:
+                      </span>
+                      <input
+                        type="text"
+                        value={mRow.notes || ''}
+                        onChange={(e) => handleCellChange(mRow.id, 'notes', e.target.value)}
+                        placeholder="Nhỏ giọt, chỉnh pH..."
+                        className="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-xs text-purple-900 focus:outline-none min-h-[38px]"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeReagent(mRow.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer no-print"
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer no-print flex-shrink-0"
                       title="Xóa môi trường này"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1016,7 +1033,7 @@ export const StoichiometryTable = ({
 
         {/* 2. DUNG MÔI PHẢN ỨNG */}
         <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-slate-100 text-slate-700 rounded-lg">
                 <Droplet className="w-4 h-4" />
@@ -1034,7 +1051,7 @@ export const StoichiometryTable = ({
             <button
               type="button"
               onClick={() => addReagent('solvent')}
-              className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 min-h-[38px] cursor-pointer no-print"
+              className="bg-slate-700 hover:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1 min-h-[38px] cursor-pointer no-print flex-shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>+ Thêm dung môi</span>
@@ -1049,7 +1066,7 @@ export const StoichiometryTable = ({
                 key={preset.name}
                 type="button"
                 onClick={() => addReagent('solvent', preset.name, preset.notes)}
-                className="text-[11px] bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                className="text-[11px] bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
               >
                 {preset.name}
               </button>
@@ -1062,55 +1079,59 @@ export const StoichiometryTable = ({
               Chưa có dung môi phản ứng.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {solventReagents.map((sRow) => (
                 <div
                   key={sRow.id}
-                  className="bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  className="bg-slate-50/70 border border-slate-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
                 >
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    {/* Tên dung môi */}
-                    <div className="sm:col-span-7">
-                      <span className="text-[10px] text-slate-600 font-bold block sm:hidden">Dung môi:</span>
-                      <input
-                        type="text"
-                        value={sRow.name || ''}
-                        onChange={(e) => handleCellChange(sRow.id, 'name', e.target.value)}
-                        placeholder="Tên dung môi (VD: Dichloromethane DCM)..."
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none min-h-[38px]"
-                      />
-                    </div>
+                  {/* Tên dung môi */}
+                  <div className="sm:col-span-5">
+                    <span className="text-[11px] text-slate-700 font-semibold block mb-1">
+                      Tên dung môi phản ứng:
+                    </span>
+                    <input
+                      type="text"
+                      value={sRow.name || ''}
+                      onChange={(e) => handleCellChange(sRow.id, 'name', e.target.value)}
+                      placeholder="VD: Dichloromethane (DCM)..."
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none min-h-[38px]"
+                    />
+                  </div>
 
-                    {/* Thể tích V (mL) */}
-                    <div className="sm:col-span-5">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[11px] text-slate-500 whitespace-nowrap font-medium">Thể tích:</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={sRow.actualVolume || ''}
-                          onChange={(e) => handleCellChange(sRow.id, 'actualVolume', e.target.value)}
-                          placeholder="V (mL)"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
-                        />
-                        <span className="text-xs text-slate-500 font-semibold">mL</span>
-                      </div>
-                    </div>
+                  {/* Thể tích V (mL) */}
+                  <div className="sm:col-span-3">
+                    <span className="text-[11px] text-slate-600 font-semibold block mb-1">
+                      Thể tích (mL):
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={sRow.actualVolume || ''}
+                      onChange={(e) => handleCellChange(sRow.id, 'actualVolume', e.target.value)}
+                      placeholder="mL"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
+                    />
                   </div>
 
                   {/* Ghi chú & Nút Xoá */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={sRow.notes || ''}
-                      onChange={(e) => handleCellChange(sRow.id, 'notes', e.target.value)}
-                      placeholder="Ghi chú (làm khan, sấy...)..."
-                      className="bg-transparent border-0 border-b border-slate-200 text-xs text-slate-600 px-2 py-1 focus:outline-none w-full sm:w-48 min-h-[36px]"
-                    />
+                  <div className="sm:col-span-4 flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] text-slate-600 font-semibold block mb-1">
+                        Ghi chú:
+                      </span>
+                      <input
+                        type="text"
+                        value={sRow.notes || ''}
+                        onChange={(e) => handleCellChange(sRow.id, 'notes', e.target.value)}
+                        placeholder="Dung môi khan, sấy..."
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none min-h-[38px]"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeReagent(sRow.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer no-print"
+                      className="p-2 text-slate-400 hover:text-rose-600 rounded-lg min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer no-print flex-shrink-0"
                       title="Xóa dung môi này"
                     >
                       <Trash2 className="w-4 h-4" />
