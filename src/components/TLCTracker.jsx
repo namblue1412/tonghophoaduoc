@@ -189,7 +189,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
         updated[idx].rf = (distNum / frontNum).toFixed(2);
       }
     } else if (field === 'rf') {
-      updated[idx].rf = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,-]/g, '') : rawVal;
+      updated[idx].rf = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,]/g, '') : rawVal;
     } else {
       updated[idx][field] = rawVal;
     }
@@ -200,6 +200,21 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const handleSaveTLC = async () => {
     if (!newMinute) {
       alert('Vui lòng nhập thời điểm chấm TLC (phút)');
+      return;
+    }
+
+    const frontNum = parseFloat(String(solventFrontCm || '').replace(',', '.')) || 0;
+    const invalidSpot = newSpots.find((s) => {
+      const rfVal = parseFloat(String(s.rf || '').replace(',', '.'));
+      const distVal = parseFloat(String(s.distCm || '').replace(',', '.'));
+      if (!Number.isNaN(rfVal) && (rfVal > 1 || rfVal < 0)) return true;
+      if (frontNum > 0 && !Number.isNaN(distVal) && distVal > frontNum) return true;
+      return false;
+    });
+    if (invalidSpot) {
+      alert(
+        `Cảnh báo vật lý sắc ký: Vết "${invalidSpot.label || 'Chưa đặt tên'}" có Rf = ${invalidSpot.rf || '> 1.00'} (vượt quá tuyến dung môi). Hệ số lưu giữ chuẩn phải nằm trong khoảng 0.00 ≤ Rf ≤ 1.00. Vui lòng kiểm tra lại d(vết) và d(dung môi)!`
+      );
       return;
     }
 
@@ -1059,57 +1074,86 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 </div>
 
                 <div className="space-y-2">
-                  {newSpots.map((spot, idx) => (
-                    <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
-                      <input
-                        type="text"
-                        value={spot.label}
-                        onChange={(e) => updateSpotRow(idx, 'label', e.target.value)}
-                        placeholder="Tên vết (VD: Chất tham gia, Sản phẩm...)"
-                        spellCheck={false}
-                        autoCorrect="off"
-                        className="flex-1 min-w-[130px] h-10 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm leading-normal font-medium focus:outline-none"
-                      />
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] font-mono text-slate-500">d(vết):</span>
+                  {newSpots.map((spot, idx) => {
+                    const frontVal = parseFloat(String(solventFrontCm || '').replace(',', '.')) || 0;
+                    const distVal = parseFloat(String(spot.distCm || '').replace(',', '.')) || 0;
+                    const rfVal = parseFloat(String(spot.rf || '').replace(',', '.'));
+                    const isInvalidRf =
+                      (!Number.isNaN(rfVal) && (rfVal > 1 || rfVal < 0)) ||
+                      (frontVal > 0 && distVal > frontVal);
+                    return (
+                      <div key={idx} className="space-y-1">
+                        <div
+                          className={`flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 rounded-xl border transition-colors ${
+                            isInvalidRf
+                              ? 'bg-rose-50/70 border-rose-300'
+                              : 'bg-white border-slate-200'
+                          }`}
+                        >
                           <input
                             type="text"
-                            inputMode="decimal"
-                            value={spot.distCm || ''}
-                            onChange={(e) => updateSpotRow(idx, 'distCm', e.target.value)}
-                            placeholder="cm"
+                            value={spot.label}
+                            onChange={(e) => updateSpotRow(idx, 'label', e.target.value)}
+                            placeholder="Tên vết (VD: Chất tham gia, Sản phẩm...)"
                             spellCheck={false}
                             autoCorrect="off"
-                            title="Khoảng cách vết chạy (cm) để tự chia Rf"
-                            className="w-14 h-10 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs leading-normal font-mono text-center focus:outline-none"
+                            className="flex-1 min-w-[130px] h-10 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm leading-normal font-medium focus:outline-none"
                           />
+                          <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] font-mono text-slate-500">d(vết):</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={spot.distCm || ''}
+                                onChange={(e) => updateSpotRow(idx, 'distCm', e.target.value)}
+                                placeholder="cm"
+                                spellCheck={false}
+                                autoCorrect="off"
+                                title="Khoảng cách vết chạy (cm) để tự chia Rf"
+                                className={`w-14 h-10 rounded-lg px-2 py-1.5 text-xs leading-normal font-mono text-center focus:outline-none border ${
+                                  frontVal > 0 && distVal > frontVal
+                                    ? 'bg-rose-100 border-rose-400 text-rose-800 font-bold'
+                                    : 'bg-slate-50 border-slate-200'
+                                }`}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[11px] font-mono font-bold text-indigo-700">Rf:</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={spot.rf}
+                                onChange={(e) => updateSpotRow(idx, 'rf', e.target.value)}
+                                placeholder="0.45"
+                                spellCheck={false}
+                                autoCorrect="off"
+                                className={`w-16 h-10 rounded-lg px-2 py-1.5 text-xs sm:text-sm leading-normal font-mono font-bold text-center focus:outline-none border ${
+                                  isInvalidRf
+                                    ? 'bg-rose-100 border-rose-400 text-rose-800'
+                                    : 'bg-indigo-50/60 border-indigo-200 text-indigo-800'
+                                }`}
+                              />
+                            </div>
+                            {newSpots.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeSpotRow(idx)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 min-h-[38px] cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[11px] font-mono font-bold text-indigo-700">Rf:</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={spot.rf}
-                            onChange={(e) => updateSpotRow(idx, 'rf', e.target.value)}
-                            placeholder="0.45"
-                            spellCheck={false}
-                            autoCorrect="off"
-                            className="w-16 h-10 bg-indigo-50/60 border border-indigo-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm leading-normal font-mono font-bold text-indigo-800 text-center focus:outline-none"
-                          />
-                        </div>
-                        {newSpots.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeSpotRow(idx)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 min-h-[38px] cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        {isInvalidRf && (
+                          <p className="text-[11px] font-bold text-rose-600 px-2">
+                            ⚠ Rf = {spot.rf || '> 1.00'} vượt giới hạn vật lý (0.00 ≤ Rf ≤ 1.00): Khoảng cách vết chạy không thể lớn hơn tuyến dung môi!
+                          </p>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

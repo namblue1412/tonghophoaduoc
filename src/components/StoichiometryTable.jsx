@@ -149,14 +149,38 @@ export const StoichiometryTable = ({
         delete updatedRow.molarRatioInput;
       }
 
-      // Auto-compute mass whenever user inputs volume (or density when volume > 0) for active reactants
+      // Auto-compute mass/volume whenever user inputs volume, mass, or density for active reactants
       if (r.type !== 'base_acid' && r.type !== 'solvent') {
-        if (field === 'actualVolume' || field === 'density') {
-          const v = parseDecimal(field === 'actualVolume' ? cleaned : r.actualVolume);
-          const d = parseDecimal(field === 'density' ? cleaned : r.density);
-          if (v > 0 && d > 0) {
-            const calcMass = massUnit === 'mg' ? v * d * 1000 : v * d;
-            updatedRow.actualMass = String(parseFloat(calcMass.toFixed(massUnit === 'mg' ? 2 : 4)));
+        if (field === 'actualVolume') {
+          const v = parseDecimal(cleaned);
+          const d = parseDecimal(r.density);
+          if (v > 0) {
+            updatedRow.isLiquid = true;
+            if (d > 0) {
+              const calcMass = massUnit === 'mg' ? v * d * 1000 : v * d;
+              updatedRow.actualMass = String(parseFloat(calcMass.toFixed(massUnit === 'mg' ? 2 : 4)));
+            }
+          }
+        } else if (field === 'density') {
+          const d = parseDecimal(cleaned);
+          const v = parseDecimal(r.actualVolume);
+          const m = parseDecimal(r.actualMass);
+          if (d > 0) {
+            updatedRow.isLiquid = true;
+            if (v > 0) {
+              const calcMass = massUnit === 'mg' ? v * d * 1000 : v * d;
+              updatedRow.actualMass = String(parseFloat(calcMass.toFixed(massUnit === 'mg' ? 2 : 4)));
+            } else if (m > 0) {
+              const volMl = massUnit === 'mg' ? m / (d * 1000) : m / d;
+              updatedRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+            }
+          }
+        } else if (field === 'actualMass') {
+          const m = parseDecimal(cleaned);
+          const d = parseDecimal(r.density);
+          if (m > 0 && d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
+            const volMl = massUnit === 'mg' ? m / (d * 1000) : m / d;
+            updatedRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
           }
         }
       }
@@ -210,9 +234,9 @@ export const StoichiometryTable = ({
           nextRow.theoMass = formattedMass;
           nextRow.moles = parseFloat(reqMoles.toFixed(5));
 
-          // Also update volume if density > 0 and row already uses volume
+          // Also update volume if density > 0 and reagent is liquid or already uses volume
           const d = parseDecimal(r.density);
-          if (d > 0 && parseDecimal(r.actualVolume) > 0) {
+          if (d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
             const volMl = massUnit === 'mg' ? reqMass / (d * 1000) : reqMass / d;
             nextRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
           }
@@ -278,6 +302,7 @@ export const StoichiometryTable = ({
       concentrationPercent: defaultConc,
       concUnit: defaultConcUnit,
       density: extra.density || '1.0',
+      isLiquid: Boolean(extra.isLiquid),
       isLimiting: isFirstActive,
       theoMass: '1.0',
       actualMass: extra.actualMass || '0',
@@ -322,7 +347,7 @@ export const StoichiometryTable = ({
     onChange(finalReagents);
   };
 
-  // Auto-calculate actual & theoretical mass from molar ratio (tỉ lệ mol)
+  // Auto-calculate actual & theoretical mass (and volume for liquids) from molar ratio (tỉ lệ mol)
   const autoScaleTheoreticalMass = () => {
     if (!limitingReagent || limitingMoles <= 0) {
       setUnitToast('Vui lòng nhập khối lượng (m) và phân tử lượng (M) cho chất giới hạn trước!');
@@ -341,18 +366,24 @@ export const StoichiometryTable = ({
         const requiredMoles = targetRatio * limitingMoles;
         const requiredMass = (requiredMoles * mw) / purity;
         const formattedMass = String(parseFloat(requiredMass.toFixed(decimals)));
-        return {
+        const d = parseDecimal(r.density);
+        const nextRow = {
           ...r,
           theoMass: formattedMass,
           actualMass: formattedMass,
           moles: parseFloat(requiredMoles.toFixed(5))
         };
+        if (d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
+          const volMl = massUnit === 'mg' ? requiredMass / (d * 1000) : requiredMass / d;
+          nextRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+        }
+        return nextRow;
       }
       return r;
     });
 
     onChange(updated);
-    setUnitToast(`Đã tự động tính khối lượng (m) các chất theo tỉ lệ mol của ${limitingReagent.name}!`);
+    setUnitToast(`Đã tự động tính khối lượng (m) & thể tích (V) các chất theo tỉ lệ mol của ${limitingReagent.name}!`);
     setTimeout(() => setUnitToast(null), 3500);
   };
 
@@ -422,16 +453,16 @@ export const StoichiometryTable = ({
 
   // Common Pharmaceutical Chemistry Reagents Quick-Insert Library
   const COMMON_CHEMICALS = [
-    { name: 'Acid Salicylic', formula: 'C7H6O3', mw: '138.12', purity: '99', density: '1.44', type: 'starting_material', notes: 'Nguyên liệu tổng hợp Aspirin' },
-    { name: 'p-Aminophenol', formula: 'C6H7NO', mw: '109.13', purity: '99', density: '1.29', type: 'starting_material', notes: 'Nguyên liệu tổng hợp Paracetamol' },
-    { name: '4-Hydroxycoumarin', formula: 'C9H6O3', mw: '162.14', purity: '99', density: '1.30', type: 'starting_material', notes: 'Khung Coumarin' },
-    { name: 'Anhydrid axetic (Ac2O)', formula: 'C4H6O3', mw: '102.09', purity: '99', density: '1.08', type: 'reagent', notes: 'Tác nhân acetyl hóa (lỏng)' },
-    { name: 'Benzaldehyde', formula: 'C7H6O', mw: '106.12', purity: '99', density: '1.04', type: 'reagent', notes: 'Aldehyde thơm (lỏng)' },
-    { name: 'Thionyl clorid (SOCl2)', formula: 'SOCl2', mw: '118.97', purity: '99', density: '1.64', type: 'reagent', notes: 'Tạo clorid acid (nhỏ giọt lạnh)' },
-    { name: 'Natri borohydrid (NaBH4)', formula: 'NaBH4', mw: '37.83', purity: '98', density: '1.07', type: 'reagent', notes: 'Tác nhân khử chọn lọc' },
-    { name: 'Kali carbonat (K2CO3)', formula: 'K2CO3', mw: '138.21', purity: '99', density: '2.43', type: 'reagent', notes: 'Base vô cơ khan' },
-    { name: 'DMAP', formula: 'C7H10N2', mw: '122.17', purity: '99', density: '1.00', type: 'catalyst', notes: 'Xúc tác ái nhân' },
-    { name: 'H2SO4 đặc (Xúc tác)', formula: 'H2SO4', mw: '98.08', purity: '98', density: '1.84', type: 'catalyst', notes: 'Xúc tác axit (vài giọt)' }
+    { name: 'Acid Salicylic', formula: 'C7H6O3', mw: '138.12', purity: '99', density: '1.44', isLiquid: false, type: 'starting_material', notes: 'Nguyên liệu tổng hợp Aspirin' },
+    { name: 'p-Aminophenol', formula: 'C6H7NO', mw: '109.13', purity: '99', density: '1.29', isLiquid: false, type: 'starting_material', notes: 'Nguyên liệu tổng hợp Paracetamol' },
+    { name: '4-Hydroxycoumarin', formula: 'C9H6O3', mw: '162.14', purity: '99', density: '1.30', isLiquid: false, type: 'starting_material', notes: 'Khung Coumarin' },
+    { name: 'Anhydrid axetic (Ac2O)', formula: 'C4H6O3', mw: '102.09', purity: '99', density: '1.08', isLiquid: true, type: 'reagent', notes: 'Tác nhân acetyl hóa (lỏng)' },
+    { name: 'Benzaldehyde', formula: 'C7H6O', mw: '106.12', purity: '99', density: '1.04', isLiquid: true, type: 'reagent', notes: 'Aldehyde thơm (lỏng)' },
+    { name: 'Thionyl clorid (SOCl2)', formula: 'SOCl2', mw: '118.97', purity: '99', density: '1.64', isLiquid: true, type: 'reagent', notes: 'Tạo clorid acid (nhỏ giọt lạnh)' },
+    { name: 'Natri borohydrid (NaBH4)', formula: 'NaBH4', mw: '37.83', purity: '98', density: '1.07', isLiquid: false, type: 'reagent', notes: 'Tác nhân khử chọn lọc' },
+    { name: 'Kali carbonat (K2CO3)', formula: 'K2CO3', mw: '138.21', purity: '99', density: '2.43', isLiquid: false, type: 'reagent', notes: 'Base vô cơ khan' },
+    { name: 'DMAP', formula: 'C7H10N2', mw: '122.17', purity: '99', density: '1.00', isLiquid: false, type: 'catalyst', notes: 'Xúc tác ái nhân' },
+    { name: 'H2SO4 đặc (Xúc tác)', formula: 'H2SO4', mw: '98.08', purity: '98', density: '1.84', isLiquid: true, type: 'catalyst', notes: 'Xúc tác axit (vài giọt)' }
   ];
 
   // Quick preset shortcuts for medium & solvent (supports C%, CM, N)
@@ -650,7 +681,8 @@ export const StoichiometryTable = ({
                     formula: chem.formula,
                     mw: chem.mw,
                     purity: chem.purity,
-                    density: chem.density
+                    density: chem.density,
+                    isLiquid: chem.isLiquid
                   })
                 }
                 className="text-[11px] bg-white hover:bg-teal-100/70 text-slate-800 border border-teal-200/80 px-2.5 py-1 rounded-xl transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 flex items-center gap-1"

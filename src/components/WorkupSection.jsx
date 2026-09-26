@@ -16,7 +16,14 @@ import {
 } from 'lucide-react';
 import { parseDecimal } from './StoichiometryTable';
 
-export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
+export const WorkupSection = ({
+  workupData,
+  onChange,
+  massUnit = 'g',
+  moleUnit = 'mol',
+  limitingMoles = 0,
+  targetMW = 0
+}) => {
   const {
     quenching = '',
     extractionSolvent = '',
@@ -31,6 +38,13 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
     crudeMass = 0,
     workupNotes = ''
   } = workupData || {};
+
+  const theoreticalMass = limitingMoles > 0 && targetMW > 0 ? limitingMoles * targetMW : 0;
+  const crudeMassNum = parseDecimal(crudeMass);
+  const crudeYieldPct =
+    theoreticalMass > 0 && crudeMassNum > 0
+      ? parseFloat(((crudeMassNum / theoreticalMass) * 100).toFixed(1))
+      : 0;
 
   // Normalize crude tubes (backward-compatible)
   const normalizedCrudeTubes = (Array.isArray(crudeTubes) && crudeTubes.length > 0)
@@ -392,30 +406,49 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           </div>
 
           {/* Aggregate Crude Mass Summary Banner */}
-          <div className="bg-amber-100/90 border border-amber-300 p-3.5 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-amber-200 text-amber-900 rounded-xl font-bold flex-shrink-0">
-                <Scale className="w-5 h-5 text-amber-800" />
+          <div className="bg-amber-100/90 border border-amber-300 p-3.5 sm:p-4 rounded-xl space-y-2.5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-200 text-amber-900 rounded-xl font-bold flex-shrink-0">
+                  <Scale className="w-5 h-5 text-amber-800" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
+                    Tổng khối lượng cắn thô ({normalizedCrudeTubes.length} ống):
+                  </span>
+                  {theoreticalMass > 0 && (
+                    <span className="text-[11px] font-medium text-amber-800 block mt-0.5">
+                      Lý thuyết (100%): <strong>{theoreticalMass.toFixed(massUnit === 'mg' ? 2 : 4)} {massUnit}</strong> • Hiệu suất thô:{' '}
+                      <strong className={crudeYieldPct > 100 ? 'text-rose-700 underline' : 'text-amber-950'}>
+                        {crudeYieldPct}%
+                      </strong>
+                    </span>
+                  )}
+                </div>
               </div>
-              <div>
-                <span className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
-                  Tổng khối lượng cắn thô ({normalizedCrudeTubes.length} ống):
-                </span>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={crudeMass ?? ''}
+                  onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
+                  title="Nhấn để chỉnh sửa hoặc nhập tay tổng khối lượng cắn thô nếu cần"
+                  placeholder="0.0000"
+                  className="w-36 text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-3 py-1.5 focus:outline-none min-h-[44px]"
+                />
+                <span className="font-bold text-sm text-amber-900">{massUnit}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={crudeMass ?? ''}
-                onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                title="Nhấn để chỉnh sửa hoặc nhập tay tổng khối lượng cắn thô nếu cần"
-                placeholder="0.0000"
-                className="w-36 text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-3 py-1.5 focus:outline-none min-h-[44px]"
-              />
-              <span className="font-bold text-sm text-amber-900">{massUnit}</span>
-            </div>
+            {crudeYieldPct > 100 && (
+              <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-xl px-3 py-2 text-xs font-medium flex items-start gap-2">
+                <span className="font-bold text-rose-600 flex-shrink-0">⚠</span>
+                <span>
+                  <strong>Hiệu suất cắn thô ({crudeYieldPct}%) &gt; 100% lý thuyết:</strong> Cắn thô có khả năng còn ngậm dung môi chiết (EtOAc/DCM/nước) hoặc muối vô cơ. Nên cô quay kiệt / sấy chân không trước khi nạp cột sắc ký.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

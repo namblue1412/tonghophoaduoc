@@ -72,6 +72,8 @@ export const ColumnFractionManager = ({
   onChange,
   limitingMoles = 0,
   targetMW = 0,
+  rawTargetMW = '',
+  onTargetMWChange,
   crudeMass = 0,
   massUnit = 'g',
   moleUnit = 'mol'
@@ -101,11 +103,12 @@ export const ColumnFractionManager = ({
     fractionTlcPlates = [],
     eppendorfYield = {
       tubes: [
-        { id: 'tube-1', label: 'Ống 1', tareMass: '0', grossMass: '0', productMass: 0 }
+        { id: 'tube-1', label: 'Ống 1', tag: 'spc', tareMass: '0', grossMass: '0', productMass: 0 }
       ],
       tubeTareMass: '0',
       tubeGrossMass: '0',
       productMass: 0,
+      byproductMass: 0,
       targetMW: '0',
       theoreticalYield: 0,
       yieldPercent: 0,
@@ -187,7 +190,7 @@ export const ColumnFractionManager = ({
   // Add single next fraction tube (F_N+1)
   const handleAddNextTube = () => {
     const currentList = fractions && fractions.length > 0 ? fractions : [];
-    const nextNumber = currentList.length > 0 ? Math.max(...currentList.map((f) => f.number)) + 1 : 1;
+    const nextNumber = currentList.length + 1;
     const newTube = {
       number: nextNumber,
       tlcChecked: false,
@@ -195,7 +198,10 @@ export const ColumnFractionManager = ({
       group: null,
       note: ''
     };
-    const updated = [...currentList, newTube];
+    const updated = [...currentList, newTube].map((f, idx) => ({
+      ...f,
+      number: idx + 1
+    }));
     onChange({
       ...columnData,
       totalFractions: updated.length,
@@ -203,15 +209,35 @@ export const ColumnFractionManager = ({
     });
   };
 
-  // Remove last fraction tube (minimum 1 tube)
+  // Remove last fraction tube (minimum 1 tube) and keep groups synced
   const handleRemoveLastTube = () => {
     const currentList = fractions || [];
     if (currentList.length <= 1) return;
-    const updated = currentList.slice(0, currentList.length - 1);
+    const removedNumber = currentList[currentList.length - 1]?.number;
+    const updated = currentList.slice(0, currentList.length - 1).map((f, idx) => ({
+      ...f,
+      number: idx + 1
+    }));
+    const updatedGroups = (fractionGroups || [])
+      .map((g) => {
+        const nextNums = (g.fractionNumbers || []).filter(
+          (n) => n !== removedNumber && n <= updated.length
+        );
+        if (nextNums.length === 0) return null;
+        const minN = Math.min(...nextNums);
+        const maxN = Math.max(...nextNums);
+        return {
+          ...g,
+          fractionNumbers: nextNums,
+          range: minN === maxN ? `F${minN}` : `F${minN} - F${maxN}`
+        };
+      })
+      .filter(Boolean);
     onChange({
       ...columnData,
       totalFractions: updated.length,
-      fractions: updated
+      fractions: updated,
+      fractionGroups: updatedGroups
     });
   };
 
@@ -470,24 +496,34 @@ export const ColumnFractionManager = ({
     }
   };
 
-  // Tubes normalization (backward-compatible)
+  // Tubes normalization (backward-compatible, default tag = 'spc')
   const tubes = (Array.isArray(eppendorfYield?.tubes) && eppendorfYield.tubes.length > 0)
     ? eppendorfYield.tubes
     : [
         {
           id: 'tube-1',
           label: 'Ống 1',
+          tag: 'spc',
           tareMass: eppendorfYield?.tubeTareMass || '0',
           grossMass: eppendorfYield?.tubeGrossMass || '0',
           productMass: eppendorfYield?.productMass || 0
         }
       ];
 
-  const recalculateYield = (updatedTubes, currentYieldObj = eppendorfYield) => {
-    const totalProdMass = updatedTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
+  const recalculateYield = (updatedTubes, currentYieldObj = eppendorfYield, customMW = null) => {
+    const spcTubes = updatedTubes.filter((t) => (t.tag || 'spc') === 'spc');
+    const sppTubes = updatedTubes.filter((t) => t.tag === 'spp');
+    const totalProdMass = spcTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
+    const totalByproductMass = sppTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
     const roundedProd = parseFloat(totalProdMass.toFixed(4));
+    const roundedByprod = parseFloat(totalByproductMass.toFixed(4));
 
-    const mw = targetMW > 0 ? targetMW : parseDecimal(currentYieldObj?.targetMW);
+    const mw =
+      customMW !== null
+        ? customMW
+        : targetMW > 0
+        ? targetMW
+        : parseDecimal(currentYieldObj?.targetMW);
 
     let scale = 1;
     if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
@@ -513,6 +549,7 @@ export const ColumnFractionManager = ({
         tubeTareMass: firstTare,
         tubeGrossMass: firstGross,
         productMass: roundedProd,
+        byproductMass: roundedByprod,
         theoreticalYield: parseFloat(theoYield.toFixed(4)),
         yieldPercent: parseFloat(yieldPct.toFixed(2))
       }
@@ -533,6 +570,11 @@ export const ColumnFractionManager = ({
     recalculateYield(updatedTubes, eppendorfYield);
   };
 
+  const handleTubeTagChange = (tubeId, newTag) => {
+    const updatedTubes = tubes.map((t) => (t.id === tubeId ? { ...t, tag: newTag } : t));
+    recalculateYield(updatedTubes, eppendorfYield);
+  };
+
   const handleTubeLabelChange = (tubeId, newLabel) => {
     const updatedTubes = tubes.map((t) => (t.id === tubeId ? { ...t, label: newLabel } : t));
     onChange({
@@ -549,6 +591,7 @@ export const ColumnFractionManager = ({
     const newTube = {
       id: `tube-${Date.now()}`,
       label: `Ống ${nextNum}`,
+      tag: 'spc',
       tareMass: '0',
       grossMass: '0',
       productMass: 0
@@ -573,20 +616,44 @@ export const ColumnFractionManager = ({
     });
   };
 
-  // Delete a specific fraction tube by number
+  // Delete a specific fraction tube by number and renumber remaining tubes 1..N without gaps
   const handleDeleteSpecificTube = (tubeNumber) => {
     if ((fractions || []).length <= 1) return;
-    const updated = (fractions || []).filter((f) => f.number !== tubeNumber);
+    const filtered = (fractions || []).filter((f) => f.number !== tubeNumber);
+    const renumbered = filtered.map((f, idx) => ({
+      ...f,
+      number: idx + 1
+    }));
+    const updatedGroups = (fractionGroups || [])
+      .map((g) => {
+        const nextNums = (g.fractionNumbers || [])
+          .filter((n) => n !== tubeNumber)
+          .map((n) => (n > tubeNumber ? n - 1 : n));
+        if (nextNums.length === 0) return null;
+        const minN = Math.min(...nextNums);
+        const maxN = Math.max(...nextNums);
+        return {
+          ...g,
+          fractionNumbers: nextNums,
+          range: minN === maxN ? `F${minN}` : `F${minN} - F${maxN}`
+        };
+      })
+      .filter(Boolean);
+
     onChange({
       ...columnData,
-      totalFractions: updated.length,
-      fractions: updated
+      totalFractions: renumbered.length,
+      fractions: renumbered,
+      fractionGroups: updatedGroups
     });
   };
 
   // Sync theoretical yield when stoichiometry units, target MW, or limiting moles change
   useEffect(() => {
-    const totalProdMass = tubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
+    const spcTubes = tubes.filter((t) => (t.tag || 'spc') === 'spc');
+    const sppTubes = tubes.filter((t) => t.tag === 'spp');
+    const totalProdMass = spcTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
+    const totalByprodMass = sppTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
     const mw = targetMW > 0 ? targetMW : parseDecimal(eppendorfYield?.targetMW);
 
     let scale = 1;
@@ -605,18 +672,26 @@ export const ColumnFractionManager = ({
     const currentTheo = eppendorfYield?.theoreticalYield || 0;
     const currentPct = eppendorfYield?.yieldPercent || 0;
     const currentProd = eppendorfYield?.productMass || 0;
+    const currentByprod = eppendorfYield?.byproductMass || 0;
 
     const newTheo = parseFloat(theoYield.toFixed(4));
     const newPct = parseFloat(yieldPct.toFixed(2));
     const newProd = parseFloat(totalProdMass.toFixed(4));
+    const newByprod = parseFloat(totalByprodMass.toFixed(4));
 
-    if (newTheo !== currentTheo || newPct !== currentPct || newProd !== currentProd) {
+    if (
+      newTheo !== currentTheo ||
+      newPct !== currentPct ||
+      newProd !== currentProd ||
+      newByprod !== currentByprod
+    ) {
       onChange({
         ...columnData,
         eppendorfYield: {
           ...eppendorfYield,
           tubes,
           productMass: newProd,
+          byproductMass: newByprod,
           theoreticalYield: newTheo,
           yieldPercent: newPct
         }
@@ -1342,26 +1417,34 @@ export const ColumnFractionManager = ({
         {/* 1. DYNAMIC TEST TUBE RACK & GRID */}
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Grid className="w-4 h-4 text-indigo-600" />
-              Giá Ống Nghiệm Hứng Phân Đoạn:
-            </h3>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Grid className="w-4 h-4 text-indigo-600" />
+                Giá Ống Nghiệm Hứng Phân Đoạn:
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5 no-print">
+                Chạm trực tiếp vào từng ống để đánh dấu nhanh: <strong>Trống (-) ➔ SPC ➔ TẠP ➔ LẪN</strong>
+              </p>
+            </div>
 
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs">
               <span className="flex items-center gap-1.5 text-slate-600">
-                <span className="w-3 h-3 rounded-full bg-white border border-slate-300"></span> Chưa gộp
+                <span className="w-3 h-3 rounded-full bg-white border border-slate-300"></span> Trống (-)
               </span>
               <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                <span className="w-3 h-3 rounded-full bg-emerald-500"></span> spc (Sản phẩm chính)
+                <span className="w-3 h-3 rounded-full bg-emerald-500"></span> SPC (Chính)
               </span>
               <span className="flex items-center gap-1.5 text-amber-700 font-semibold">
-                <span className="w-3 h-3 rounded-full bg-amber-500"></span> spp (Sản phẩm phụ)
+                <span className="w-3 h-3 rounded-full bg-amber-500"></span> SPP / TẠP
+              </span>
+              <span className="flex items-center gap-1.5 text-violet-700 font-semibold">
+                <span className="w-3 h-3 rounded-full bg-violet-500"></span> LẪN
               </span>
             </div>
           </div>
 
-          {/* Test Tube Grid with Synchronized Group Color & Tag */}
+          {/* Test Tube Grid with Synchronized Group Color & Quick-Tap Spot Pattern */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
             {fractions.map((f) => {
               const matchingGroup = fractionGroups.find(
@@ -1370,14 +1453,50 @@ export const ColumnFractionManager = ({
               const tag = matchingGroup?.tag || f.groupTag;
               const color = matchingGroup?.color || f.groupColor;
               const isGrouped = Boolean(matchingGroup || f.group);
+              const pattern = f.spotPattern || 'empty';
+
+              let ungroupedCardStyle = 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300';
+              let ungroupedBadge = <span className="text-[10px] text-slate-400 leading-none mt-1">-</span>;
+
+              if (!isGrouped) {
+                if (pattern === 'product') {
+                  ungroupedCardStyle = 'bg-emerald-50/90 border-emerald-400 text-emerald-900 font-bold';
+                  ungroupedBadge = (
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-600 text-white mt-1 shadow-xs">
+                      SPC
+                    </span>
+                  );
+                } else if (pattern === 'impurity') {
+                  ungroupedCardStyle = 'bg-amber-50/90 border-amber-400 text-amber-900 font-bold';
+                  ungroupedBadge = (
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-amber-600 text-white mt-1 shadow-xs">
+                      TẠP
+                    </span>
+                  );
+                } else if (pattern === 'mixed') {
+                  ungroupedCardStyle = 'bg-violet-50/90 border-violet-400 text-violet-900 font-bold';
+                  ungroupedBadge = (
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-violet-600 text-white mt-1 shadow-xs">
+                      LẪN
+                    </span>
+                  );
+                }
+              }
 
               return (
                 <div key={f.number} className="relative group">
                   <div
-                    className={`w-full flex flex-col items-center justify-center p-2 rounded-xl border text-xs shadow-xs min-h-[56px] select-none transition-all ${
-                      isGrouped
-                        ? 'border-2 font-bold'
-                        : 'bg-white border-slate-200 text-slate-600'
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleFractionState(f.number)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleFractionState(f.number);
+                      }
+                    }}
+                    className={`w-full flex flex-col items-center justify-center p-2 rounded-xl border text-xs shadow-xs min-h-[56px] select-none transition-all cursor-pointer active:scale-95 ${
+                      isGrouped ? 'border-2 font-bold' : ungroupedCardStyle
                     }`}
                     style={
                       isGrouped && color
@@ -1391,7 +1510,7 @@ export const ColumnFractionManager = ({
                     title={
                       isGrouped
                         ? `Ống F${f.number}: Thuộc nhóm "${matchingGroup?.name || 'Đã gộp'}" (${tag === 'spc' ? 'Sản phẩm chính' : 'Sản phẩm phụ'})`
-                        : `Ống F${f.number}: Chưa gộp`
+                        : `Ống F${f.number}: Chạm để đổi trạng thái (Trống ➔ SPC ➔ TẠP ➔ LẪN)`
                     }
                   >
                     <span
@@ -1409,7 +1528,7 @@ export const ColumnFractionManager = ({
                         {tag === 'spc' ? 'SPC' : tag === 'spp' ? 'SPP' : (tag || 'GỘP')}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 leading-none mt-1">-</span>
+                      ungroupedBadge
                     )}
                   </div>
 
@@ -2048,7 +2167,7 @@ export const ColumnFractionManager = ({
                 Cân Cắn Eppendorf Sau Cô Quay & Tính Hiệu Suất ({tubes.length} ống)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Cân khối lượng sản phẩm thu được từ các phân đoạn đã gộp
+                Chỉ các ống đánh dấu <strong>spc (Sản phẩm chính)</strong> mới được cộng vào hiệu suất phản ứng; ống <strong>spp (Phụ/Tạp)</strong> được ghi riêng để tính tỉ lệ thu hồi cột
               </p>
             </div>
 
@@ -2064,139 +2183,280 @@ export const ColumnFractionManager = ({
 
           {/* List of Eppendorf Tubes */}
           <div className="space-y-2.5">
-            {tubes.map((tube, index) => (
-              <div
-                key={tube.id || index}
-                className="bg-white p-3 sm:p-3.5 rounded-2xl border border-emerald-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3"
-              >
-                {/* Tube Label */}
-                <div className="flex items-center gap-2 md:w-36 flex-shrink-0">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  <input
-                    type="text"
-                    value={tube.label}
-                    onChange={(e) => handleTubeLabelChange(tube.id, e.target.value)}
-                    placeholder={`Ống ${index + 1}`}
-                    className="font-bold text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none w-full"
-                    title="Nhấn để đổi tên ống"
-                  />
-                </div>
-
-                {/* 3 Mass inputs */}
-                <div className="grid grid-cols-3 gap-2 flex-1 items-end">
-                  <div className="min-w-0">
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
-                      m(vỏ) ({massUnit}):
-                    </label>
+            {tubes.map((tube, index) => {
+              const isSpp = tube.tag === 'spp';
+              return (
+                <div
+                  key={tube.id || index}
+                  className={`bg-white p-3 sm:p-3.5 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                    isSpp ? 'border-amber-200/90' : 'border-emerald-100'
+                  }`}
+                >
+                  {/* Tube Label & spc/spp Tag Selector */}
+                  <div className="flex items-center gap-2 md:w-56 flex-shrink-0">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        isSpp ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                    ></span>
                     <input
                       type="text"
-                      inputMode="decimal"
-                      value={tube.tareMass ?? ''}
-                      onChange={(e) => handleTubeChange(tube.id, 'tareMass', e.target.value)}
-                      placeholder="1.0520"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
+                      value={tube.label}
+                      onChange={(e) => handleTubeLabelChange(tube.id, e.target.value)}
+                      placeholder={`Ống ${index + 1}`}
+                      className="font-bold text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:bg-white focus:outline-none flex-1 min-w-0"
+                      title="Nhấn để đổi tên ống"
                     />
+                    <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-[10px] font-bold flex-shrink-0 no-print">
+                      <button
+                        type="button"
+                        onClick={() => handleTubeTagChange(tube.id, 'spc')}
+                        className={`px-2 py-1 rounded-md transition-colors cursor-pointer ${
+                          !isSpp
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Ống chứa Sản phẩm chính (tính vào % Hiệu suất)"
+                      >
+                        spc
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTubeTagChange(tube.id, 'spp')}
+                        className={`px-2 py-1 rounded-md transition-colors cursor-pointer ${
+                          isSpp
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="Ống chứa Sản phẩm phụ / Tạp (không cộng vào % Hiệu suất chính)"
+                      >
+                        spp
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
-                      m(vỏ+cắn) ({massUnit}):
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={tube.grossMass ?? ''}
-                      onChange={(e) => handleTubeChange(tube.id, 'grossMass', e.target.value)}
-                      placeholder="2.4962"
-                      className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
-                    />
+                  {/* 3 Mass inputs */}
+                  <div className="grid grid-cols-3 gap-2 flex-1 items-end">
+                    <div className="min-w-0">
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
+                        m(vỏ) ({massUnit}):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={tube.tareMass ?? ''}
+                        onChange={(e) => handleTubeChange(tube.id, 'tareMass', e.target.value)}
+                        placeholder="1.0520"
+                        className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
+                        m(vỏ+cắn) ({massUnit}):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={tube.grossMass ?? ''}
+                        onChange={(e) => handleTubeChange(tube.id, 'grossMass', e.target.value)}
+                        placeholder="2.4962"
+                        className="w-full text-right font-mono font-bold text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-300 focus:border-emerald-500 rounded-xl px-2 py-1.5 focus:outline-none min-h-[40px]"
+                      />
+                    </div>
+
+                    <div
+                      className={`rounded-xl px-2 py-1.5 flex flex-col justify-center min-h-[40px] min-w-0 border ${
+                        isSpp
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-emerald-50 border-emerald-200'
+                      }`}
+                    >
+                      <span
+                        className={`text-[10px] font-bold uppercase leading-none whitespace-nowrap truncate ${
+                          isSpp ? 'text-amber-800' : 'text-emerald-800'
+                        }`}
+                      >
+                        {isSpp ? 'm(phụ/tạp):' : 'm(sản phẩm):'}
+                      </span>
+                      <span
+                        className={`font-mono font-extrabold text-xs sm:text-sm text-right mt-1 truncate ${
+                          isSpp ? 'text-amber-950' : 'text-emerald-950'
+                        }`}
+                      >
+                        {(tube.productMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-1.5 flex flex-col justify-center min-h-[40px] min-w-0">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase leading-none whitespace-nowrap truncate">
-                      m(sản phẩm):
-                    </span>
-                    <span className="font-mono font-extrabold text-emerald-950 text-xs sm:text-sm text-right mt-1 truncate">
-                      {(tube.productMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
-                    </span>
-                  </div>
+                  {/* Delete Tube button if > 1 tube */}
+                  {tubes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTube(tube.id)}
+                      className="text-slate-400 hover:text-rose-500 p-2 rounded-lg no-print self-end md:self-center cursor-pointer"
+                      title="Xóa ống này"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-
-                {/* Delete Tube button if > 1 tube */}
-                {tubes.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTube(tube.id)}
-                    className="text-slate-400 hover:text-rose-500 p-2 rounded-lg no-print self-end md:self-center cursor-pointer"
-                    title="Xóa ống này"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Aggregate Yield & Summary Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
-            {/* Tổng sản phẩm thu được */}
-            <div className="bg-emerald-100/70 p-3.5 rounded-2xl border border-emerald-300 shadow-sm flex flex-col justify-between">
-              <div className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-                Tổng m(sản phẩm) thu được:
-              </div>
-              <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right my-1">
-                {(eppendorfYield.productMass || 0).toFixed(4)}{' '}
-                <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
-              </div>
-              <div className="text-[11px] text-emerald-800 font-medium">
-                = Tổng khối lượng các ống
-              </div>
-            </div>
+          {(() => {
+            const spcMass = eppendorfYield.productMass || 0;
+            const sppMass =
+              eppendorfYield.byproductMass ??
+              tubes.filter((t) => t.tag === 'spp').reduce((sum, t) => sum + (t.productMass || 0), 0);
+            const theoMass = eppendorfYield.theoreticalYield || 0;
+            const isolatedYieldPct = eppendorfYield.yieldPercent || 0;
+            const crudeMassNum = parseDecimal(crudeMass);
+            const crudeYieldPct =
+              theoMass > 0 && crudeMassNum > 0
+                ? parseFloat(((crudeMassNum / theoMass) * 100).toFixed(1))
+                : 0;
+            const columnRecoveryPct =
+              crudeMassNum > 0 && spcMass + sppMass > 0
+                ? parseFloat((((spcMass + sppMass) / crudeMassNum) * 100).toFixed(1))
+                : 0;
+            const displayedMW =
+              rawTargetMW !== ''
+                ? rawTargetMW
+                : targetMW > 0
+                ? String(targetMW)
+                : eppendorfYield.targetMW && eppendorfYield.targetMW !== '0'
+                ? eppendorfYield.targetMW
+                : '';
 
-            {/* % Hiệu suất phản ứng */}
-            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-3.5 rounded-2xl shadow-md flex flex-col justify-between">
-              <div className="text-xs font-semibold text-indigo-200 flex items-center justify-between">
-                <span>% Hiệu suất:</span>
-                <Award className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="font-mono text-3xl font-extrabold text-amber-400 text-right my-1">
-                {eppendorfYield.yieldPercent ? `${eppendorfYield.yieldPercent.toFixed(1)}%` : '0.0%'}
-              </div>
-              <div className="text-[11px] text-slate-300 font-mono">
-                Lý thuyết: {eppendorfYield.theoreticalYield?.toFixed(4) || '0.0000'} {massUnit}
-              </div>
-            </div>
+            return (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                  {/* Card 1: Tổng sản phẩm thu được (SPC & SPP + Thu hồi cột) */}
+                  <div className="bg-emerald-100/70 p-3.5 rounded-2xl border border-emerald-300 shadow-sm flex flex-col justify-between space-y-1.5">
+                    <div className="text-xs font-bold text-emerald-950 uppercase tracking-wide flex items-center justify-between">
+                      <span>Tổng m(sản phẩm chính - spc):</span>
+                    </div>
+                    <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right">
+                      {spcMass.toFixed(4)}{' '}
+                      <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
+                    </div>
+                    <div className="text-[11px] text-emerald-900 font-medium space-y-0.5 pt-1 border-t border-emerald-200/80">
+                      {sppMass > 0 ? (
+                        <div className="flex items-center justify-between text-amber-900">
+                          <span>Tổng m(phụ/tạp - spp):</span>
+                          <strong className="font-mono">{sppMass.toFixed(4)} {massUnit}</strong>
+                        </div>
+                      ) : (
+                        <div>= Tổng khối lượng các ống spc</div>
+                      )}
+                      {columnRecoveryPct > 0 && (
+                        <div className="flex items-center justify-between text-teal-900">
+                          <span>Thu hồi qua cột:</span>
+                          <strong className="font-mono">{columnRecoveryPct}% cắn thô</strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-            {/* Purity & Constants */}
-            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
-                  Độ tinh khiết HPLC / NMR (%):
-                </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={eppendorfYield.purityHplc ?? ''}
-                  onChange={(e) => handleEppendorfParamChange('purityHplc', e.target.value.replace(/[^0-9.,]/g, ''))}
-                  placeholder="98.5%"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-indigo-700 focus:outline-none min-h-[36px]"
-                />
-              </div>
+                  {/* Card 2: % Hiệu suất phản ứng (Tinh chế vs Thô + Editable M sản phẩm) */}
+                  <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-3.5 rounded-2xl shadow-md flex flex-col justify-between space-y-1.5">
+                    <div className="text-xs font-semibold text-indigo-200 flex items-center justify-between">
+                      <span>% Hiệu suất tinh chế (spc):</span>
+                      <Award className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div
+                      className={`font-mono text-3xl font-extrabold text-right ${
+                        isolatedYieldPct > 100 ? 'text-rose-400' : 'text-amber-400'
+                      }`}
+                    >
+                      {isolatedYieldPct ? `${isolatedYieldPct.toFixed(1)}%` : '0.0%'}
+                    </div>
+                    <div className="text-[11px] text-slate-300 font-mono space-y-1 pt-1 border-t border-slate-700/80">
+                      <div className="flex items-center justify-between">
+                        <span>Lý thuyết (100%):</span>
+                        <strong className="text-white">{theoMass.toFixed(4)} {massUnit}</strong>
+                      </div>
+                      {crudeYieldPct > 0 && (
+                        <div className="flex items-center justify-between text-amber-200">
+                          <span>Hiệu suất cắn thô:</span>
+                          <strong>{crudeYieldPct}%</strong>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between gap-2 pt-0.5 no-print">
+                        <span className="text-indigo-200 font-sans">M sản phẩm (g/mol):</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={displayedMW}
+                          onChange={(e) => {
+                            const cleaned = e.target.value.replace(/[^0-9.,]/g, '');
+                            onTargetMWChange?.(cleaned);
+                            const mwNum = parseDecimal(cleaned);
+                            recalculateYield(
+                              tubes,
+                              { ...eppendorfYield, targetMW: cleaned },
+                              mwNum
+                            );
+                          }}
+                          placeholder="Nhập M..."
+                          className="w-24 bg-slate-800 border border-indigo-400/50 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono font-bold text-xs text-amber-300 focus:outline-none"
+                          title="Chỉnh sửa phân tử lượng M của sản phẩm mục tiêu ngay tại đây"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-              <div>
-                <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
-                  Điểm nóng chảy (Tnc °C):
-                </label>
-                <input
-                  type="text"
-                  value={eppendorfYield.meltingPoint || ''}
-                  onChange={(e) => handleEppendorfParamChange('meltingPoint', e.target.value)}
-                  placeholder="VD: 185 - 187°C"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono focus:outline-none min-h-[36px]"
-                />
-              </div>
-            </div>
-          </div>
+                  {/* Card 3: Purity & Constants */}
+                  <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                        Độ tinh khiết HPLC / NMR (%):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={eppendorfYield.purityHplc ?? ''}
+                        onChange={(e) => handleEppendorfParamChange('purityHplc', e.target.value.replace(/[^0-9.,]/g, ''))}
+                        placeholder="98.5%"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-indigo-700 focus:outline-none min-h-[36px]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
+                        Điểm nóng chảy (Tnc °C):
+                      </label>
+                      <input
+                        type="text"
+                        value={eppendorfYield.meltingPoint || ''}
+                        onChange={(e) => handleEppendorfParamChange('meltingPoint', e.target.value)}
+                        placeholder="VD: 185 - 187°C"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono focus:outline-none min-h-[36px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Intelligent Lab Warning when Yield > 100% */}
+                {isolatedYieldPct > 100 && (
+                  <div className="bg-rose-50 border border-rose-300 text-rose-900 rounded-2xl p-3.5 text-xs flex items-start gap-2.5 shadow-xs">
+                    <span className="text-base leading-none text-rose-600 font-bold flex-shrink-0 mt-0.5">⚠</span>
+                    <div className="space-y-1">
+                      <div className="font-bold text-rose-800">
+                        Cảnh báo Hóa Dược: Hiệu suất tinh chế ({isolatedYieldPct.toFixed(1)}%) vượt quá 100% lý thuyết ({theoMass.toFixed(4)} {massUnit})!
+                      </div>
+                      <p className="text-rose-700 leading-relaxed">
+                        Vui lòng kiểm tra: <strong>(1)</strong> Cắn sản phẩm còn ngậm dung môi giải ly chưa cô quay / sấy chân không đến khối lượng không đổi; <strong>(2)</strong> Có ống Eppendorf chứa sản phẩm phụ/tạp chất đang để nhầm nhãn <strong>spc</strong> thay vì <strong>spp</strong>; hoặc <strong>(3)</strong> Kiểm tra lại Chất giới hạn và <strong>M sản phẩm (g/mol)</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Cảm quan */}
           <div className="bg-white p-3 rounded-2xl border border-slate-200">

@@ -320,6 +320,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
   handleSaveManualAddRef.current = handleSaveManualAdd;
 
   useEffect(() => {
+    if (!editingSession && !isAddModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (e) => {
       if (editingSession) {
         if (e.key === 'Escape') {
@@ -341,7 +345,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [editingSession, isAddModalOpen]);
 
   return (
@@ -629,8 +636,12 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
       {/* MODAL: CHỈNH SỬA PHIÊN KHUẤY (Điều chỉnh khi quên bấm dừng) */}
       {editingSession && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setEditingSession(null)}
+          />
+          <div className="relative z-10 bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5 text-indigo-600">
                 <div className="p-2 bg-indigo-100 rounded-xl">
@@ -673,7 +684,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                     onChange={(e) =>
                       setEditingSession({ ...editingSession, hours: e.target.value })
                     }
-                    className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                    className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                     autoFocus
                   />
                   <span className="text-[10px] text-slate-400 block mt-0.5">Giờ (h)</span>
@@ -691,7 +702,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                     onChange={(e) =>
                       setEditingSession({ ...editingSession, minutes: e.target.value })
                     }
-                    className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                    className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                   />
                   <span className="text-[10px] text-slate-400 block mt-0.5">Phút (m)</span>
                 </div>
@@ -708,7 +719,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                     onChange={(e) =>
                       setEditingSession({ ...editingSession, seconds: e.target.value })
                     }
-                    className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                    className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                   />
                   <span className="text-[10px] text-slate-400 block mt-0.5">Giây (s)</span>
                 </div>
@@ -739,7 +750,9 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   setEditingSession({ ...editingSession, note: e.target.value })
                 }
                 placeholder="VD: Quên bấm dừng, chỉnh lại 2h30m; Khuấy hồi lưu 80°C..."
-                className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                spellCheck={false}
+                autoCorrect="off"
+                className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
               />
             </div>
 
@@ -766,8 +779,12 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
       {/* MODAL: THÊM PHIÊN KHUẤY THỦ CÔNG */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setIsAddModalOpen(false)}
+          />
+          <div className="relative z-10 bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5 text-indigo-600">
                 <div className="p-2 bg-indigo-100 rounded-xl">
@@ -803,7 +820,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   onChange={(e) =>
                     setManualSessionData({ ...manualSessionData, date: e.target.value })
                   }
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                  className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
                 />
               </div>
 
@@ -825,7 +842,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                       onChange={(e) =>
                         setManualSessionData({ ...manualSessionData, hours: e.target.value })
                       }
-                      className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                      className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                       autoFocus
                     />
                     <span className="text-[10px] text-slate-400 block mt-0.5">Giờ (h)</span>
@@ -843,7 +860,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                       onChange={(e) =>
                         setManualSessionData({ ...manualSessionData, minutes: e.target.value })
                       }
-                      className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                      className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                     />
                     <span className="text-[10px] text-slate-400 block mt-0.5">Phút (m)</span>
                   </div>
@@ -860,7 +877,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                       onChange={(e) =>
                         setManualSessionData({ ...manualSessionData, seconds: e.target.value })
                       }
-                      className="w-full text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none min-h-[44px]"
+                      className="w-full h-11 leading-normal text-center font-mono font-bold text-lg bg-white border border-slate-300 focus:border-indigo-500 rounded-lg p-1.5 focus:outline-none"
                     />
                     <span className="text-[10px] text-slate-400 block mt-0.5">Giây (s)</span>
                   </div>
@@ -879,7 +896,9 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                     setManualSessionData({ ...manualSessionData, note: e.target.value })
                   }
                   placeholder="VD: Khuấy cách thủy 60°C qua đêm; Bổ sung thêm chất phản ứng..."
-                  className="w-full bg-slate-50 border border-slate-300 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                  spellCheck={false}
+                  autoCorrect="off"
+                  className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
                 />
               </div>
             </div>

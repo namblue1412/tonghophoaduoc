@@ -268,8 +268,15 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
           }`}
         >
           {filtered.map((exp) => {
+            const activeReagents = (exp.stoichiometry || []).filter(
+              (r) => r.type !== 'base_acid' && r.type !== 'solvent'
+            );
             const limiting =
-              exp.stoichiometry?.find((r) => r.isLimiting) || exp.stoichiometry?.[0];
+              activeReagents.find((r) => r.isLimiting) || activeReagents[0];
+            const expMoleUnit = exp.units?.mole || 'mol';
+            const limitingMolesVal = Number(limiting?.moles) || 0;
+            const scaleMmol =
+              expMoleUnit === 'mmol' ? limitingMolesVal : limitingMolesVal * 1000;
             const yieldPct = exp.columnAndYield?.eppendorfYield?.yieldPercent;
             const stirringTime = exp.reactionTimer?.totalSeconds || 0;
             const tlcCount = exp.tlcTimeline?.length || 0;
@@ -324,8 +331,8 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                     <div className="bg-slate-50 p-2.5 rounded-xl">
                       <span className="text-slate-400 text-[11px] block">Quy mô:</span>
                       <span className="font-mono tabular-nums font-bold text-teal-700">
-                        {limiting?.moles
-                          ? `${(limiting.moles * 1000).toFixed(1)} mmol`
+                        {scaleMmol > 0
+                          ? `${scaleMmol < 1 ? scaleMmol.toFixed(2) : scaleMmol.toFixed(1)} mmol`
                           : '--'}
                       </span>
                     </div>

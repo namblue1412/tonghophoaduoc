@@ -25,13 +25,18 @@ function AppContent() {
 
   useEffect(() => {
     if (!newModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setNewModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [newModalOpen]);
 
   // New Experiment Form State
@@ -141,8 +146,12 @@ function AppContent() {
 
       {/* MODAL: CREATE NEW EXPERIMENT */}
       {newModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] modal-safe-top pb-safe flex items-center justify-center p-4 animate-in fade-in overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8 space-y-5">
+        <div className="fixed inset-0 z-[100] modal-safe-top pb-safe flex items-center justify-center p-4 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setNewModalOpen(false)}
+          />
+          <div className="relative z-10 bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-teal-100 text-teal-700 rounded-xl">
@@ -178,7 +187,9 @@ function AppContent() {
                     onChange={(e) => setNewCode(e.target.value)}
                     placeholder="SYN-01"
                     required
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-mono font-bold text-indigo-700 focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-mono font-bold text-indigo-700 focus:outline-none"
                   />
                 </div>
 
@@ -191,7 +202,9 @@ function AppContent() {
                     value={newTargetName}
                     onChange={(e) => setNewTargetName(e.target.value)}
                     placeholder="VD: Dẫn xuất Coumarin / Chalcone..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
                   />
                 </div>
               </div>
@@ -207,7 +220,9 @@ function AppContent() {
                   placeholder="VD: Tổng hợp 4-Methylumbelliferone bằng phản ứng Pechmann"
                   required
                   autoFocus
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+                  spellCheck={false}
+                  autoCorrect="off"
+                  className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -220,7 +235,9 @@ function AppContent() {
                     type="text"
                     value={newResearcher}
                     onChange={(e) => setNewResearcher(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
                   />
                 </div>
 
@@ -232,7 +249,9 @@ function AppContent() {
                     type="text"
                     value={newLabRoom}
                     onChange={(e) => setNewLabRoom(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    className="w-full h-11 leading-normal bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none"
                   />
                 </div>
               </div>
