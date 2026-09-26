@@ -155,7 +155,7 @@ export const ApparatusPreparation = ({
             <div className="flex items-center justify-between gap-2 text-[11px] sm:text-xs font-bold text-teal-900">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
-                <span>Thêm nhanh dụng cụ (1 chạm):</span>
+                <span>Dụng cụ thường dùng:</span>
               </span>
               <span className="text-[10px] font-normal text-teal-600 sm:hidden">Vuốt ngang &rarr;</span>
             </div>

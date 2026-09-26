@@ -164,23 +164,23 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
 
       {/* Scope Filter & Search Toolbar */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-        {/* User Identity Banner: Strict per-user personal workspace */}
+        {/* User Identity Banner */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs flex-shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs flex-shrink-0">
               {(currentUser?.displayName || currentUser?.email || 'U')[0]}
             </div>
             <div>
               <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                <span>Dự án của tôi: {currentUser?.displayName || 'Nghiên cứu viên'}</span>
+                <span>{currentUser?.displayName || 'Nghiên cứu viên'}</span>
                 {currentUser?.studentId && (
-                  <span className="text-[10px] bg-indigo-50 text-indigo-700 font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                  <span className="text-[10px] bg-teal-50 text-teal-700 font-mono font-bold px-2 py-0.5 rounded-full border border-teal-200">
                     MSSV: {currentUser.studentId}
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400">
-                Chế độ bảo mật: Mỗi sinh viên chỉ xem và quản lý các thí nghiệm cá nhân do mình tạo
+                {currentUser?.email || 'Danh sách thí nghiệm cá nhân'}
               </p>
             </div>
           </div>
@@ -341,21 +341,21 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
-          <FlaskConical className="w-16 h-16 text-indigo-400 mx-auto mb-3" />
+          <FlaskConical className="w-16 h-16 text-teal-500 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800 mb-1">
-            {experiments.length === 0 ? 'Sổ Tay Thí Nghiệm Đang Trống' : 'Không tìm thấy thí nghiệm nào'}
+            {experiments.length === 0 ? 'Chưa có thí nghiệm nào' : 'Không tìm thấy thí nghiệm phù hợp'}
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
             {experiments.length === 0
-              ? `Xin chào ${currentUser?.displayName || 'bạn'}! Bạn chưa có thí nghiệm nào trong tài khoản của mình. Hãy nhấn nút bên dưới để khởi tạo thí nghiệm đầu tiên!`
-              : 'Không có kết quả khớp với bộ lọc tìm kiếm. Hãy thử từ khóa khác hoặc bấm nút bên dưới để tạo mới.'}
+              ? 'Nhấn nút bên dưới để tạo thí nghiệm đầu tiên.'
+              : 'Thử tìm kiếm với từ khóa khác hoặc tạo thí nghiệm mới.'}
           </p>
           <button
             onClick={onOpenNewModal}
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3 rounded-2xl text-xs sm:text-sm shadow-md flex items-center gap-2 mx-auto cursor-pointer min-h-[46px]"
           >
             <Plus className="w-4 h-4" />
-            <span>Tạo thí nghiệm đầu tiên</span>
+            <span>Tạo thí nghiệm mới</span>
           </button>
         </div>
       )}

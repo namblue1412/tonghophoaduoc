@@ -1211,7 +1211,7 @@ export const ColumnFractionManager = ({
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
               <Grid className="w-4 h-4 text-indigo-600" />
-              Giá Ống Nghiệm Hứng Phân Đoạn (Đồng bộ theo nhóm gộp mẫu & TLC):
+              Giá Ống Nghiệm Hứng Phân Đoạn:
             </h3>
 
             {/* Legend */}

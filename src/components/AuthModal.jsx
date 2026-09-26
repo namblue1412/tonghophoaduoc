@@ -89,16 +89,16 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
     <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-3 text-indigo-700">
-          <div className="p-3 bg-gradient-to-br from-indigo-600 to-teal-500 rounded-2xl shadow-md text-white">
+        <div className="flex items-center gap-3 text-teal-700">
+          <div className="p-3 bg-teal-600 rounded-2xl shadow-md text-white">
             <FlaskConical className="w-6 h-6" />
           </div>
           <div>
             <h3 className="font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight">
-              {tab === 'login' ? 'Đăng Nhập Sổ Tay Hóa Dược' : 'Tạo Tài Khoản Sinh Viên'}
+              {tab === 'login' ? 'Đăng Nhập Sổ Tay' : 'Tạo Tài Khoản Mới'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Phòng Thí Nghiệm Hóa Dược • Quản lý nhật ký nghiên cứu
+              Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược
             </p>
           </div>
         </div>
@@ -113,14 +113,6 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
         )}
       </div>
 
-      {/* Security Privacy Notice */}
-      <div className="bg-indigo-50/80 border border-indigo-200/80 rounded-2xl p-3 text-xs text-indigo-900 flex items-start gap-2.5">
-        <ShieldCheck className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
-        <div className="leading-relaxed text-[11px] sm:text-xs">
-          <strong>Bảo mật phòng thí nghiệm:</strong> Mỗi sinh viên đăng nhập bằng tài khoản của mình và <strong>chỉ xem được các dự án thí nghiệm của chính mình</strong>.
-        </div>
-      </div>
-
       {/* Tab Switcher */}
       <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1">
         <button
@@ -131,7 +123,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
             setSuccessMsg('');
           }}
           className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all min-h-[40px] cursor-pointer ${
-            tab === 'login' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            tab === 'login' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <LogIn className="w-3.5 h-3.5" />
@@ -145,11 +137,11 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
             setSuccessMsg('');
           }}
           className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all min-h-[40px] cursor-pointer ${
-            tab === 'register' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            tab === 'register' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>Tạo Tài Khoản Mới</span>
+          <span>Đăng Ký</span>
         </button>
       </div>
 
@@ -174,7 +166,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
           <>
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                Họ và tên sinh viên (*):
+                Họ và tên (*):
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
@@ -184,7 +176,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="VD: Nguyễn Văn Nam"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
                   autoFocus
                 />
               </div>
@@ -201,7 +193,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
                   placeholder="VD: 20214567"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
                 />
               </div>
             </div>
@@ -210,7 +202,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
 
         <div>
           <label className="text-xs font-bold text-slate-700 block mb-1">
-            {tab === 'login' ? 'Email / MSSV / Tên đăng nhập (*):' : 'Email hoặc Tên tài khoản (*):'}
+            {tab === 'login' ? 'Email / MSSV / Tên đăng nhập (*):' : 'Email hoặc Tên đăng nhập (*):'}
           </label>
           <div className="relative">
             <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
@@ -219,8 +211,8 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={tab === 'login' ? 'VD: sinhvien@lab.vn hoặc MSSV' : 'VD: sinhvien@lab.vn'}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+              placeholder={tab === 'login' ? 'Nhập Email hoặc MSSV' : 'VD: sinhvien@lab.vn'}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
               autoFocus={tab === 'login'}
             />
           </div>
@@ -237,15 +229,10 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Nhập mật khẩu của bạn..."
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]"
+              placeholder="Nhập mật khẩu..."
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
             />
           </div>
-          {tab === 'register' && (
-            <p className="text-[11px] text-slate-400 mt-1">
-              Mật khẩu được mã hóa an toàn bằng SHA-256 trước khi lưu.
-            </p>
-          )}
         </div>
 
         {/* Submit button */}
@@ -253,19 +240,19 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:bg-indigo-400 text-white font-bold text-xs sm:text-sm py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all min-h-[46px] cursor-pointer"
+            className="w-full bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:bg-teal-400 text-white font-bold text-xs sm:text-sm py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 transition-all min-h-[46px] cursor-pointer"
           >
             {isSubmitting ? (
-              <span>Đang kiểm tra bảo mật...</span>
+              <span>Đang xử lý...</span>
             ) : tab === 'login' ? (
               <>
                 <LogIn className="w-4 h-4" />
-                <span>Đăng Nhập Vào Lab</span>
+                <span>Đăng Nhập</span>
               </>
             ) : (
               <>
                 <UserPlus className="w-4 h-4" />
-                <span>Hoàn Tất Tạo Tài Khoản</span>
+                <span>Tạo Tài Khoản</span>
               </>
             )}
           </button>
@@ -279,7 +266,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 pt-safe pb-safe">
         {content}
         <div className="mt-6 text-center text-xs text-slate-400">
-          MedChem ELN • Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược • Phiên bản Lab 2026
+          Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược • Thiết kế bởi <span className="text-slate-200 font-semibold">Harry Nguyen</span>
         </div>
       </div>
     );

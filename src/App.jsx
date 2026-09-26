@@ -126,14 +126,14 @@ function AppContent() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 no-print">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="bg-white border-t border-slate-200 py-5 text-center text-xs text-slate-500 no-print">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-medium text-slate-700">
-            <FlaskConical className="w-4 h-4 text-indigo-600" />
-            <span>MedChem ELN - Nhật Ký Nghiên Cứu Tổng Hợp Hóa Dược</span>
+            <FlaskConical className="w-4 h-4 text-teal-600" />
+            <span>Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược</span>
           </div>
-          <div>
-            Lưu trữ Realtime Database & Offline LocalStorage • Nhật ký nghiên cứu thực nghiệm
+          <div className="text-slate-500">
+            Thiết kế bởi <span className="font-semibold text-slate-800">Harry Nguyen</span>
           </div>
         </div>
       </footer>
@@ -144,15 +144,15 @@ function AppContent() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 my-8 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                <div className="p-2 bg-teal-100 text-teal-700 rounded-xl">
                   <Beaker className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg text-slate-900">
-                    Khởi Tạo Thí Nghiệm Mới
+                    Tạo Thí Nghiệm Mới
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Khai báo thông tin ban đầu cho nhật ký tổng hợp hóa dược
+                    Nhập thông tin phản ứng tổng hợp
                   </p>
                 </div>
               </div>

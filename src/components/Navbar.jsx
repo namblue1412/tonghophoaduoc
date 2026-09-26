@@ -396,7 +396,7 @@ export const Navbar = ({
 
               <button
                 onClick={exportAllToJson}
-                title="Sao lưu toàn bộ nhật ký ra tệp JSON"
+                title="Tải file sao lưu dữ liệu"
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Download className="w-4 h-4 text-slate-300" />
@@ -404,7 +404,7 @@ export const Navbar = ({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                title="Khôi phục nhật ký từ tệp JSON"
+                title="Khôi phục dữ liệu từ file sao lưu"
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center cursor-pointer"
               >
                 <Upload className="w-4 h-4 text-slate-300" />
@@ -434,7 +434,7 @@ export const Navbar = ({
               className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white p-2.5 rounded-xl text-xs font-bold min-h-[42px] cursor-pointer transition-colors"
             >
               <LayoutDashboard className="w-4 h-4 text-white" />
-              <span>Xem danh sách tất cả thí nghiệm</span>
+              <span>Danh sách tất cả thí nghiệm</span>
             </button>
 
             {/* Student Auth Bar in Mobile Menu */}
@@ -481,7 +481,7 @@ export const Navbar = ({
                   className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <User className="w-4 h-4" />
-                  <span>Đăng nhập tài khoản sinh viên</span>
+                  <span>Đăng nhập</span>
                 </button>
               )}
             </div>
@@ -492,19 +492,11 @@ export const Navbar = ({
                 setMobileMenuOpen(false);
                 handleInstallClick();
               }}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-900/60 to-indigo-900/60 border border-teal-500/40 text-teal-300 p-2.5 rounded-xl text-xs font-bold min-h-[48px] cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-teal-500/40 text-teal-300 p-2.5 rounded-xl text-xs font-bold min-h-[44px] cursor-pointer"
             >
-              <Smartphone className="w-4.5 h-4.5 text-teal-400" />
-              <span>Thêm ứng dụng vào Màn hình chính</span>
+              <Smartphone className="w-4 h-4 text-teal-400" />
+              <span>Thêm vào Màn hình chính</span>
             </button>
-
-            <div className="flex items-center justify-between px-2 text-xs text-slate-400 pb-2 border-b border-slate-800">
-              <span className="flex items-center gap-1.5">
-                {syncMode === 'firebase' ? <Cloud className="w-3.5 h-3.5 text-emerald-400" /> : <HardDrive className="w-3.5 h-3.5 text-indigo-400" />}
-                {syncMode === 'firebase' ? 'Lưu trữ đám mây' : 'Lưu trữ trên máy'}
-              </span>
-              <span>{activeExperiment?.code}</span>
-            </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
@@ -512,9 +504,9 @@ export const Navbar = ({
                   activeExperimentId && duplicateExperiment(activeExperimentId);
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[48px]"
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[44px]"
               >
-                <Copy className="w-4 h-4 text-indigo-400" />
+                <Copy className="w-4 h-4 text-teal-400" />
                 <span>Nhân bản</span>
               </button>
 
@@ -523,10 +515,10 @@ export const Navbar = ({
                   handlePrint();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[48px]"
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[44px]"
               >
                 <Printer className="w-4 h-4 text-emerald-400" />
-                <span>In sổ tay thí nghiệm</span>
+                <span>In sổ tay</span>
               </button>
 
               <button
@@ -534,10 +526,10 @@ export const Navbar = ({
                   exportAllToJson();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[48px]"
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[44px]"
               >
-                <Download className="w-4 h-4 text-blue-400" />
-                <span>Xuất JSON</span>
+                <Download className="w-4 h-4 text-sky-400" />
+                <span>Sao lưu</span>
               </button>
 
               <button
@@ -545,17 +537,17 @@ export const Navbar = ({
                   fileInputRef.current?.click();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[48px]"
+                className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[44px]"
               >
                 <Upload className="w-4 h-4 text-amber-400" />
-                <span>Nhập JSON</span>
+                <span>Khôi phục</span>
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Hidden File Input for JSON restore */}
+      {/* Hidden File Input for backup restore */}
       <input
         type="file"
         ref={fileInputRef}
@@ -567,7 +559,7 @@ export const Navbar = ({
       {/* PWA Add to Home Screen Guidance Modal */}
       {showInstallModal && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 pt-safe pb-safe animate-in fade-in"
           onClick={() => setShowInstallModal(false)}
         >
           <div
@@ -577,18 +569,18 @@ export const Navbar = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-indigo-600 to-teal-500 rounded-2xl shadow-md">
+                <div className="p-2 bg-teal-600 rounded-2xl shadow-md">
                   <Smartphone className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Thêm vào Màn hình chính</h3>
-                  <p className="text-xs text-slate-400">Trải nghiệm như App thật trên iPhone & iPad</p>
+                  <p className="text-xs text-slate-400">Mở nhanh trên điện thoại & iPad</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowInstallModal(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -604,7 +596,6 @@ export const Navbar = ({
               <div>
                 <h4 className="font-extrabold text-sm text-white">MedChem ELN</h4>
                 <p className="text-xs text-teal-400 font-medium">Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Toàn màn hình • Chạy offline • Không che khuất thanh địa chỉ</p>
               </div>
             </div>
 
@@ -613,21 +604,20 @@ export const Navbar = ({
               {/* iPhone / iPad Guide */}
               <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/80 space-y-2.5">
                 <div className="font-bold text-teal-300 flex items-center gap-1.5 text-sm">
-                  <span>🍎</span>
-                  <span>Hướng dẫn trên iPhone & iPad (Safari):</span>
+                  <span>Trên iPhone & iPad (Safari):</span>
                 </div>
                 <div className="space-y-2 text-slate-300 pl-1">
                   <div className="flex items-start gap-2">
                     <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">1</span>
-                    <p>Nhấn vào biểu tượng <strong>Chia sẻ (Share) 📤</strong> ở thanh công cụ Safari (ở dưới cùng màn hình trên iPhone hoặc góc trên trên iPad).</p>
+                    <p>Nhấn vào biểu tượng <strong>Chia sẻ</strong> ở thanh công cụ Safari.</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">2</span>
-                    <p>Cuộn xuống trong danh sách tùy chọn và chạm vào <strong>"Thêm vào MH chính" (Add to Home Screen) ➕</strong>.</p>
+                    <p>Cuộn xuống và chọn <strong>Thêm vào MH chính</strong>.</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="w-5 h-5 rounded-full bg-teal-500/20 text-teal-400 font-bold flex items-center justify-center flex-shrink-0 text-[11px]">3</span>
-                    <p>Nhấn <strong>"Thêm" (Add)</strong> ở góc trên bên phải. Icon ứng dụng sẽ xuất hiện ngay trên màn hình chính của bạn!</p>
+                    <p>Nhấn <strong>Thêm</strong> ở góc trên bên phải.</p>
                   </div>
                 </div>
               </div>

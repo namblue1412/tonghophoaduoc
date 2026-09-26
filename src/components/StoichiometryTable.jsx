@@ -475,11 +475,11 @@ export const StoichiometryTable = ({
       <div className="p-3 sm:p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-            A. Các chất tham gia phản ứng & Xúc tác (Tính Tỉ Lệ Mol)
+            <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+            A. Chất tham gia, Thuốc thử & Xúc tác
           </h3>
           <span className="text-[11px] text-slate-500 font-mono">
-            {activeReagents.length} chất tham gia
+            {activeReagents.length} chất
           </span>
         </div>
 
@@ -846,17 +846,13 @@ export const StoichiometryTable = ({
 
       {/* ========================================================= */}
       {/* SECTION 2: DUNG DỊCH MÔI TRƯỜNG & DUNG MÔI PHẢN ỨNG      */}
-      {/* (PHA SẴN THEO C% & THỂ TÍCH - KHÔNG TÍNH TỈ LỆ MOL)      */}
       {/* ========================================================= */}
-      <div className="border-t border-slate-200 bg-slate-50/60 p-3 sm:p-5 space-y-5">
+      <div className="border-t border-slate-200 bg-slate-50/60 p-3 sm:p-5 space-y-4">
         <div>
           <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-            B. Dung dịch Môi trường & Dung môi phản ứng (Pha sẵn & Lấy theo thể tích)
+            B. Môi trường & Dung môi phản ứng
           </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Các dung dịch pha sẵn hoặc dung môi phản ứng chỉ cần xác định nồng độ C% và thể tích nạp (mL), không tính tỉ lệ mol.
-          </p>
         </div>
 
         {/* 1. DUNG DỊCH MÔI TRƯỜNG (BASE / ACID) */}
@@ -871,7 +867,7 @@ export const StoichiometryTable = ({
                   Dung dịch Môi trường
                 </h4>
                 <span className="text-[11px] text-purple-600 font-medium">
-                  {mediumReagents.length} môi trường đã khai báo
+                  {mediumReagents.length} dung dịch
                 </span>
               </div>
             </div>
@@ -904,7 +900,7 @@ export const StoichiometryTable = ({
           {/* List of Medium items */}
           {mediumReagents.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">
-              Chưa khai báo dung dịch môi trường nào. Bấm gợi ý ở trên hoặc nút thêm nếu phản ứng cần axit/base/dung dịch đệm.
+              Chưa có dung dịch môi trường.
             </p>
           ) : (
             <div className="space-y-2">
@@ -1031,7 +1027,7 @@ export const StoichiometryTable = ({
           {/* List of Solvent items */}
           {solventReagents.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">
-              Chưa khai báo dung môi. Bấm nút gợi ý hoặc thêm dung môi để ghi nhận lượng nạp (mL).
+              Chưa có dung môi phản ứng.
             </p>
           ) : (
             <div className="space-y-2">

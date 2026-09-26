@@ -34,10 +34,10 @@ export class ErrorBoundary extends React.Component {
 
             <div className="space-y-1">
               <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                Đã có sự cố hiển thị thí nghiệm
+                Không thể hiển thị thí nghiệm này
               </h2>
               <p className="text-xs sm:text-sm text-slate-500">
-                Hệ thống đã tự động bảo vệ dữ liệu của bạn an toàn. Bạn có thể quay lại danh sách hoặc tải lại giao diện.
+                Vui lòng tải lại trang hoặc quay về danh sách thí nghiệm.
               </p>
             </div>
 

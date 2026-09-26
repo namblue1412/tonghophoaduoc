@@ -399,10 +399,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
               </div>
               <div>
                 <span className="text-xs font-bold text-amber-950 uppercase tracking-wide block">
-                  Tổng khối lượng cắn thô nạp cột ({normalizedCrudeTubes.length} ống):
-                </span>
-                <span className="text-[11px] text-amber-800">
-                  Tự động cộng dồn từ tất cả các ống Eppendorf cô quay cắn thô
+                  Tổng khối lượng cắn thô ({normalizedCrudeTubes.length} ống):
                 </span>
               </div>
             </div>
