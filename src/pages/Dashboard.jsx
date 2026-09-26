@@ -25,17 +25,6 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
   const { currentUser, setIsAuthModalOpen } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [scopeFilter, setScopeFilter] = useState('all'); // 'all' | 'mine'
-
-  // My experiment count
-  const myExperimentsCount = experiments.filter(
-    (exp) =>
-      currentUser &&
-      (exp.creatorId === currentUser.uid ||
-        exp.creatorEmail === currentUser.email ||
-        (currentUser.displayName &&
-          (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase())))
-  ).length;
 
   // Filtered experiments
   const filtered = experiments.filter((exp) => {
@@ -46,16 +35,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
       (exp.creatorName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
-
-    const matchesScope =
-      scopeFilter === 'all' ||
-      !currentUser ||
-      exp.creatorId === currentUser.uid ||
-      exp.creatorEmail === currentUser.email ||
-      (currentUser.displayName &&
-        (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase()));
-
-    return matchesSearch && matchesStatus && matchesScope;
+    return matchesSearch && matchesStatus;
   });
 
   // Calculate quick stats
@@ -184,54 +164,30 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
 
       {/* Scope Filter & Search Toolbar */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-        {/* Scope Tabs: Lab-wide vs Personal */}
+        {/* User Identity Banner: Strict per-user personal workspace */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="inline-flex rounded-xl bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setScopeFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                scopeFilter === 'all'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Tất cả trong Lab ({experiments.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (!currentUser) {
-                  setIsAuthModalOpen(true);
-                } else {
-                  setScopeFilter('mine');
-                }
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                scopeFilter === 'mine'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span>Thí nghiệm của tôi</span>
-              {currentUser && (
-                <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
-                  {myExperimentsCount}
-                </span>
-              )}
-            </button>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-xs flex-shrink-0">
+              {(currentUser?.displayName || currentUser?.email || 'U')[0]}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                <span>Dự án của tôi: {currentUser?.displayName || 'Nghiên cứu viên'}</span>
+                {currentUser?.studentId && (
+                  <span className="text-[10px] bg-indigo-50 text-indigo-700 font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                    MSSV: {currentUser.studentId}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Chế độ bảo mật: Mỗi sinh viên chỉ xem và quản lý các thí nghiệm cá nhân do mình tạo
+              </p>
+            </div>
           </div>
 
-          {!currentUser && (
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Đăng nhập để lọc thí nghiệm cá nhân</span>
-            </button>
-          )}
+          <div className="text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 flex-shrink-0">
+            {experiments.length} thí nghiệm
+          </div>
         </div>
 
         {/* Search Input & Status Buttons */}
@@ -311,15 +267,11 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                       <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span className="truncate">{exp.researcher || 'Nghiên cứu viên'}</span>
                     </div>
-                    {currentUser &&
-                      (exp.creatorId === currentUser.uid ||
-                        exp.creatorEmail === currentUser.email ||
-                        (currentUser.displayName &&
-                          (exp.researcher || '').toLowerCase().includes(currentUser.displayName.toLowerCase()))) && (
-                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-1">
-                          Của tôi
-                        </span>
-                      )}
+                    {exp.labRoom && (
+                      <span className="text-[11px] text-slate-400 truncate ml-2">
+                        {exp.labRoom}
+                      </span>
+                    )}
                   </div>
 
                   {/* Chemistry Key Indicators */}
@@ -395,7 +347,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
             {experiments.length === 0
-              ? 'Hệ thống đã kết nối trực tiếp Firebase Realtime Database. Hãy nhấn nút bên dưới để tạo thí nghiệm đầu tiên và kiểm tra toàn diện các module!'
+              ? `Xin chào ${currentUser?.displayName || 'bạn'}! Bạn chưa có thí nghiệm nào trong tài khoản của mình. Hãy nhấn nút bên dưới để khởi tạo thí nghiệm đầu tiên!`
               : 'Không có kết quả khớp với bộ lọc tìm kiếm. Hãy thử từ khóa khác hoặc bấm nút bên dưới để tạo mới.'}
           </p>
           <button

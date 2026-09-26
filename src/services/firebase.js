@@ -264,3 +264,107 @@ export const subscribeFirebaseAuthState = (onUserChanged) => {
   }
   return onAuthStateChanged(auth, onUserChanged);
 };
+
+/**
+ * SHA-256 Salted Password Hasher for Lab Accounts
+ */
+export const hashPassword = async (password) => {
+  const salted = `${String(password || '')}_medchem_lab_salt_2025`;
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(salted);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      // Fallback below
+    }
+  }
+  // Fast deterministic hash fallback if subtle is unavailable
+  let hash1 = 5381;
+  let hash2 = 52711;
+  for (let i = 0; i < salted.length; i++) {
+    const char = salted.charCodeAt(i);
+    hash1 = (hash1 * 33) ^ char;
+    hash2 = (hash2 * 33) ^ char;
+  }
+  return (hash1 >>> 0).toString(16) + (hash2 >>> 0).toString(16);
+};
+
+/**
+ * Save / Update a Lab Student Account in Firebase Realtime Database and LocalStorage
+ */
+export const saveLabAccount = async (account) => {
+  if (!account || !account.uid) return;
+
+  // 1. Save to LocalStorage
+  try {
+    const existing = JSON.parse(localStorage.getItem('medchem_lab_students') || '[]');
+    const filtered = existing.filter((s) => s.uid !== account.uid && s.email?.toLowerCase() !== account.email?.toLowerCase());
+    filtered.push(account);
+    localStorage.setItem('medchem_lab_students', JSON.stringify(filtered));
+  } catch (e) {
+    console.error('LocalStorage account save error:', e);
+  }
+
+  // 2. Save to Firebase Realtime Database
+  if (database) {
+    try {
+      const safeKey = account.uid.replace(/[^a-zA-Z0-9_-]/g, '_');
+      await set(ref(database, `lab_accounts/${safeKey}`), {
+        ...account,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn('Firebase account save error:', err);
+    }
+  }
+};
+
+/**
+ * Find Lab Student Account by Email, Student ID (MSSV), or Display Name
+ */
+export const findLabAccount = async (identifier) => {
+  const cleanId = String(identifier || '').trim().toLowerCase();
+  if (!cleanId) return null;
+
+  // 1. Check LocalStorage first
+  let localStudents = [];
+  try {
+    localStudents = JSON.parse(localStorage.getItem('medchem_lab_students') || '[]');
+  } catch (e) {
+    localStudents = [];
+  }
+
+  let found = localStudents.find((s) =>
+    (s.email && s.email.toLowerCase() === cleanId) ||
+    (s.studentId && s.studentId.trim().toLowerCase() === cleanId) ||
+    (s.displayName && s.displayName.trim().toLowerCase() === cleanId)
+  );
+
+  if (found) return found;
+
+  // 2. Query Firebase Realtime Database
+  if (database) {
+    try {
+      const snapshot = await get(ref(database, 'lab_accounts'));
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        const accounts = Object.values(val || {});
+        // Cache to local storage
+        localStorage.setItem('medchem_lab_students', JSON.stringify(accounts));
+        found = accounts.find((s) =>
+          (s.email && s.email.toLowerCase() === cleanId) ||
+          (s.studentId && s.studentId.trim().toLowerCase() === cleanId) ||
+          (s.displayName && s.displayName.trim().toLowerCase() === cleanId)
+        );
+        return found || null;
+      }
+    } catch (err) {
+      console.warn('Firebase account lookup error:', err);
+    }
+  }
+
+  return null;
+};

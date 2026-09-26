@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { useAuth } from './AuthContext';
 import {
   saveExperimentData,
   deleteExperimentData,
@@ -10,7 +11,8 @@ import {
 const ExperimentContext = createContext();
 
 export const ExperimentProvider = ({ children }) => {
-  const [experiments, setExperiments] = useState([]);
+  const { currentUser } = useAuth();
+  const [allExperiments, setAllExperiments] = useState([]);
   const [activeExperimentId, setActiveExperimentId] = useState(null);
   const [syncMode, setSyncMode] = useState('local'); // 'firebase' | 'local'
   const [isSyncing, setIsSyncing] = useState(false);
@@ -35,18 +37,55 @@ export const ExperimentProvider = ({ children }) => {
     const unsubscribe = loadExperimentsData((loadedData, mode) => {
       setSyncMode(mode);
       const safeData = loadedData || [];
-      setExperiments(safeData);
-      if (safeData.length > 0) {
-        setActiveExperimentId((prev) => (prev && safeData.some((e) => e.id === prev) ? prev : safeData[0].id));
-      } else {
-        setActiveExperimentId(null);
-      }
+      setAllExperiments(safeData);
     });
 
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, []);
+
+  // Strict Per-User Data Isolation: Each student only sees their own experiments!
+  const experiments = useMemo(() => {
+    if (!currentUser) return [];
+
+    return allExperiments.filter((exp) => {
+      // 1. Matches creatorId
+      if (exp.creatorId && currentUser.uid && exp.creatorId === currentUser.uid) {
+        return true;
+      }
+      // 2. Matches creatorEmail
+      if (exp.creatorEmail && currentUser.email && exp.creatorEmail.trim().toLowerCase() === currentUser.email.trim().toLowerCase()) {
+        return true;
+      }
+      // 3. Matches researcher display name
+      if (
+        currentUser.displayName &&
+        exp.researcher &&
+        exp.researcher.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase()
+      ) {
+        return true;
+      }
+      // 4. Matches Student ID (MSSV) in researcher or notes
+      if (
+        currentUser.studentId &&
+        ((exp.researcher && exp.researcher.includes(currentUser.studentId)) ||
+          (exp.notes && exp.notes.includes(currentUser.studentId)))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  }, [allExperiments, currentUser]);
+
+  // Keep activeExperimentId valid within user's own experiments
+  useEffect(() => {
+    if (experiments.length > 0) {
+      setActiveExperimentId((prev) => (prev && experiments.some((e) => e.id === prev) ? prev : experiments[0].id));
+    } else {
+      setActiveExperimentId(null);
+    }
+  }, [experiments]);
 
   const activeExperiment = experiments.find((e) => e.id === activeExperimentId) || (experiments.length > 0 ? experiments[0] : null);
 
@@ -55,7 +94,7 @@ export const ExperimentProvider = ({ children }) => {
     setIsSyncing(true);
     let merged = null;
 
-    setExperiments((prev) => {
+    setAllExperiments((prev) => {
       const target = prev.find((e) => e.id === id);
       if (!target) return prev;
       merged = {
@@ -73,18 +112,18 @@ export const ExperimentProvider = ({ children }) => {
     setLastSaved(new Date());
   };
 
-  // Create new experiment with rich multi-substance chemistry setup
+  // Create new experiment strictly tagged to currentUser
   const createNewExperiment = async (customMeta = {}) => {
     const newId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
     const newExperiment = {
       id: newId,
       code: customMeta.code || `SYN-${experiments.length + 1}`,
       title: customMeta.title || 'Thí nghiệm tổng hợp mới',
-      researcher: customMeta.researcher || 'Nghiên cứu viên',
+      researcher: currentUser?.displayName || customMeta.researcher || 'Nghiên cứu viên',
       labRoom: customMeta.labRoom || 'Phòng Thí Nghiệm Hóa Dược',
-      creatorId: customMeta.creatorId || null,
-      creatorEmail: customMeta.creatorEmail || null,
-      creatorName: customMeta.creatorName || customMeta.researcher || 'Nghiên cứu viên',
+      creatorId: currentUser?.uid || null,
+      creatorEmail: currentUser?.email || null,
+      creatorName: currentUser?.displayName || currentUser?.email || 'Nghiên cứu viên',
       date: new Date().toISOString().split('T')[0],
       status: 'draft',
       // Configurable units: 'g' / 'mol' or 'mg' / 'mmol'
@@ -263,8 +302,7 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    const updated = [newExperiment, ...experiments];
-    setExperiments(updated);
+    setAllExperiments((prev) => [newExperiment, ...prev]);
     setActiveExperimentId(newId);
     await saveExperimentData(newExperiment);
     return newExperiment;
@@ -272,17 +310,17 @@ export const ExperimentProvider = ({ children }) => {
 
   // Delete experiment
   const deleteExperiment = async (id) => {
-    const filtered = experiments.filter((e) => e.id !== id);
-    setExperiments(filtered);
+    setAllExperiments((prev) => prev.filter((e) => e.id !== id));
     if (activeExperimentId === id) {
-      setActiveExperimentId(filtered.length > 0 ? filtered[0].id : null);
+      const remaining = experiments.filter((e) => e.id !== id);
+      setActiveExperimentId(remaining.length > 0 ? remaining[0].id : null);
     }
     await deleteExperimentData(id);
   };
 
   // Duplicate experiment
   const duplicateExperiment = async (id) => {
-    const original = experiments.find((e) => e.id === id);
+    const original = experiments.find((e) => e.id === id) || allExperiments.find((e) => e.id === id);
     if (!original) return;
 
     const dupId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
@@ -292,6 +330,10 @@ export const ExperimentProvider = ({ children }) => {
       code: `${original.code}-COPY`,
       title: `${original.title} (Bản sao)`,
       date: new Date().toISOString().split('T')[0],
+      creatorId: currentUser?.uid || null,
+      creatorEmail: currentUser?.email || null,
+      creatorName: currentUser?.displayName || currentUser?.email || 'Nghiên cứu viên',
+      researcher: currentUser?.displayName || original.researcher,
       status: 'draft',
       reactionTimer: {
         status: 'idle',
@@ -304,13 +346,12 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    const updated = [duplicated, ...experiments];
-    setExperiments(updated);
+    setAllExperiments((prev) => [duplicated, ...prev]);
     setActiveExperimentId(dupId);
     await saveExperimentData(duplicated);
   };
 
-  // Export all data to JSON
+  // Export all user's data to JSON
   const exportAllToJson = () => {
     if (experiments.length === 0) {
       alert('Chưa có dữ liệu thí nghiệm để xuất tệp JSON.');
@@ -319,7 +360,7 @@ export const ExperimentProvider = ({ children }) => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(experiments, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `MedChem_ELN_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+    downloadAnchor.setAttribute('download', `MedChem_ELN_${currentUser?.displayName || 'Student'}_${new Date().toISOString().slice(0, 10)}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -333,12 +374,18 @@ export const ExperimentProvider = ({ children }) => {
         try {
           const parsed = JSON.parse(e.target.result);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            for (const item of parsed) {
+            const tagged = parsed.map((item) => ({
+              ...item,
+              creatorId: currentUser?.uid || item.creatorId,
+              creatorEmail: currentUser?.email || item.creatorEmail,
+              creatorName: currentUser?.displayName || item.creatorName
+            }));
+            for (const item of tagged) {
               await saveExperimentData(item);
             }
-            setExperiments(parsed);
-            setActiveExperimentId(parsed[0].id);
-            resolve({ success: true, count: parsed.length });
+            setAllExperiments((prev) => [...tagged, ...prev]);
+            setActiveExperimentId(tagged[0].id);
+            resolve({ success: true, count: tagged.length });
           } else {
             reject(new Error('Tệp JSON không đúng định dạng danh sách thí nghiệm'));
           }
@@ -354,7 +401,8 @@ export const ExperimentProvider = ({ children }) => {
   return (
     <ExperimentContext.Provider
       value={{
-        experiments,
+        experiments, // Strictly filtered to currentUser
+        allExperiments,
         activeExperiment,
         activeExperimentId,
         setActiveExperimentId,

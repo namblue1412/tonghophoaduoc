@@ -17,7 +17,7 @@ function AppContent() {
     createNewExperiment
   } = useExperiment();
 
-  const { currentUser, isAuthModalOpen, setIsAuthModalOpen } = useAuth();
+  const { currentUser, loading, isAuthModalOpen, setIsAuthModalOpen } = useAuth();
 
   const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'detail'
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -83,6 +83,21 @@ function AppContent() {
     setActiveExperimentId(id);
     setCurrentView('detail');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4">
+        <FlaskConical className="w-12 h-12 text-teal-400 animate-bounce mb-3" />
+        <h2 className="text-base font-bold text-slate-100">Đang khởi tạo Sổ Tay Hóa Dược...</h2>
+        <p className="text-xs text-slate-400 mt-1">Đồng bộ dữ liệu phòng thí nghiệm</p>
+      </div>
+    );
+  }
+
+  // Mandatory Authentication Gate: Must be logged in to use the app!
+  if (!currentUser) {
+    return <AuthModal isPage={true} isOpen={true} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-800 flex flex-col font-sans">
