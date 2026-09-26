@@ -14,16 +14,14 @@ import {
   Filter,
   Printer,
   Copy,
-  Trash2,
-  Share2,
-  Sparkles,
-  Tag,
-  Play,
-  Pause,
-  Clock,
-  FlaskConical
+  FlaskConical,
+  LayoutList,
+  Maximize2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { useDevice } from '../context/DeviceContext';
 import { ApparatusPreparation } from '../components/ApparatusPreparation';
 import { StoichiometryTable, parseDecimal } from '../components/StoichiometryTable';
 import { ReactionTimer } from '../components/ReactionTimer';
@@ -31,19 +29,79 @@ import { TLCTracker } from '../components/TLCTracker';
 import { WorkupSection } from '../components/WorkupSection';
 import { ColumnFractionManager } from '../components/ColumnFractionManager';
 
+const WORKFLOW_STAGES = [
+  {
+    id: 'apparatus',
+    sectionId: 'section-apparatus',
+    shortLabel: 'Dụng cụ',
+    fullLabel: '0. Chuẩn bị dụng cụ',
+    icon: FlaskConical,
+    accent: 'text-teal-400',
+    activeBg: 'bg-teal-600 text-white'
+  },
+  {
+    id: 'stoichiometry',
+    sectionId: 'section-stoichiometry',
+    shortLabel: 'Cân đong',
+    fullLabel: '1. Bảng cân đong',
+    icon: Scale,
+    accent: 'text-teal-400',
+    activeBg: 'bg-teal-600 text-white'
+  },
+  {
+    id: 'timer',
+    sectionId: 'section-timer',
+    shortLabel: 'Bấm giờ',
+    fullLabel: '2. Thời gian phản ứng',
+    icon: Timer,
+    accent: 'text-emerald-400',
+    activeBg: 'bg-emerald-600 text-white'
+  },
+  {
+    id: 'tlc',
+    sectionId: 'section-tlc',
+    shortLabel: 'TLC',
+    fullLabel: '3. Sắc ký bản mỏng',
+    icon: Layers,
+    accent: 'text-sky-400',
+    activeBg: 'bg-sky-600 text-white'
+  },
+  {
+    id: 'workup',
+    sectionId: 'section-workup',
+    shortLabel: 'Xử lý',
+    fullLabel: '4. Xử lý & Cô quay',
+    icon: Waves,
+    accent: 'text-blue-400',
+    activeBg: 'bg-blue-600 text-white'
+  },
+  {
+    id: 'column',
+    sectionId: 'section-column',
+    shortLabel: 'Sắc ký cột',
+    fullLabel: '5. Cột & Hiệu suất',
+    icon: Filter,
+    accent: 'text-amber-400',
+    activeBg: 'bg-amber-600 text-white'
+  }
+];
+
 export const ExperimentDetail = ({ onBackToDashboard }) => {
   const {
     activeExperiment,
     updateExperiment,
-    deleteExperiment,
     duplicateExperiment,
     isSyncing
   } = useExperiment();
 
+  const { isIPhone, isIPad, isMac } = useDevice();
+
   const [saveToast, setSaveToast] = useState(false);
   const [activeNav, setActiveNav] = useState('stoichiometry');
+  // viewMode: 'all' (full scroll) | 'focus' (single step focus - great for iPad & iPhone)
+  const [viewMode, setViewMode] = useState('all');
 
-  // Mini live timer calculation for floating bar
+  // Mini live timer calculation
   const [runningSeconds, setRunningSeconds] = useState(0);
 
   useEffect(() => {
@@ -83,7 +141,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         <h3 className="text-base font-bold text-slate-700">Chưa chọn thí nghiệm nào</h3>
         <button
           onClick={onBackToDashboard}
-          className="mt-4 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold shadow-md cursor-pointer"
+          className="mt-4 bg-teal-600 text-white px-5 py-2.5 rounded-2xl text-sm font-semibold shadow-md cursor-pointer"
         >
           Quay lại danh sách
         </button>
@@ -155,7 +213,6 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     const oldMassUnit = activeExperiment.units?.mass || 'g';
     const newMassUnit = newUnits?.mass || 'g';
 
-    // If unit didn't change mass scale
     if (oldMassUnit === newMassUnit) {
       updateExperiment(activeExperiment.id, {
         units: newUnits,
@@ -166,7 +223,6 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
 
     const factor = newMassUnit === 'mg' ? 1000 : 0.001;
 
-    // Convert workup crude tubes and crudeMass
     let updatedWorkup = activeExperiment.workup;
     if (updatedWorkup) {
       const updatedCrudeTubes = (updatedWorkup.crudeTubes || []).map((t) => {
@@ -188,7 +244,6 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       };
     }
 
-    // Convert column eppendorf tubes and productMass
     let updatedColumn = activeExperiment.columnAndYield;
     if (updatedColumn?.eppendorfYield) {
       const updatedTubes = (updatedColumn.eppendorfYield.tubes || []).map((t) => {
@@ -221,10 +276,45 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     });
   };
 
+  // Summary metrics for badges
+  const equipmentList = activeExperiment.equipment || [];
+  const readyEquipCount = equipmentList.filter((item) => item.checked || item.prepared).length;
+  const activeReagentCount = (activeExperiment.stoichiometry || []).filter(
+    (r) => r.type !== 'base_acid' && r.type !== 'solvent'
+  ).length;
+  const tlcCount = (activeExperiment.tlcTimeline || []).length;
+  const crudeMassVal = parseDecimal(activeExperiment.workup?.crudeMass);
+  const yieldPctVal = activeExperiment.columnAndYield?.eppendorfYield?.yieldPercent;
+  const massUnit = activeExperiment.units?.mass || 'g';
+
+  const getStageBadgeText = (stageId) => {
+    switch (stageId) {
+      case 'apparatus':
+        return equipmentList.length > 0 ? `${readyEquipCount}/${equipmentList.length}` : '0';
+      case 'stoichiometry':
+        return `${activeReagentCount} chất`;
+      case 'timer':
+        return totalCurrentTimer > 0 ? formatTime(totalCurrentTimer) : '00:00';
+      case 'tlc':
+        return `${tlcCount} bản`;
+      case 'workup':
+        return crudeMassVal > 0 ? `${crudeMassVal}${massUnit}` : '--';
+      case 'column':
+        return yieldPctVal > 0 ? `${yieldPctVal.toFixed(1)}%` : '--';
+      default:
+        return '';
+    }
+  };
+
   // Find limiting reagent moles & target MW for yield calculation
-  const limitingReagent = activeExperiment.stoichiometry?.find((r) => r.isLimiting) || activeExperiment.stoichiometry?.[0];
-  const limitingMoles = limitingReagent ? parseFloat(String(limitingReagent.moles).replace(',', '.')) || 0 : 0;
-  const targetMW = parseFloat(String(activeExperiment.targetMolecule?.molecularWeight).replace(',', '.')) || 0;
+  const limitingReagent =
+    activeExperiment.stoichiometry?.find((r) => r.isLimiting) ||
+    activeExperiment.stoichiometry?.[0];
+  const limitingMoles = limitingReagent
+    ? parseFloat(String(limitingReagent.moles).replace(',', '.')) || 0
+    : 0;
+  const targetMW =
+    parseFloat(String(activeExperiment.targetMolecule?.molecularWeight).replace(',', '.')) || 0;
 
   const handleManualSave = () => {
     updateExperiment(activeExperiment.id, {});
@@ -232,269 +322,672 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     setTimeout(() => setSaveToast(false), 2500);
   };
 
-  const scrollToSection = (id, navName) => {
+  const handleStageSelect = (sectionId, navName) => {
     setActiveNav(navName);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+    if (viewMode === 'all') {
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 20);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-4 sm:space-y-5 pb-28 sm:pb-20">
-      {/* Top Navigation & Action Bar */}
-      <div className="flex items-center justify-between gap-2 no-print">
-        <button
-          onClick={onBackToDashboard}
-          className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-teal-700 bg-white hover:bg-slate-50 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl border border-slate-200 transition-colors shadow-sm min-h-[40px] sm:min-h-[44px] cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 flex-shrink-0" />
-          <span>Danh Sách</span>
-        </button>
+  const currentStageIndex = WORKFLOW_STAGES.findIndex((s) => s.id === activeNav);
+  const prevStage = currentStageIndex > 0 ? WORKFLOW_STAGES[currentStageIndex - 1] : null;
+  const nextStage =
+    currentStageIndex < WORKFLOW_STAGES.length - 1
+      ? WORKFLOW_STAGES[currentStageIndex + 1]
+      : null;
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {saveToast && (
-            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-2 rounded-xl border border-emerald-300 flex items-center gap-1 animate-in fade-in">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã lưu!
-            </span>
+  // Helper to render the 6 modules (all at once or focused single stage)
+  const renderModules = () => (
+    <div className="space-y-4 sm:space-y-6">
+      {(viewMode === 'all' || activeNav === 'apparatus') && (
+        <section id="section-apparatus" className="scroll-mt-28">
+          <ApparatusPreparation
+            equipment={activeExperiment.equipment || []}
+            onChange={handleEquipmentChange}
+          />
+        </section>
+      )}
+
+      {(viewMode === 'all' || activeNav === 'stoichiometry') && (
+        <section id="section-stoichiometry" className="scroll-mt-28">
+          <StoichiometryTable
+            reagents={activeExperiment.stoichiometry || []}
+            onChange={handleStoichiometryChange}
+            targetMolecule={activeExperiment.targetMolecule}
+            onTargetChange={handleTargetChange}
+            units={activeExperiment.units || { mass: 'g', mole: 'mol' }}
+            onUnitsChange={handleUnitsChange}
+          />
+        </section>
+      )}
+
+      {(viewMode === 'all' || activeNav === 'timer') && (
+        <section id="section-timer" className="scroll-mt-28">
+          <ReactionTimer
+            timerData={activeExperiment.reactionTimer}
+            onChange={handleTimerChange}
+            experimentStatus={activeExperiment.status}
+            onStatusChange={handleStatusChange}
+          />
+        </section>
+      )}
+
+      {(viewMode === 'all' || activeNav === 'tlc') && (
+        <section id="section-tlc" className="scroll-mt-28">
+          <TLCTracker
+            tlcList={activeExperiment.tlcTimeline || []}
+            onChange={handleTlcChange}
+            currentTimerSeconds={totalCurrentTimer}
+          />
+        </section>
+      )}
+
+      {(viewMode === 'all' || activeNav === 'workup') && (
+        <section id="section-workup" className="scroll-mt-28">
+          <WorkupSection
+            workupData={activeExperiment.workup}
+            onChange={handleWorkupChange}
+            massUnit={activeExperiment.units?.mass || 'g'}
+          />
+        </section>
+      )}
+
+      {(viewMode === 'all' || activeNav === 'column') && (
+        <section id="section-column" className="scroll-mt-28">
+          <ColumnFractionManager
+            columnData={activeExperiment.columnAndYield}
+            onChange={handleColumnChange}
+            limitingMoles={limitingMoles}
+            targetMW={targetMW}
+            massUnit={activeExperiment.units?.mass || 'g'}
+            moleUnit={activeExperiment.units?.mole || 'mol'}
+          />
+        </section>
+      )}
+
+      {/* Step-by-step Prev/Next Footer when in Focus Mode */}
+      {viewMode === 'focus' && (
+        <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-sm flex items-center justify-between gap-3 no-print">
+          {prevStage ? (
+            <button
+              type="button"
+              onClick={() => handleStageSelect(prevStage.sectionId, prevStage.id)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold min-h-[44px] cursor-pointer transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>{prevStage.shortLabel}</span>
+            </button>
+          ) : (
+            <div />
           )}
 
           <button
-            onClick={handleManualSave}
-            disabled={isSyncing}
-            className="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-xs sm:text-sm font-bold px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl flex items-center gap-1.5 transition-all shadow-md min-h-[40px] sm:min-h-[44px] cursor-pointer"
+            type="button"
+            onClick={() => setViewMode('all')}
+            className="text-xs font-semibold text-teal-700 hover:underline px-2 py-1 cursor-pointer"
           >
-            <Save className="w-4 h-4 flex-shrink-0" />
-            <span>{isSyncing ? 'Đang lưu...' : 'Lưu Sổ Tay'}</span>
+            Hiện toàn bộ quy trình
           </button>
 
-          <button
-            onClick={() => window.print()}
-            className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-sm min-h-[40px] sm:min-h-[44px] cursor-pointer"
-            title="In phiếu nhật ký phòng thí nghiệm"
-          >
-            <Printer className="w-4 h-4 text-slate-500 flex-shrink-0" />
-            <span className="hidden sm:inline">In sổ tay</span>
-          </button>
+          {nextStage ? (
+            <button
+              type="button"
+              onClick={() => handleStageSelect(nextStage.sectionId, nextStage.id)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-bold min-h-[44px] cursor-pointer shadow-sm transition-colors"
+            >
+              <span>Tiếp: {nextStage.shortLabel}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleManualSave}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold min-h-[44px] cursor-pointer shadow-sm transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              <span>Lưu Sổ Tay</span>
+            </button>
+          )}
         </div>
-      </div>
+      )}
+    </div>
+  );
 
-      {/* Main Experiment Header & Metadata Dossier */}
-      <div className="bg-white rounded-3xl p-3.5 sm:p-6 border border-slate-200 shadow-sm space-y-3 sm:space-y-4 card-print">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 sm:gap-4">
-          <div className="flex-1 space-y-2.5 sm:space-y-3 min-w-0">
-            {/* Single-row Metadata Bar on Mobile & Desktop */}
-            <div className="grid grid-cols-12 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2">
-              <input
-                type="text"
-                value={activeExperiment.code || ''}
-                onChange={(e) => handleMetaChange('code', e.target.value)}
-                placeholder="Mã TN (SYN-01)"
-                className="col-span-3 sm:w-28 font-mono tabular-nums font-bold text-xs sm:text-sm bg-teal-50 border border-teal-200 text-teal-800 px-2.5 py-2 rounded-xl focus:outline-none focus:border-teal-500 min-h-[40px] sm:min-h-[44px] uppercase"
-              />
+  // ============================================================================
+  // LAYOUT 1: MAC / LAPTOP WIDESCREEN WORKSTATION (2-Column Sticky Left Sidebar)
+  // ============================================================================
+  if (isMac) {
+    return (
+      <div className="max-w-[1440px] mx-auto px-6 py-6 pb-20">
+        <div className="grid grid-cols-12 gap-6 items-start">
+          {/* LEFT STICKY WORKSTATION SIDEBAR */}
+          <aside className="col-span-3 sticky top-20 space-y-4 no-print">
+            {/* Dossier Control & Metadata Card */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                <button
+                  onClick={onBackToDashboard}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Danh sách</span>
+                </button>
 
-              <div className="col-span-5 sm:w-auto flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 sm:px-3 py-2 rounded-xl min-h-[40px] sm:min-h-[44px] min-w-0">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 hidden xs:inline sm:inline" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleManualSave}
+                    disabled={isSyncing}
+                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{saveToast ? 'Đã lưu!' : 'Lưu'}</span>
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-xl cursor-pointer"
+                    title="In sổ tay"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Code & Status */}
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={activeExperiment.code || ''}
+                  onChange={(e) => handleMetaChange('code', e.target.value)}
+                  placeholder="Mã TN"
+                  className="font-mono tabular-nums font-bold text-xs bg-teal-50 border border-teal-200 text-teal-800 px-2.5 py-2 rounded-xl focus:outline-none uppercase"
+                />
+                <select
+                  value={activeExperiment.status || 'draft'}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  className="text-xs font-bold px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none"
+                >
+                  <option value="draft">Bản nháp</option>
+                  <option value="running">Đang khuấy</option>
+                  <option value="paused">Tạm dừng</option>
+                  <option value="workup">Xử lý thô</option>
+                  <option value="purification">Sắc ký cột</option>
+                  <option value="completed">Hoàn thành</option>
+                </select>
+              </div>
+
+              {/* Date */}
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <input
                   type="date"
                   value={activeExperiment.date || ''}
                   onChange={(e) => handleMetaChange('date', e.target.value)}
-                  className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none w-full min-w-0"
+                  className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none w-full"
                 />
               </div>
 
-              {/* Status Selector */}
-              <select
-                value={activeExperiment.status || 'draft'}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="col-span-4 sm:w-auto text-xs font-bold px-2 sm:px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[40px] sm:min-h-[44px] truncate"
-              >
-                <option value="draft">Bản nháp</option>
-                <option value="running">Đang khuấy</option>
-                <option value="paused">Tạm dừng</option>
-                <option value="workup">Xử lý thô</option>
-                <option value="purification">Sắc ký cột</option>
-                <option value="completed">Hoàn thành</option>
-              </select>
+              {/* Researcher & Lab Room */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+                  <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={activeExperiment.researcher || ''}
+                    onChange={(e) => handleMetaChange('researcher', e.target.value)}
+                    placeholder="Nghiên cứu viên..."
+                    className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none w-full"
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+                  <Building className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={activeExperiment.labRoom || ''}
+                    onChange={(e) => handleMetaChange('labRoom', e.target.value)}
+                    placeholder="Phòng thí nghiệm..."
+                    className="bg-transparent text-xs font-medium text-slate-700 focus:outline-none w-full"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Editable Title */}
+            {/* Live Reaction Timer Widget in Sidebar */}
+            <div
+              onClick={() => handleStageSelect('section-timer', 'timer')}
+              className={`rounded-2xl p-3.5 border cursor-pointer transition-all ${
+                activeExperiment.reactionTimer?.status === 'running'
+                  ? 'bg-slate-900 text-white border-emerald-500/60 shadow-md'
+                  : 'bg-white text-slate-800 border-slate-200 shadow-sm hover:border-teal-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Timer
+                    className={`w-3.5 h-3.5 ${
+                      activeExperiment.reactionTimer?.status === 'running'
+                        ? 'text-emerald-400 animate-spin'
+                        : 'text-teal-600'
+                    }`}
+                  />
+                  <span>Đồng hồ phản ứng</span>
+                </span>
+                {activeExperiment.reactionTimer?.status === 'running' && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                )}
+              </div>
+              <div className="font-mono tabular-nums text-xl font-extrabold mt-1">
+                {formatTime(totalCurrentTimer)}
+              </div>
+            </div>
+
+            {/* Vertical 6-Stage Navigation Menu */}
+            <div className="bg-slate-900 text-white rounded-2xl p-2.5 border border-slate-800 shadow-md space-y-1">
+              <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-800 mb-1">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Quy trình thực nghiệm
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setViewMode(viewMode === 'all' ? 'focus' : 'all')}
+                  className="text-[11px] font-semibold text-teal-400 hover:text-teal-300 cursor-pointer"
+                >
+                  {viewMode === 'all' ? 'Từng mục' : 'Toàn trang'}
+                </button>
+              </div>
+
+              {WORKFLOW_STAGES.map((stage) => {
+                const Icon = stage.icon;
+                const isActive = activeNav === stage.id;
+                return (
+                  <button
+                    key={stage.id}
+                    type="button"
+                    onClick={() => handleStageSelect(stage.sectionId, stage.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      isActive
+                        ? stage.activeBg
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : stage.accent}`} />
+                      <span className="truncate">{stage.fullLabel}</span>
+                    </span>
+                    <span
+                      className={`font-mono tabular-nums text-[10px] px-2 py-0.5 rounded-md ml-1 ${
+                        isActive
+                          ? 'bg-black/20 text-white'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {getStageBadgeText(stage.id)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* RIGHT MAIN WORKSTATION CANVAS */}
+          <div className="col-span-9 space-y-5 min-w-0">
+            {/* Experiment Title Banner */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm card-print">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-mono font-bold text-teal-700 mb-1">
+                    {activeExperiment.code} • {activeExperiment.date} • {activeExperiment.researcher} ({activeExperiment.labRoom})
+                  </div>
+                  <input
+                    type="text"
+                    value={activeExperiment.title || ''}
+                    onChange={(e) => handleMetaChange('title', e.target.value)}
+                    placeholder="Tên phản ứng thí nghiệm..."
+                    className="w-full text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => duplicateExperiment(activeExperiment.id)}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer flex-shrink-0 no-print"
+                >
+                  <Copy className="w-4 h-4 text-slate-500" />
+                  <span>Nhân bản</span>
+                </button>
+              </div>
+            </div>
+
+            {renderModules()}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LAYOUT 2: IPAD LAB WORKBENCH (Dedicated Tablet Hybrid Interface)
+  // ============================================================================
+  if (isIPad) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-5 py-4 space-y-4 pb-20">
+        {/* Top Action & View Mode Bar */}
+        <div className="flex items-center justify-between gap-2 no-print">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBackToDashboard}
+              className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 hover:text-teal-700 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shadow-xs min-h-[42px] cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Danh Sách</span>
+            </button>
+
+            {/* Segmented Mode Switcher: Toàn trang vs Từng bước */}
+            <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-xs inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => setViewMode('all')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span>Toàn trang</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('focus')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-colors ${
+                  viewMode === 'focus'
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Từng mục</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {saveToast && (
+              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-2 rounded-xl border border-emerald-300 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã lưu!
+              </span>
+            )}
+
+            <button
+              onClick={handleManualSave}
+              disabled={isSyncing}
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-2xl flex items-center gap-1.5 shadow-md min-h-[42px] cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSyncing ? 'Đang lưu...' : 'Lưu Sổ Tay'}</span>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-xs min-h-[42px] cursor-pointer"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span>In sổ tay</span>
+            </button>
+          </div>
+        </div>
+
+        {/* iPad 2-Zone Experiment Dossier Card */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm card-print">
+          <div className="grid grid-cols-12 gap-4 items-center">
+            {/* Left 7 cols: Code, Date, Status + Title */}
+            <div className="col-span-7 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={activeExperiment.code || ''}
+                  onChange={(e) => handleMetaChange('code', e.target.value)}
+                  placeholder="Mã TN"
+                  className="w-28 font-mono tabular-nums font-bold text-xs sm:text-sm bg-teal-50 border border-teal-200 text-teal-800 px-3 py-2 rounded-xl focus:outline-none uppercase min-h-[42px]"
+                />
+
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl min-h-[42px]">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <input
+                    type="date"
+                    value={activeExperiment.date || ''}
+                    onChange={(e) => handleMetaChange('date', e.target.value)}
+                    className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none"
+                  />
+                </div>
+
+                <select
+                  value={activeExperiment.status || 'draft'}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[42px]"
+                >
+                  <option value="draft">Bản nháp</option>
+                  <option value="running">Đang khuấy</option>
+                  <option value="paused">Tạm dừng</option>
+                  <option value="workup">Xử lý thô</option>
+                  <option value="purification">Sắc ký cột</option>
+                  <option value="completed">Hoàn thành</option>
+                </select>
+              </div>
+
+              <input
+                type="text"
+                value={activeExperiment.title || ''}
+                onChange={(e) => handleMetaChange('title', e.target.value)}
+                placeholder="Tên phản ứng thí nghiệm..."
+                className="w-full text-lg sm:text-xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Right 5 cols: Researcher & Lab Room */}
+            <div className="col-span-5 grid grid-cols-1 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={activeExperiment.researcher || ''}
+                  onChange={(e) => handleMetaChange('researcher', e.target.value)}
+                  placeholder="Nghiên cứu viên..."
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none min-h-[38px]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={activeExperiment.labRoom || ''}
+                  onChange={(e) => handleMetaChange('labRoom', e.target.value)}
+                  placeholder="Phòng thí nghiệm..."
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:outline-none min-h-[38px]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* iPad Sticky 6-Stage Workbench Dock */}
+        <div className="sticky top-16 z-30 bg-slate-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-lg border border-slate-800 grid grid-cols-6 gap-1.5 no-print">
+          {WORKFLOW_STAGES.map((stage) => {
+            const Icon = stage.icon;
+            const isActive = activeNav === stage.id;
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => handleStageSelect(stage.sectionId, stage.id)}
+                className={`flex flex-col items-center justify-center py-2 px-1.5 rounded-xl transition-all cursor-pointer min-h-[54px] ${
+                  isActive
+                    ? stage.activeBg + ' shadow-md'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : stage.accent}`} />
+                  <span className="text-xs font-bold whitespace-nowrap">{stage.shortLabel}</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono tabular-nums mt-0.5 px-1.5 py-0.2 rounded ${
+                    isActive ? 'text-white/90 font-semibold' : 'text-slate-400'
+                  }`}
+                >
+                  {getStageBadgeText(stage.id)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Render Synthesis Modules */}
+        {renderModules()}
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LAYOUT 3: IPHONE ONE-HANDED MOBILE LAB BENCH
+  // ============================================================================
+  return (
+    <div className="max-w-xl mx-auto px-3 py-3 space-y-3.5 pb-28">
+      {/* Top Navigation & Action Bar */}
+      <div className="flex items-center justify-between gap-1.5 no-print">
+        <button
+          onClick={onBackToDashboard}
+          className="flex items-center gap-1 text-xs font-semibold text-slate-700 bg-white px-3 py-2 rounded-2xl border border-slate-200 shadow-xs min-h-[40px] cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Danh Sách</span>
+        </button>
+
+        {/* Quick Focus vs Full Scroll Switcher on iPhone */}
+        <div className="bg-white p-0.5 rounded-xl border border-slate-200 inline-flex items-center">
+          <button
+            type="button"
+            onClick={() => setViewMode('all')}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer ${
+              viewMode === 'all' ? 'bg-teal-600 text-white' : 'text-slate-600'
+            }`}
+          >
+            Toàn bộ
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('focus')}
+            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer ${
+              viewMode === 'focus' ? 'bg-teal-600 text-white' : 'text-slate-600'
+            }`}
+          >
+            Từng mục
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleManualSave}
+            disabled={isSyncing}
+            className="bg-teal-600 active:bg-teal-800 text-white text-xs font-bold px-3 py-2 rounded-2xl flex items-center gap-1 shadow-sm min-h-[40px] cursor-pointer"
+          >
+            <Save className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>{saveToast ? 'Đã lưu!' : 'Lưu'}</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="bg-white text-slate-700 p-2 rounded-2xl border border-slate-200 shadow-xs min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+            title="In sổ tay"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+      </div>
+
+      {/* Compact Single-Card Metadata Header on iPhone */}
+      <div className="bg-white rounded-3xl p-3.5 border border-slate-200 shadow-xs space-y-2.5 card-print">
+        <div className="grid grid-cols-12 items-center gap-1.5">
+          <input
+            type="text"
+            value={activeExperiment.code || ''}
+            onChange={(e) => handleMetaChange('code', e.target.value)}
+            placeholder="Mã TN"
+            className="col-span-3 font-mono tabular-nums font-bold text-xs bg-teal-50 border border-teal-200 text-teal-800 px-2 py-2 rounded-xl focus:outline-none min-h-[40px] uppercase"
+          />
+
+          <div className="col-span-5 flex items-center gap-1 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-2 rounded-xl min-h-[40px] min-w-0">
             <input
-              type="text"
-              value={activeExperiment.title || ''}
-              onChange={(e) => handleMetaChange('title', e.target.value)}
-              placeholder="Tên phản ứng thí nghiệm..."
-              className="w-full text-base sm:text-2xl font-extrabold text-slate-900 border-0 border-b-2 border-transparent focus:border-teal-600 py-0.5 sm:py-1 focus:outline-none transition-colors"
+              type="date"
+              value={activeExperiment.date || ''}
+              onChange={(e) => handleMetaChange('date', e.target.value)}
+              className="bg-transparent text-xs font-mono tabular-nums text-slate-700 focus:outline-none w-full min-w-0"
             />
           </div>
 
-          {/* Researcher & Lab Room - Side by side on mobile to save vertical space */}
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 sm:p-3 rounded-2xl border border-slate-200 lg:w-72">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 flex-shrink-0" />
-              <input
-                type="text"
-                value={activeExperiment.researcher || ''}
-                onChange={(e) => handleMetaChange('researcher', e.target.value)}
-                placeholder="Người thực hiện..."
-                className="w-full min-w-0 bg-white border border-slate-200 rounded-xl px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-800 focus:outline-none min-h-[38px] sm:min-h-[40px] truncate"
-              />
-            </div>
+          <select
+            value={activeExperiment.status || 'draft'}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="col-span-4 text-xs font-bold px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[40px] truncate"
+          >
+            <option value="draft">Bản nháp</option>
+            <option value="running">Đang khuấy</option>
+            <option value="paused">Tạm dừng</option>
+            <option value="workup">Xử lý thô</option>
+            <option value="purification">Sắc ký cột</option>
+            <option value="completed">Hoàn thành</option>
+          </select>
+        </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 flex-shrink-0" />
-              <input
-                type="text"
-                value={activeExperiment.labRoom || ''}
-                onChange={(e) => handleMetaChange('labRoom', e.target.value)}
-                placeholder="Phòng thí nghiệm..."
-                className="w-full min-w-0 bg-white border border-slate-200 rounded-xl px-2 sm:px-2.5 py-1.5 sm:py-2 text-xs font-medium text-slate-700 focus:outline-none min-h-[38px] sm:min-h-[40px] truncate"
-              />
-            </div>
+        <input
+          type="text"
+          value={activeExperiment.title || ''}
+          onChange={(e) => handleMetaChange('title', e.target.value)}
+          placeholder="Tên phản ứng thí nghiệm..."
+          className="w-full text-base font-extrabold text-slate-900 border-0 border-b border-slate-200 focus:border-teal-600 py-1 focus:outline-none"
+        />
+
+        <div className="grid grid-cols-2 gap-1.5 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 min-w-0">
+            <User className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
+            <input
+              type="text"
+              value={activeExperiment.researcher || ''}
+              onChange={(e) => handleMetaChange('researcher', e.target.value)}
+              placeholder="Người thực hiện..."
+              className="w-full min-w-0 bg-transparent text-xs font-semibold text-slate-800 focus:outline-none truncate"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 min-w-0">
+            <Building className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+            <input
+              type="text"
+              value={activeExperiment.labRoom || ''}
+              onChange={(e) => handleMetaChange('labRoom', e.target.value)}
+              placeholder="Phòng lab..."
+              className="w-full min-w-0 bg-transparent text-xs font-medium text-slate-700 focus:outline-none truncate"
+            />
           </div>
         </div>
       </div>
 
-      {/* Desktop Sticky Quick-Jump Section Navigator */}
-      <div className="hidden md:flex sticky top-16 z-30 bg-slate-900/95 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-slate-800 items-center justify-between gap-1 overflow-x-auto no-print">
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-apparatus', 'apparatus')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <FlaskConical className="w-4 h-4 text-teal-400" />
-          <span>0. Dụng cụ</span>
-        </button>
+      {/* Render Synthesis Modules */}
+      {renderModules()}
 
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <Scale className="w-4 h-4 text-teal-400" />
-          <span>1. Cân đong</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-timer', 'timer')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <Timer className="w-4 h-4 text-emerald-400" />
-          <span>2. Thời gian</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-tlc', 'tlc')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <Layers className="w-4 h-4 text-sky-400" />
-          <span>3. Sắc ký TLC</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-workup', 'workup')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <Waves className="w-4 h-4 text-blue-400" />
-          <span>4. Xử lý thô</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollToSection('section-column', 'column')}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 whitespace-nowrap min-h-[42px] cursor-pointer"
-        >
-          <Filter className="w-4 h-4 text-amber-400" />
-          <span>5. Cột & Hiệu suất</span>
-        </button>
-      </div>
-
-      {/* Module 0: Apparatus & Glassware Preparation */}
-      <section id="section-apparatus" className="scroll-mt-24">
-        <ApparatusPreparation
-          equipment={activeExperiment.equipment || []}
-          onChange={handleEquipmentChange}
-        />
-      </section>
-
-      {/* Module 1: Stoichiometry Table */}
-      <section id="section-stoichiometry" className="scroll-mt-24">
-        <StoichiometryTable
-          reagents={activeExperiment.stoichiometry || []}
-          onChange={handleStoichiometryChange}
-          targetMolecule={activeExperiment.targetMolecule}
-          onTargetChange={handleTargetChange}
-          units={activeExperiment.units || { mass: 'g', mole: 'mol' }}
-          onUnitsChange={handleUnitsChange}
-        />
-      </section>
-
-      {/* Module 2: Reaction Session Timer */}
-      <section id="section-timer" className="scroll-mt-24">
-        <ReactionTimer
-          timerData={activeExperiment.reactionTimer}
-          onChange={handleTimerChange}
-          experimentStatus={activeExperiment.status}
-          onStatusChange={handleStatusChange}
-        />
-      </section>
-
-      {/* Module 3: TLC Timeline Monitor (3 Photos: UV 254, UV 365, Reagent) */}
-      <section id="section-tlc" className="scroll-mt-24">
-        <TLCTracker
-          tlcList={activeExperiment.tlcTimeline || []}
-          onChange={handleTlcChange}
-          currentTimerSeconds={totalCurrentTimer}
-        />
-      </section>
-
-      {/* Module 4: Workup & Rotavapor Section */}
-      <section id="section-workup" className="scroll-mt-24">
-        <WorkupSection
-          workupData={activeExperiment.workup}
-          onChange={handleWorkupChange}
-          massUnit={activeExperiment.units?.mass || 'g'}
-        />
-      </section>
-
-      {/* Module 5: Column Chromatography & Eppendorf Yield */}
-      <section id="section-column" className="scroll-mt-24">
-        <ColumnFractionManager
-          columnData={activeExperiment.columnAndYield}
-          onChange={handleColumnChange}
-          limitingMoles={limitingMoles}
-          targetMW={targetMW}
-          massUnit={activeExperiment.units?.mass || 'g'}
-          moleUnit={activeExperiment.units?.mole || 'mol'}
-        />
-      </section>
-
-      {/* Printable Signature & GLP Lab Verification Block */}
-      <div className="hidden print-only mt-8 pt-6 border-t-2 border-slate-300 grid grid-cols-2 text-xs">
-        <div>
-          <p className="font-bold">Nghiên cứu viên thực hiện:</p>
-          <p className="mt-1">{activeExperiment.researcher || '...........................................'}</p>
-          <p className="mt-12">Ký tên: .......................................</p>
-          <p className="text-[10px] text-slate-500 mt-1">Ngày: ....../....../202...</p>
-        </div>
-
-        <div>
-          <p className="font-bold">Cán bộ phụ trách PTN / Giảng viên hướng dẫn:</p>
-          <p className="mt-1">...........................................................................</p>
-          <p className="mt-12">Ký duyệt: .......................................</p>
-          <p className="text-[10px] text-slate-500 mt-1">Ngày: ....../....../202...</p>
-        </div>
-      </div>
-
-      {/* FLOATING MINI LIVE TIMER BAR (Visible on mobile/tablet when running) */}
+      {/* FLOATING MINI LIVE TIMER BAR ON IPHONE */}
       {activeExperiment.reactionTimer?.status === 'running' && (
-        <div className="fixed bottom-16 left-3 right-3 z-40 md:hidden mb-safe animate-in slide-in-from-bottom-4 no-print">
+        <div className="fixed bottom-16 left-3 right-3 z-40 mb-safe animate-in slide-in-from-bottom-4 no-print">
           <div
-            onClick={() => scrollToSection('section-timer', 'timer')}
-            className="bg-slate-900/95 text-white p-2.5 sm:p-3 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center justify-between cursor-pointer"
+            onClick={() => handleStageSelect('section-timer', 'timer')}
+            className="bg-slate-900/95 text-white p-2.5 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
@@ -502,7 +995,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
                 <div className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold leading-none">
                   Phản ứng đang khuấy
                 </div>
-                <div className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-white mt-0.5">
+                <div className="font-mono tabular-nums text-sm font-extrabold text-white mt-0.5">
                   {formatTime(totalCurrentTimer)}
                 </div>
               </div>
@@ -512,7 +1005,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                scrollToSection('section-timer', 'timer');
+                handleStageSelect('section-timer', 'timer');
               }}
               className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
             >
@@ -522,95 +1015,35 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb Zone Optimized & Compact) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 md:hidden no-print pb-safe">
+      {/* IPHONE BOTTOM NAVIGATION BAR (Thumb Zone Optimized & Compact) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 no-print pb-safe">
         <div className="grid grid-cols-6 h-14 items-center px-1">
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-apparatus', 'apparatus')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'apparatus' ? 'text-teal-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'apparatus' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-teal-400" />
-            )}
-            <FlaskConical className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">Dụng cụ</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-stoichiometry', 'stoichiometry')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'stoichiometry' ? 'text-teal-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'stoichiometry' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-teal-400" />
-            )}
-            <Scale className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">Cân đong</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-timer', 'timer')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'timer' ? 'text-emerald-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'timer' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-emerald-400" />
-            )}
-            <Timer className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">Bấm giờ</span>
-            {activeExperiment.reactionTimer?.status === 'running' && (
-              <span className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-tlc', 'tlc')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'tlc' ? 'text-sky-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'tlc' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-sky-400" />
-            )}
-            <Layers className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">TLC</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-workup', 'workup')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'workup' ? 'text-blue-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'workup' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-blue-400" />
-            )}
-            <Waves className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">Xử lý</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollToSection('section-column', 'column')}
-            className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
-              activeNav === 'column' ? 'text-amber-400 font-bold' : 'text-slate-400'
-            }`}
-          >
-            {activeNav === 'column' && (
-              <span className="absolute top-0 w-6 h-0.5 rounded-full bg-amber-400" />
-            )}
-            <Filter className="w-4 h-4 mb-0.5" />
-            <span className="text-[10px] leading-tight whitespace-nowrap">Sắc ký cột</span>
-          </button>
+          {WORKFLOW_STAGES.map((stage) => {
+            const Icon = stage.icon;
+            const isActive = activeNav === stage.id;
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => handleStageSelect(stage.sectionId, stage.id)}
+                className={`relative flex flex-col items-center justify-center h-full transition-colors cursor-pointer ${
+                  isActive ? `${stage.accent} font-bold` : 'text-slate-400'
+                }`}
+              >
+                {isActive && (
+                  <span className="absolute top-0 w-6 h-0.5 rounded-full bg-teal-400" />
+                )}
+                <Icon className="w-4 h-4 mb-0.5" />
+                <span className="text-[10px] leading-tight whitespace-nowrap">
+                  {stage.shortLabel}
+                </span>
+                {stage.id === 'timer' &&
+                  activeExperiment.reactionTimer?.status === 'running' && (
+                    <span className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  )}
+              </button>
+            );
+          })}
         </div>
       </nav>
     </div>

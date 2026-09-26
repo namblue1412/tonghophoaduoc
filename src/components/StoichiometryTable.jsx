@@ -12,6 +12,7 @@ import {
   TestTube2,
   Sliders
 } from 'lucide-react';
+import { useDevice } from '../context/DeviceContext';
 
 // Unified decimal parser supporting both comma ',' and dot '.'
 export const parseDecimal = (val) => {
@@ -29,9 +30,11 @@ export const StoichiometryTable = ({
   units = { mass: 'g', mole: 'mol' },
   onUnitsChange
 }) => {
+  const { isIPhone, isIPad, isMac } = useDevice();
   const massUnit = units?.mass || 'g'; // 'g' | 'mg'
   const moleUnit = units?.mole || 'mol'; // 'mol' | 'mmol'
   const [unitToast, setUnitToast] = useState(null);
+  const [ipadTableMode, setIpadTableMode] = useState(false);
 
   // Partition into Active Reactants (need molar ratio) vs Medium vs Solvent
   const activeReagents = reagents.filter((r) => r.type !== 'base_acid' && r.type !== 'solvent');
@@ -473,18 +476,43 @@ export const StoichiometryTable = ({
       {/* (CÓ TÍNH SỐ MOL & TỈ LỆ MOL)                              */}
       {/* ========================================================= */}
       <div className="p-3 sm:p-5 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-teal-600"></span>
             A. Chất tham gia, Thuốc thử & Xúc tác
           </h3>
-          <span className="text-[11px] text-slate-500 font-mono">
-            {activeReagents.length} chất
-          </span>
+          <div className="flex items-center gap-2">
+            {isIPad && (
+              <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setIpadTableMode(false)}
+                  className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
+                    !ipadTableMode ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600'
+                  }`}
+                >
+                  Thẻ 2 cột (iPad)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIpadTableMode(true)}
+                  className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
+                    ipadTableMode ? 'bg-white text-teal-700 shadow-xs' : 'text-slate-600'
+                  }`}
+                >
+                  Dạng bảng
+                </button>
+              </div>
+            )}
+            <span className="text-[11px] text-slate-500 font-mono">
+              {activeReagents.length} chất
+            </span>
+          </div>
         </div>
 
-        {/* MOBILE CARD VIEW (Phone screens) */}
-        <div className="block md:hidden space-y-3">
+        {/* IPHONE (1-col) & IPAD (2-col) TOUCH CARD VIEW */}
+        {(isIPhone || (isIPad && !ipadTableMode)) && (
+          <div className={`grid gap-3.5 ${isIPad ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {activeReagents.map((row) => {
             const typeBadge = getTypeLabel(row.type);
             const isLim = row.isLimiting;
@@ -638,10 +666,12 @@ export const StoichiometryTable = ({
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
 
-        {/* DESKTOP / IPAD SPREADSHEET TABLE */}
-        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200">
+        {/* MAC / LAPTOP (AND OPTIONAL IPAD) SPREADSHEET TABLE */}
+        {(isMac || (isIPad && ipadTableMode)) && (
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
           <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 font-semibold uppercase text-[11px] tracking-wider">
@@ -813,7 +843,8 @@ export const StoichiometryTable = ({
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        )}
 
         {/* Buttons to Add Active Reactants */}
         <div className="flex flex-wrap items-center gap-2 pt-1 no-print">
@@ -855,6 +886,7 @@ export const StoichiometryTable = ({
           </h3>
         </div>
 
+        <div className={`grid gap-4 ${isIPad || isMac ? 'grid-cols-2 items-start' : 'grid-cols-1'}`}>
         {/* 1. DUNG DỊCH MÔI TRƯỜNG (BASE / ACID) */}
         <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-purple-200 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
@@ -1088,6 +1120,7 @@ export const StoichiometryTable = ({
               ))}
             </div>
           )}
+        </div>
         </div>
 
         {/* Batch Scale & Totals Summary */}

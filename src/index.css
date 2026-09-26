@@ -28,11 +28,20 @@ button, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent iOS Safari from auto-zooming when focusing on inputs */
-@media screen and (max-width: 768px) {
+/* Prevent iOS Safari from auto-zooming when focusing on inputs on iPhone & iPad */
+@media screen and (max-width: 1024px) {
   input, select, textarea {
     font-size: 16px !important;
   }
+}
+
+html[data-device="iphone"] input,
+html[data-device="iphone"] select,
+html[data-device="iphone"] textarea,
+html[data-device="ipad"] input,
+html[data-device="ipad"] select,
+html[data-device="ipad"] textarea {
+  font-size: 16px !important;
 }
 
 /* Safe area padding for iPhone Dynamic Island / Status Bar & Home Indicator */
@@ -40,8 +49,21 @@ button, input, select, textarea {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Guaranteed Dynamic Island / Status Bar clearance when opened from iPhone/iPad Home Screen */
+html[data-standalone="true"][data-device="iphone"] .pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 52px) !important;
+}
+
+html[data-standalone="true"][data-device="ipad"] .pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 26px) !important;
+}
+
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html[data-standalone="true"][data-device="iphone"] .pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px) !important;
 }
 
 .mb-safe {

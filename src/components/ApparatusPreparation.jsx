@@ -170,7 +170,7 @@ export const ApparatusPreparation = ({
                     className={`text-[11px] px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1 cursor-pointer min-h-[34px] whitespace-nowrap flex-shrink-0 ${
                       alreadyAdded
                         ? 'bg-teal-100/80 border-teal-300 text-teal-900 font-semibold'
-                        : 'bg-white hover:bg-teal-100 text-slate-700 border-slate-200'
+                        : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-200'
                     }`}
                   >
                     <Plus className="w-3 h-3 text-teal-600 flex-shrink-0" />
@@ -189,7 +189,7 @@ export const ApparatusPreparation = ({
               <p className="text-[11px] text-slate-400 mt-1">Bấm các nút gợi ý nhanh ở trên hoặc nút Thêm dụng cụ bên dưới.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {list.map((item, index) => {
                 const isChecked = Boolean(item.checked);
                 return (

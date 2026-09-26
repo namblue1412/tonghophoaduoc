@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ExperimentProvider, useExperiment } from './context/ExperimentContext';
+import { DeviceProvider, useDevice } from './context/DeviceContext';
 import { Navbar } from './components/Navbar';
 import { Dashboard } from './pages/Dashboard';
 import { ExperimentDetail } from './pages/ExperimentDetail';
@@ -127,7 +128,7 @@ function AppContent() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-5 text-center text-xs text-slate-500 no-print">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-medium text-slate-700">
             <FlaskConical className="w-4 h-4 text-teal-600" />
             <span>Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược</span>
@@ -268,10 +269,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ExperimentProvider>
-        <AppContent />
-      </ExperimentProvider>
-    </AuthProvider>
+    <DeviceProvider>
+      <AuthProvider>
+        <ExperimentProvider>
+          <AppContent />
+        </ExperimentProvider>
+      </AuthProvider>
+    </DeviceProvider>
   );
 }
