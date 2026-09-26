@@ -18,7 +18,9 @@ import {
   LayoutList,
   Maximize2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { useDevice } from '../context/DeviceContext';
@@ -91,6 +93,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     activeExperiment,
     updateExperiment,
     duplicateExperiment,
+    restoreExperiment,
+    permanentlyDeleteExperiment,
     isSyncing
   } = useExperiment();
 
@@ -353,6 +357,45 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   // Helper to render the 6 modules (all at once or focused single stage)
   const renderModules = () => (
     <div className="space-y-4 sm:space-y-6">
+      {activeExperiment.inTrash && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print shadow-xs">
+          <div className="flex items-center gap-2.5 text-rose-900">
+            <Trash2 className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <div className="text-xs sm:text-sm">
+              <span className="font-bold">Dự án này đang nằm trong Thùng rác.</span>{' '}
+              <span>Bạn có thể xem lại nội dung hoặc khôi phục về danh sách dự án chính.</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => restoreExperiment(activeExperiment.id)}
+              className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Khôi phục dự án</span>
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (
+                  window.confirm(
+                    `Xóa vĩnh viễn dự án "${activeExperiment.code}: ${activeExperiment.title}" khỏi cơ sở dữ liệu đám mây?\n\nHành động này không thể hoàn tác!`
+                  )
+                ) {
+                  await permanentlyDeleteExperiment(activeExperiment.id);
+                  onBackToDashboard?.();
+                }
+              }}
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Xóa vĩnh viễn</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {(viewMode === 'all' || activeNav === 'apparatus') && (
         <section id="section-apparatus" className="scroll-mt-28">
           <ApparatusPreparation

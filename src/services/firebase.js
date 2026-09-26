@@ -65,169 +65,43 @@ if (isFirebaseConfigured()) {
   console.info('ℹ️ [MedChem ELN] Running in LocalStorage Dual-Mode.');
 }
 
-// Simple IndexedDB helper for unlimited local storage (especially for multiple TLC photos on iPhone/iPad)
-const IDB_NAME = 'medchem_eln_db';
-const IDB_STORE = 'experiments';
-
-const openExperimentsIDB = () => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.indexedDB) {
-      resolve(null);
-      return;
-    }
-    const req = window.indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        db.createObjectStore(IDB_STORE, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => resolve(null);
-  });
-};
-
-const saveToIDB = async (experiment) => {
+// Clean up any legacy local storage / IndexedDB experiment caches so stale browser tabs can never conflict with Cloud data
+const purgeLegacyLocalExperimentCache = () => {
+  if (typeof window === 'undefined') return;
   try {
-    const db = await openExperimentsIDB();
-    if (!db) return;
-    await new Promise((resolve) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put(experiment);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => resolve(false);
-    });
+    localStorage.removeItem('medchem_experiments');
+    localStorage.removeItem('medchem_deleted_ids');
   } catch (e) {
-    // Ignore IDB errors
+    // Ignore
   }
-};
-
-const deleteFromIDB = async (id) => {
   try {
-    const db = await openExperimentsIDB();
-    if (!db) return;
-    await new Promise((resolve) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).delete(id);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => resolve(false);
-    });
+    if (window.indexedDB) {
+      window.indexedDB.deleteDatabase('medchem_eln_db');
+    }
   } catch (e) {
     // Ignore
   }
 };
 
-const loadAllFromIDB = async () => {
-  try {
-    const db = await openExperimentsIDB();
-    if (!db) return [];
-    return await new Promise((resolve) => {
-      const tx = db.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => resolve([]);
-    });
-  } catch (e) {
-    return [];
-  }
-};
+purgeLegacyLocalExperimentCache();
 
-const PERMANENT_DELETED_IDS = [
+const PERMANENT_PURGED_IDS = new Set([
   'EXP-2025-COU-01',
   'EXP-202609-3251',
   'EXP-202609-9989'
-];
+]);
 
-export const getDeletedIds = () => {
-  try {
-    const stored = JSON.parse(localStorage.getItem('medchem_deleted_ids') || '[]');
-    return Array.from(new Set([...PERMANENT_DELETED_IDS, ...(Array.isArray(stored) ? stored : [])]));
-  } catch (e) {
-    return [...PERMANENT_DELETED_IDS];
-  }
-};
-
-export const markDeletedId = (id) => {
-  if (!id) return;
-  try {
-    const list = getDeletedIds();
-    if (!list.includes(id)) {
-      list.push(id);
-    }
-    localStorage.setItem('medchem_deleted_ids', JSON.stringify(list));
-  } catch (e) {
-    // Ignore
-  }
-};
-
-export const isDeletedRecord = (item, deletedSet = null) => {
+export const isDeletedRecord = (item) => {
   if (!item || !item.id) return true;
   if (item._deleted === true || item.creatorId === '__DELETED__') return true;
-  if (PERMANENT_DELETED_IDS.includes(item.id)) return true;
-  if (deletedSet && deletedSet.has(item.id)) return true;
+  if (PERMANENT_PURGED_IDS.has(item.id)) return true;
   return false;
-};
-
-/**
- * Strip heavy Base64 data URLs only for the localStorage fallback mirror when 5MB quota is exceeded.
- * Full Base64 images remain safely stored in IndexedDB and Firebase Realtime Database.
- */
-const stripHeavyImagesForLocalStorage = (exp) => {
-  if (!exp) return exp;
-  const stripImg = (val) => (typeof val === 'string' && val.startsWith('data:image/') ? null : val);
-  return {
-    ...exp,
-    tlcTimeline: Array.isArray(exp.tlcTimeline)
-      ? exp.tlcTimeline.map((p) => ({
-          ...p,
-          images: p.images
-            ? {
-                uv254: stripImg(p.images.uv254),
-                uv365: stripImg(p.images.uv365),
-                reagent: stripImg(p.images.reagent)
-              }
-            : { uv254: null, uv365: null, reagent: null }
-        }))
-      : [],
-    columnAndYield: exp.columnAndYield
-      ? {
-          ...exp.columnAndYield,
-          fractionTlcPlates: Array.isArray(exp.columnAndYield.fractionTlcPlates)
-            ? exp.columnAndYield.fractionTlcPlates.map((p) => ({
-                ...p,
-                images: p.images
-                  ? {
-                      uv254: stripImg(p.images.uv254),
-                      uv365: stripImg(p.images.uv365),
-                      reagent: stripImg(p.images.reagent)
-                    }
-                  : { uv254: null, uv365: null, reagent: null }
-              }))
-            : []
-        }
-      : exp.columnAndYield
-  };
-};
-
-const safeMirrorToLocalStorage = (experimentsList) => {
-  const deletedSet = new Set(getDeletedIds());
-  const cleanList = (experimentsList || []).filter((item) => !isDeletedRecord(item, deletedSet));
-  try {
-    localStorage.setItem('medchem_experiments', JSON.stringify(cleanList));
-  } catch (quotaErr) {
-    try {
-      const lightweightList = cleanList.map(stripHeavyImagesForLocalStorage);
-      localStorage.setItem('medchem_experiments', JSON.stringify(lightweightList));
-    } catch (e) {
-      console.warn('LocalStorage mirror skipped due to quota (data safely in IndexedDB & Firebase):', e);
-    }
-  }
 };
 
 /**
  * Upload an image file:
  * - If Firebase Storage is available -> uploads to storage and returns downloadURL.
- * - Fallback -> converts file to optimized compressed Base64 data URL for fast cloud & offline storage.
+ * - Fallback -> converts file to optimized compressed Base64 data URL for fast cloud storage.
  */
 export const uploadImage = async (file, pathFolder = 'tlc_images') => {
   if (!file) return null;
@@ -254,7 +128,7 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
       const img = new Image();
       img.onload = () => {
         try {
-          // Resize image to max 960px dimension to keep Firebase RTDB & LocalStorage fast and reliable
+          // Resize image to max 960px dimension to keep Firebase RTDB fast and reliable
           const canvas = document.createElement('canvas');
           const MAX_WIDTH = 960;
           const MAX_HEIGHT = 960;
@@ -301,84 +175,16 @@ const sanitizeForFirebase = (obj) => {
 };
 
 /**
- * Read local experiments from LocalStorage + IndexedDB and merge by newest updatedAt
- */
-const readMergedLocalExperiments = async () => {
-  let lsList = [];
-  try {
-    lsList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-  } catch (e) {
-    lsList = [];
-  }
-  const idbList = await loadAllFromIDB();
-  const deletedIds = new Set(getDeletedIds());
-  const map = new Map();
-  let foundDeletedInLocal = false;
-
-  // First check if any local record is a tombstone or in deletedIds
-  for (const item of [...lsList, ...idbList]) {
-    if (!item || !item.id) continue;
-    if (isDeletedRecord(item, deletedIds)) {
-      deletedIds.add(item.id);
-      markDeletedId(item.id);
-      await deleteFromIDB(item.id);
-      foundDeletedInLocal = true;
-    }
-  }
-
-  for (const item of [...idbList, ...lsList]) {
-    if (isDeletedRecord(item, deletedIds)) continue;
-    const existing = map.get(item.id);
-    if (!existing) {
-      map.set(item.id, item);
-    } else {
-      const tNew = new Date(item.updatedAt || item.createdAt || 0).getTime();
-      const tOld = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-      if (tNew > tOld) {
-        map.set(item.id, item);
-      }
-    }
-  }
-
-  const sorted = Array.from(map.values()).sort(
-    (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
-  );
-
-  if (foundDeletedInLocal) {
-    safeMirrorToLocalStorage(sorted);
-  }
-
-  return sorted;
-};
-
-/**
- * Save an experiment to Database (LocalStorage + IndexedDB + Firebase Realtime Database)
+ * Save an experiment directly to Firebase Realtime Database on user action
  */
 export const saveExperimentData = async (experiment) => {
   if (!experiment || !experiment.id) return { success: false };
 
   const cleanExp = sanitizeForFirebase({
     ...experiment,
-    _deleted: false,
-    syncedToCloud: Boolean(database || experiment.syncedToCloud),
     updatedAt: experiment.updatedAt || new Date().toISOString(),
   });
 
-  // 1. Always mirror in IndexedDB first (no 5MB quota limit for photos)
-  await saveToIDB(cleanExp);
-
-  // 2. Mirror synchronously in localStorage with quota fallback
-  try {
-    const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-    const deletedSet = new Set(getDeletedIds());
-    const validExisting = existing.filter((e) => !isDeletedRecord(e, deletedSet) && e.id !== cleanExp.id);
-    validExisting.unshift(cleanExp);
-    safeMirrorToLocalStorage(validExisting);
-  } catch (err) {
-    console.warn('LocalStorage mirror warning:', err);
-  }
-
-  // 3. Firebase Realtime Database
   if (database) {
     try {
       const experimentRef = ref(database, `experiments/${cleanExp.id}`);
@@ -386,51 +192,53 @@ export const saveExperimentData = async (experiment) => {
       return { success: true, mode: 'firebase', data: cleanExp };
     } catch (err) {
       console.error('Firebase save error:', err);
-      return { success: true, mode: 'local', data: cleanExp };
+      return { success: false, mode: 'firebase', error: err, data: cleanExp };
     }
   }
 
-  return { success: true, mode: 'local', data: cleanExp };
+  return { success: false, mode: 'offline', data: cleanExp };
 };
 
 /**
- * Delete experiment from Firebase, LocalStorage, and IndexedDB using Cloud Tombstones
- * so no other open tab or offline device can ever resurrect a deleted project.
+ * Permanently delete an experiment from Firebase Realtime Database
  */
 export const deleteExperimentData = async (id) => {
   if (!id) return { success: false };
-  markDeletedId(id);
-
-  try {
-    const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-    const filtered = existing.filter((e) => e && e.id !== id);
-    safeMirrorToLocalStorage(filtered);
-  } catch (err) {
-    // Ignore
-  }
-
-  await deleteFromIDB(id);
 
   if (database) {
     try {
-      const nowIso = new Date().toISOString();
-      const tombstone = {
-        id,
-        _deleted: true,
-        deletedAt: nowIso,
-        updatedAt: nowIso,
-        creatorId: '__DELETED__',
-        creatorEmail: '__DELETED__',
-        researcher: '__DELETED__'
-      };
       const experimentRef = ref(database, `experiments/${id}`);
-      await set(experimentRef, tombstone);
+      await remove(experimentRef);
+      return { success: true };
     } catch (err) {
-      console.error('Firebase delete tombstone error:', err);
+      console.error('Firebase permanent delete error:', err);
+      return { success: false, error: err };
     }
   }
 
-  return { success: true };
+  return { success: false };
+};
+
+/**
+ * Permanently delete multiple experiments (Empty Trash) from Firebase Realtime Database
+ */
+export const permanentlyDeleteExperimentsBatch = async (ids = []) => {
+  const allIdsToRemove = Array.from(new Set([...(ids || []), ...PERMANENT_PURGED_IDS])).filter(Boolean);
+  if (allIdsToRemove.length === 0) return { success: true, count: 0 };
+
+  if (database) {
+    try {
+      await Promise.all(
+        allIdsToRemove.map((id) => remove(ref(database, `experiments/${id}`)))
+      );
+      return { success: true, count: ids.length };
+    } catch (err) {
+      console.error('Firebase batch permanent delete error:', err);
+      return { success: false, error: err };
+    }
+  }
+
+  return { success: false };
 };
 
 /**
@@ -440,6 +248,8 @@ const normalizeExperimentArrays = (exp) => {
   if (!exp) return exp;
   return {
     ...exp,
+    inTrash: Boolean(exp.inTrash),
+    trashedAt: exp.trashedAt || null,
     equipment: Array.isArray(exp.equipment) ? exp.equipment : [],
     stoichiometry: Array.isArray(exp.stoichiometry) ? exp.stoichiometry : [],
     tlcTimeline: Array.isArray(exp.tlcTimeline)
@@ -482,97 +292,36 @@ const normalizeExperimentArrays = (exp) => {
 };
 
 /**
- * Subscribe or load experiments, merging Firebase RTDB with LocalStorage + IndexedDB by newest updatedAt
+ * Subscribe directly to Firebase Realtime Database (no local offline cache merging)
  */
 export const loadExperimentsData = (onDataUpdate) => {
-  // Immediately load local data first so UI is fast & never blank
-  readMergedLocalExperiments().then((initialLocal) => {
-    if (initialLocal.length > 0) {
-      onDataUpdate(initialLocal.map(normalizeExperimentArrays), database ? 'firebase' : 'local');
-    }
-  });
+  purgeLegacyLocalExperimentCache();
 
   if (database) {
     try {
       const expRef = ref(database, 'experiments');
       const unsubscribe = onValue(
         expRef,
-        async (snapshot) => {
+        (snapshot) => {
           const val = snapshot.val();
           const remoteList = val ? Object.values(val) : [];
-          const deletedIds = new Set(getDeletedIds());
+          const validExperiments = [];
 
-          const mergedMap = new Map();
-
-          // 1. Inspect remote items first: record any Cloud Tombstones and purge them locally
           for (const rItem of remoteList) {
             if (!rItem || !rItem.id) continue;
-            if (isDeletedRecord(rItem, deletedIds)) {
-              deletedIds.add(rItem.id);
-              markDeletedId(rItem.id);
-              await deleteFromIDB(rItem.id);
-              continue;
-            }
-            const normalizedRemote = {
-              ...normalizeExperimentArrays(rItem),
-              syncedToCloud: true
-            };
-            mergedMap.set(rItem.id, normalizedRemote);
+            if (isDeletedRecord(rItem)) continue;
+            validExperiments.push(normalizeExperimentArrays(rItem));
           }
 
-          // 2. Read local items AFTER tombstones have been applied
-          const localList = await readMergedLocalExperiments();
-
-          // 3. Merge local items without resurrecting deleted cloud experiments
-          for (const lItem of localList) {
-            if (isDeletedRecord(lItem, deletedIds)) {
-              await deleteFromIDB(lItem?.id);
-              continue;
-            }
-            const normLocal = normalizeExperimentArrays(lItem);
-            const existingRemote = mergedMap.get(lItem.id);
-
-            if (!existingRemote) {
-              // If this local record was previously synced to cloud, its absence on remote means it was deleted on cloud!
-              if (lItem.syncedToCloud === true) {
-                deletedIds.add(lItem.id);
-                markDeletedId(lItem.id);
-                await deleteFromIDB(lItem.id);
-                continue;
-              }
-              // Otherwise it is a genuinely new offline experiment that hasn't been uploaded yet
-              const syncedLocal = { ...normLocal, syncedToCloud: true };
-              mergedMap.set(lItem.id, syncedLocal);
-              const cleanExp = sanitizeForFirebase(syncedLocal);
-              await saveToIDB(cleanExp);
-              set(ref(database, `experiments/${cleanExp.id}`), cleanExp).catch(() => {});
-            } else {
-              const tLocal = new Date(normLocal.updatedAt || normLocal.createdAt || 0).getTime();
-              const tRemote = new Date(existingRemote.updatedAt || existingRemote.createdAt || 0).getTime();
-              if (tLocal > tRemote) {
-                const syncedLocal = { ...normLocal, syncedToCloud: true };
-                mergedMap.set(lItem.id, syncedLocal);
-                const cleanExp = sanitizeForFirebase(syncedLocal);
-                await saveToIDB(cleanExp);
-                set(ref(database, `experiments/${cleanExp.id}`), cleanExp).catch(() => {});
-              } else {
-                // Remote is newer or equal -> update local IndexedDB cache
-                await saveToIDB(existingRemote);
-              }
-            }
-          }
-
-          const finalSorted = Array.from(mergedMap.values()).sort(
+          const finalSorted = validExperiments.sort(
             (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
           );
 
-          safeMirrorToLocalStorage(finalSorted);
           onDataUpdate(finalSorted, 'firebase');
         },
-        async (error) => {
-          console.warn('Firebase onValue error, falling back to LocalStorage/IndexedDB:', error);
-          const localList = await readMergedLocalExperiments();
-          onDataUpdate(localList.map(normalizeExperimentArrays), 'local');
+        (error) => {
+          console.warn('Firebase onValue error:', error);
+          onDataUpdate([], 'firebase');
         }
       );
       return unsubscribe;
@@ -581,10 +330,7 @@ export const loadExperimentsData = (onDataUpdate) => {
     }
   }
 
-  // LocalStorage + IndexedDB fallback
-  readMergedLocalExperiments().then((localList) => {
-    onDataUpdate(localList.map(normalizeExperimentArrays), 'local');
-  });
+  onDataUpdate([], 'firebase');
   return () => {};
 };
 

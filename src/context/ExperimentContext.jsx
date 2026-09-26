@@ -3,11 +3,10 @@ import { useAuth } from './AuthContext';
 import {
   saveExperimentData,
   deleteExperimentData,
+  permanentlyDeleteExperimentsBatch,
   loadExperimentsData,
   isFirebaseConfigured,
   uploadImage,
-  getDeletedIds,
-  markDeletedId,
   isDeletedRecord
 } from '../services/firebase';
 
@@ -19,34 +18,20 @@ export const ExperimentProvider = ({ children }) => {
   const allExperimentsRef = useRef([]);
   const pendingSaveIdsRef = useRef(new Set());
   const [activeExperimentId, setActiveExperimentId] = useState(null);
-  const [syncMode, setSyncMode] = useState('local'); // 'firebase' | 'local'
+  const [syncMode, setSyncMode] = useState('firebase');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
 
-  // Initialize and load experiments
+  // Initialize and subscribe directly to Firebase Cloud
   useEffect(() => {
-    // Purge deleted or sample experiments if they exist in localStorage
-    try {
-      const deletedSet = new Set(getDeletedIds());
-      const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-      const cleaned = existing.filter((e) => !isDeletedRecord(e, deletedSet));
-      if (cleaned.length !== existing.length) {
-        localStorage.setItem('medchem_experiments', JSON.stringify(cleaned));
-      }
-    } catch (e) {
-      // Ignore
-    }
-
     const isCloud = isFirebaseConfigured();
     setSyncMode(isCloud ? 'firebase' : 'local');
 
     const unsubscribe = loadExperimentsData((loadedData, mode) => {
       setSyncMode(mode);
-      const deletedSet = new Set(getDeletedIds());
-      const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item, deletedSet));
+      const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item));
 
-      // Merge only with active in-flight edits or strictly newer in-memory state;
-      // NEVER resurrect an item that was deleted on the cloud or another tab!
+      // Only preserve in-memory items that are actively being saved right now by user interaction
       const currentMem = allExperimentsRef.current || [];
       const mergedMap = new Map();
 
@@ -54,17 +39,15 @@ export const ExperimentProvider = ({ children }) => {
         if (item && item.id) mergedMap.set(item.id, item);
       }
       for (const memItem of currentMem) {
-        if (isDeletedRecord(memItem, deletedSet)) continue;
+        if (isDeletedRecord(memItem)) continue;
+        if (!pendingSaveIdsRef.current.has(memItem.id)) continue;
         const incItem = mergedMap.get(memItem.id);
         if (!incItem) {
-          // Only preserve in-memory item if it is currently being saved in this tab
-          if (pendingSaveIdsRef.current.has(memItem.id)) {
-            mergedMap.set(memItem.id, memItem);
-          }
+          mergedMap.set(memItem.id, memItem);
         } else {
           const tMem = new Date(memItem.updatedAt || memItem.createdAt || 0).getTime();
           const tInc = new Date(incItem.updatedAt || incItem.createdAt || 0).getTime();
-          if (tMem > tInc) {
+          if (tMem >= tInc) {
             mergedMap.set(memItem.id, memItem);
           }
         }
@@ -77,32 +60,17 @@ export const ExperimentProvider = ({ children }) => {
       setAllExperiments(finalData);
     });
 
-    // Listen for cross-tab deletion or storage updates within the same browser
-    const handleStorageEvent = (e) => {
-      if (e.key === 'medchem_deleted_ids' || e.key === 'medchem_experiments') {
-        const deletedSet = new Set(getDeletedIds());
-        const filtered = (allExperimentsRef.current || []).filter((exp) => !isDeletedRecord(exp, deletedSet));
-        if (filtered.length !== (allExperimentsRef.current || []).length) {
-          allExperimentsRef.current = filtered;
-          setAllExperiments(filtered);
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorageEvent);
-
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
-      window.removeEventListener('storage', handleStorageEvent);
     };
   }, []);
 
-  // Strict Per-User Data Isolation: Each student only sees their own experiments!
-  const experiments = useMemo(() => {
+  // Strict Per-User Data Isolation: All experiments belonging to currentUser
+  const userExperiments = useMemo(() => {
     if (!currentUser) return [];
-    const deletedSet = new Set(getDeletedIds());
 
     return allExperiments.filter((exp) => {
-      if (isDeletedRecord(exp, deletedSet)) return false;
+      if (isDeletedRecord(exp)) return false;
       // 1. Matches creatorId
       if (exp.creatorId && currentUser.uid && exp.creatorId === currentUser.uid) {
         return true;
@@ -131,18 +99,35 @@ export const ExperimentProvider = ({ children }) => {
     });
   }, [allExperiments, currentUser]);
 
-  // Keep activeExperimentId valid within user's own experiments
+  // Active experiments (not in Trash)
+  const experiments = useMemo(() => {
+    return userExperiments.filter((exp) => !exp.inTrash);
+  }, [userExperiments]);
+
+  // Trashed experiments (in Trash bin)
+  const trashedExperiments = useMemo(() => {
+    return userExperiments
+      .filter((exp) => Boolean(exp.inTrash))
+      .sort((a, b) => new Date(b.trashedAt || b.updatedAt || 0) - new Date(a.trashedAt || a.updatedAt || 0));
+  }, [userExperiments]);
+
+  // Keep activeExperimentId valid within user's experiments (including when inspecting a trashed experiment)
   useEffect(() => {
-    if (experiments.length > 0) {
-      setActiveExperimentId((prev) => (prev && experiments.some((e) => e.id === prev) ? prev : experiments[0].id));
+    if (userExperiments.length > 0) {
+      setActiveExperimentId((prev) => {
+        if (prev && userExperiments.some((e) => e.id === prev)) return prev;
+        return experiments.length > 0 ? experiments[0].id : null;
+      });
     } else {
       setActiveExperimentId(null);
     }
-  }, [experiments]);
+  }, [userExperiments, experiments]);
 
-  const activeExperiment = experiments.find((e) => e.id === activeExperimentId) || (experiments.length > 0 ? experiments[0] : null);
+  const activeExperiment =
+    userExperiments.find((e) => e.id === activeExperimentId) ||
+    (experiments.length > 0 ? experiments[0] : null);
 
-  // Save/Update experiment synchronously in ref + state and persist to LocalStorage, IndexedDB & Firebase
+  // Save/Update experiment continuously on user interaction directly to Firebase Cloud
   const updateExperiment = async (id, updatedFields) => {
     if (!id) return;
     setIsSyncing(true);
@@ -381,20 +366,133 @@ export const ExperimentProvider = ({ children }) => {
     return newExperiment;
   };
 
-  // Delete experiment
-  const deleteExperiment = async (id) => {
+  // Move experiment to Trash (soft delete so user can inspect or restore if accidentally deleted)
+  const moveToTrash = async (id) => {
     if (!id) return;
-    markDeletedId(id);
+    setIsSyncing(true);
+    pendingSaveIdsRef.current.add(id);
+
+    const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
+    const target = baseList.find((e) => e.id === id);
+    if (!target) {
+      pendingSaveIdsRef.current.delete(id);
+      setIsSyncing(false);
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const trashedExp = {
+      ...target,
+      inTrash: true,
+      trashedAt: nowIso,
+      updatedAt: nowIso
+    };
+
+    const nextList = baseList.map((e) => (e.id === id ? trashedExp : e));
+    allExperimentsRef.current = nextList;
+    setAllExperiments(nextList);
+
+    if (activeExperimentId === id) {
+      const remainingActive = experiments.filter((e) => e.id !== id);
+      setActiveExperimentId(remainingActive.length > 0 ? remainingActive[0].id : null);
+    }
+
+    try {
+      await saveExperimentData(trashedExp);
+      setLastSaved(new Date());
+    } finally {
+      pendingSaveIdsRef.current.delete(id);
+      setIsSyncing(false);
+    }
+  };
+
+  // Restore experiment from Trash back to active list
+  const restoreExperiment = async (id) => {
+    if (!id) return;
+    setIsSyncing(true);
+    pendingSaveIdsRef.current.add(id);
+
+    const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
+    const target = baseList.find((e) => e.id === id);
+    if (!target) {
+      pendingSaveIdsRef.current.delete(id);
+      setIsSyncing(false);
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const restoredExp = {
+      ...target,
+      inTrash: false,
+      trashedAt: null,
+      updatedAt: nowIso
+    };
+
+    const nextList = baseList.map((e) => (e.id === id ? restoredExp : e));
+    allExperimentsRef.current = nextList;
+    setAllExperiments(nextList);
+
+    try {
+      await saveExperimentData(restoredExp);
+      setLastSaved(new Date());
+    } finally {
+      pendingSaveIdsRef.current.delete(id);
+      setIsSyncing(false);
+    }
+  };
+
+  // Permanently delete a single experiment from Firebase Realtime Database
+  const permanentlyDeleteExperiment = async (id) => {
+    if (!id) return;
+    setIsSyncing(true);
     pendingSaveIdsRef.current.delete(id);
+
     const nextDeletedList = allExperimentsRef.current.filter((e) => e.id !== id);
     allExperimentsRef.current = nextDeletedList;
     setAllExperiments(nextDeletedList);
+
     if (activeExperimentId === id) {
       const remaining = experiments.filter((e) => e.id !== id);
       setActiveExperimentId(remaining.length > 0 ? remaining[0].id : null);
     }
-    await deleteExperimentData(id);
+
+    try {
+      await deleteExperimentData(id);
+      setLastSaved(new Date());
+    } finally {
+      setIsSyncing(false);
+    }
   };
+
+  // Empty Trash: permanently delete all trashed experiments of currentUser from Firebase Realtime Database
+  const emptyTrash = async () => {
+    const trashedIds = trashedExperiments.map((e) => e.id).filter(Boolean);
+    if (trashedIds.length === 0) return;
+
+    setIsSyncing(true);
+    const trashedIdSet = new Set(trashedIds);
+    for (const id of trashedIds) {
+      pendingSaveIdsRef.current.delete(id);
+    }
+
+    const nextList = allExperimentsRef.current.filter((e) => !trashedIdSet.has(e.id));
+    allExperimentsRef.current = nextList;
+    setAllExperiments(nextList);
+
+    if (activeExperimentId && trashedIdSet.has(activeExperimentId)) {
+      setActiveExperimentId(experiments.length > 0 ? experiments[0].id : null);
+    }
+
+    try {
+      await permanentlyDeleteExperimentsBatch(trashedIds);
+      setLastSaved(new Date());
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Default deleteExperiment moves to Trash so user is protected from accidental deletion
+  const deleteExperiment = moveToTrash;
 
   // Duplicate experiment
   const duplicateExperiment = async (id) => {
@@ -416,6 +514,8 @@ export const ExperimentProvider = ({ children }) => {
       creatorName: currentUser?.displayName || currentUser?.email || 'Nghiên cứu viên',
       researcher: currentUser?.displayName || original.researcher,
       status: 'draft',
+      inTrash: false,
+      trashedAt: null,
       reactionTimer: {
         status: 'idle',
         totalSeconds: 0,
@@ -465,6 +565,8 @@ export const ExperimentProvider = ({ children }) => {
           if (Array.isArray(parsed) && parsed.length > 0) {
             const tagged = parsed.map((item) => ({
               ...item,
+              inTrash: false,
+              trashedAt: null,
               creatorId: currentUser?.uid || item.creatorId,
               creatorEmail: currentUser?.email || item.creatorEmail,
               creatorName: currentUser?.displayName || item.creatorName,
@@ -494,7 +596,8 @@ export const ExperimentProvider = ({ children }) => {
   return (
     <ExperimentContext.Provider
       value={{
-        experiments, // Strictly filtered to currentUser
+        experiments, // Active experiments strictly filtered to currentUser
+        trashedExperiments, // Trashed experiments strictly filtered to currentUser
         allExperiments,
         activeExperiment,
         activeExperimentId,
@@ -502,6 +605,10 @@ export const ExperimentProvider = ({ children }) => {
         updateExperiment,
         createNewExperiment,
         deleteExperiment,
+        moveToTrash,
+        restoreExperiment,
+        permanentlyDeleteExperiment,
+        emptyTrash,
         duplicateExperiment,
         exportAllToJson,
         importFromJson,

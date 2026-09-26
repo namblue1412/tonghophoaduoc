@@ -8,6 +8,9 @@ import {
   User,
   Copy,
   Trash2,
+  RotateCcw,
+  Eye,
+  AlertTriangle,
   CheckCircle2,
   Activity,
   Layers,
@@ -20,21 +23,33 @@ import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 
 export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
-  const { experiments, duplicateExperiment, deleteExperiment } = useExperiment();
+  const {
+    experiments,
+    trashedExperiments = [],
+    duplicateExperiment,
+    moveToTrash,
+    restoreExperiment,
+    permanentlyDeleteExperiment,
+    emptyTrash
+  } = useExperiment();
   const { currentUser } = useAuth();
   const { isIPhone, isIPad, isMac, deviceLabel } = useDevice();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const isTrashView = statusFilter === 'trash';
+  const sourceList = isTrashView ? trashedExperiments : experiments;
+
   // Filtered experiments
-  const filtered = experiments.filter((exp) => {
+  const filtered = sourceList.filter((exp) => {
     const matchesSearch =
       (exp.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exp.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exp.researcher || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (exp.creatorName || '').toLowerCase().includes(searchTerm.toLowerCase());
 
+    if (isTrashView) return matchesSearch;
     const matchesStatus = statusFilter === 'all' || exp.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -55,6 +70,22 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
     if (!seconds) return '0h';
     const hrs = (seconds / 3600).toFixed(1);
     return `${hrs}h`;
+  };
+
+  const formatTrashDate = (isoStr) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return '';
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -212,8 +243,34 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
             </div>
           </div>
 
-          <div className="text-xs font-semibold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 flex-shrink-0">
-            {experiments.length} thí nghiệm
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors cursor-pointer ${
+                !isTrashView
+                  ? 'bg-teal-50 text-teal-800 border-teal-200'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {experiments.length} dự án chính
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter(isTrashView ? 'all' : 'trash')}
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                isTrashView
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                  : trashedExperiments.length > 0
+                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Mở thùng rác để xem hoặc khôi phục dự án đã xóa"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Thùng rác ({trashedExperiments.length})</span>
+            </button>
           </div>
         </div>
 
@@ -230,12 +287,16 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm theo mã, tên phản ứng..."
+              placeholder={
+                isTrashView
+                  ? 'Tìm dự án trong thùng rác...'
+                  : 'Tìm theo mã, tên phản ứng...'
+              }
               className="w-full bg-slate-50 border border-slate-200 focus:border-teal-600 rounded-xl pl-10 pr-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[42px]"
             />
           </div>
 
-          {/* Status Filter Buttons */}
+          {/* Status Filter Buttons + Trash Tab */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-0.5 no-scrollbar">
             {[
               { id: 'all', label: 'Tất cả' },
@@ -256,9 +317,62 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                 {tab.label}
               </button>
             ))}
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('trash')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors min-h-[40px] flex items-center gap-1.5 cursor-pointer ${
+                isTrashView
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Thùng rác ({trashedExperiments.length})</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* TRASH MANAGEMENT BANNER WHEN VIEWING TRASH */}
+      {isTrashView && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl flex-shrink-0 mt-0.5">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-rose-950 flex items-center gap-2">
+                <span>Thùng rác dự án ({trashedExperiments.length})</span>
+              </h2>
+              <p className="text-xs text-rose-800 mt-0.5 leading-relaxed">
+                Các dự án bạn xóa sẽ nằm tạm tại đây để tránh xóa nhầm. Bạn có thể bấm vào từng dự án để xem lại chi tiết, nhấn <strong>Khôi phục</strong> để đưa về danh sách chính, hoặc nhấn <strong>Dọn sạch thùng rác</strong> để xóa vĩnh viễn khỏi cơ sở dữ liệu đám mây.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {trashedExperiments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Bạn có chắc chắn muốn DỌN SẠCH THÙNG RÁC (${trashedExperiments.length} dự án)?\n\nToàn bộ các dự án trong thùng rác sẽ bị xóa hoàn toàn trên cơ sở dữ liệu đám mây và không thể khôi phục!`
+                    )
+                  ) {
+                    emptyTrash();
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer min-h-[42px] w-full sm:w-auto"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Dọn sạch thùng rác ({trashedExperiments.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Experiment Cards Grid - Device Adaptive: 1 col on iPhone, 2 cols on iPad, 3 cols on Mac */}
       {filtered.length > 0 ? (
@@ -285,19 +399,35 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
               <div
                 key={exp.id}
                 onClick={() => onSelectExperiment(exp.id)}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-400 transition-all p-4 sm:p-5 flex flex-col justify-between cursor-pointer group"
+                className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all p-4 sm:p-5 flex flex-col justify-between cursor-pointer group ${
+                  isTrashView
+                    ? 'border-rose-200 hover:border-rose-400 bg-rose-50/20'
+                    : 'border-slate-200 hover:border-teal-400'
+                }`}
               >
                 <div>
                   {/* Top Bar: Code + Date + Status */}
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="font-mono tabular-nums font-bold text-xs bg-teal-50 text-teal-800 px-2.5 py-1 rounded-lg border border-teal-200">
+                    <span
+                      className={`font-mono tabular-nums font-bold text-xs px-2.5 py-1 rounded-lg border ${
+                        isTrashView
+                          ? 'bg-rose-50 text-rose-800 border-rose-200'
+                          : 'bg-teal-50 text-teal-800 border-teal-200'
+                      }`}
+                    >
                       {exp.code || 'EXP'}
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 font-mono tabular-nums">
                         {exp.date}
                       </span>
-                      {getStatusBadge(exp.status)}
+                      {isTrashView ? (
+                        <span className="bg-rose-100 text-rose-800 text-[11px] px-2.5 py-1 rounded-full font-bold border border-rose-300 whitespace-nowrap">
+                          Trong thùng rác
+                        </span>
+                      ) : (
+                        getStatusBadge(exp.status)
+                      )}
                     </div>
                   </div>
 
@@ -312,11 +442,15 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                       <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <span className="truncate">{exp.researcher || 'Nghiên cứu viên'}</span>
                     </div>
-                    {exp.labRoom && (
+                    {exp.trashedAt && isTrashView ? (
+                      <span className="text-[11px] text-rose-600 font-medium truncate ml-2">
+                        Xóa lúc: {formatTrashDate(exp.trashedAt)}
+                      </span>
+                    ) : exp.labRoom ? (
                       <span className="text-[11px] text-slate-400 truncate ml-2">
                         {exp.labRoom}
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Chemistry Key Indicators */}
@@ -340,7 +474,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                 </div>
 
                 {/* Bottom Bar: Stats & Quick Actions */}
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs gap-2">
                   <div className="flex items-center gap-3 text-slate-500">
                     <span className="flex items-center gap-1" title="Tổng thời gian khuấy">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -361,35 +495,76 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                     ) : null}
                   </div>
 
-                  {/* Duplicate / Delete Buttons */}
+                  {/* Action Buttons: Normal View vs Trash View */}
                   <div
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1.5"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      type="button"
-                      onClick={() => duplicateExperiment(exp.id)}
-                      className="p-2 text-teal-700 hover:bg-teal-50 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
-                      title="Nhân bản thí nghiệm"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Bạn có chắc muốn xóa thí nghiệm ${exp.code}?`
-                          )
-                        ) {
-                          deleteExperiment(exp.id);
-                        }
-                      }}
-                      className="p-2 text-rose-700 hover:bg-rose-50 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
-                      title="Xóa thí nghiệm"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isTrashView ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onSelectExperiment(exp.id)}
+                          className="px-2.5 py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold transition-colors min-h-[36px] flex items-center gap-1 cursor-pointer"
+                          title="Xem chi tiết nội dung dự án"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Xem</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => restoreExperiment(exp.id)}
+                          className="px-2.5 py-1.5 text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl font-bold transition-colors min-h-[36px] flex items-center gap-1 cursor-pointer"
+                          title="Khôi phục dự án về danh sách chính"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Khôi phục</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Xóa vĩnh viễn dự án "${exp.code}: ${exp.title}" khỏi cơ sở dữ liệu?\n\nLưu ý: Hành động này sẽ xóa hoàn toàn dữ liệu trên đám mây và không thể khôi phục!`
+                              )
+                            ) {
+                              permanentlyDeleteExperiment(exp.id);
+                            }
+                          }}
+                          className="p-2 text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+                          title="Xóa hoàn toàn khỏi cơ sở dữ liệu"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => duplicateExperiment(exp.id)}
+                          className="p-2 text-teal-700 hover:bg-teal-50 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+                          title="Nhân bản thí nghiệm"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Chuyển thí nghiệm "${exp.code}: ${exp.title}" vào Thùng rác?\n(Nếu xóa nhầm, bạn có thể vào mục Thùng rác để xem lại hoặc khôi phục)`
+                              )
+                            ) {
+                              moveToTrash(exp.id);
+                            }
+                          }}
+                          className="p-2 text-rose-700 hover:bg-rose-50 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+                          title="Chuyển vào thùng rác"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -398,25 +573,46 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm">
-          <FlaskConical className="w-16 h-16 text-teal-500 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800 mb-1">
-            {experiments.length === 0
-              ? 'Chưa có thí nghiệm nào'
-              : 'Không tìm thấy thí nghiệm phù hợp'}
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
-            {experiments.length === 0
-              ? 'Nhấn nút bên dưới để tạo thí nghiệm đầu tiên.'
-              : 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái.'}
-          </p>
-          {experiments.length === 0 && (
-            <button
-              onClick={onOpenNewModal}
-              className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-5 py-2.5 rounded-2xl text-sm shadow-md inline-flex items-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tạo Thí Nghiệm Đầu Tiên</span>
-            </button>
+          {isTrashView ? (
+            <>
+              <Trash2 className="w-16 h-16 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                Thùng rác đang trống
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
+                Không có dự án nào trong thùng rác.
+              </p>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-2.5 rounded-2xl text-xs sm:text-sm shadow-sm inline-flex items-center gap-2 cursor-pointer"
+              >
+                <span>Quay lại danh sách dự án</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <FlaskConical className="w-16 h-16 text-teal-500 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-800 mb-1">
+                {experiments.length === 0
+                  ? 'Chưa có thí nghiệm nào'
+                  : 'Không tìm thấy thí nghiệm phù hợp'}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
+                {experiments.length === 0
+                  ? 'Nhấn nút bên dưới để tạo thí nghiệm đầu tiên.'
+                  : 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc trạng thái.'}
+              </p>
+              {experiments.length === 0 && (
+                <button
+                  onClick={onOpenNewModal}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-5 py-2.5 rounded-2xl text-sm shadow-md inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Tạo Thí Nghiệm Đầu Tiên</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
