@@ -26,7 +26,8 @@ import {
   FlaskConical,
   Eye,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
@@ -636,6 +637,66 @@ export const ColumnFractionManager = ({
   };
 
   // Open Add Fraction TLC Modal
+  // Download all uploaded TLC photos helper
+  const handleDownloadTlcImages = async (images, prefix = 'TLC', stainName = 'ThuocThu') => {
+    const imagesToDownload = [];
+    if (images?.uv254) {
+      imagesToDownload.push({ url: images.uv254, name: `${prefix}_UV254.jpg` });
+    }
+    if (images?.uv365) {
+      imagesToDownload.push({ url: images.uv365, name: `${prefix}_UV365.jpg` });
+    }
+    if (images?.reagent) {
+      const stainSafe = (stainName || 'Reagent').replace(/[^a-zA-Z0-9]/g, '_');
+      imagesToDownload.push({ url: images.reagent, name: `${prefix}_${stainSafe}.jpg` });
+    }
+
+    if (imagesToDownload.length === 0) {
+      alert('Chưa có ảnh sắc ký nào được tải lên!');
+      return;
+    }
+
+    for (let i = 0; i < imagesToDownload.length; i++) {
+      const item = imagesToDownload[i];
+      try {
+        if (item.url.startsWith('data:')) {
+          const link = document.createElement('a');
+          link.href = item.url;
+          link.download = item.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          try {
+            const resp = await fetch(item.url, { mode: 'cors' });
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = item.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          } catch {
+            const link = document.createElement('a');
+            link.href = item.url;
+            link.download = item.name;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        }
+        if (i < imagesToDownload.length - 1) {
+          await new Promise((r) => setTimeout(r, 350));
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải ảnh:', err);
+      }
+    }
+  };
+
   const handleOpenAddFracTlc = () => {
     setEditingFracTlcId(null);
     setFracSpottedInput('');
@@ -984,7 +1045,7 @@ export const ColumnFractionManager = ({
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-teal-600" />
-                Thông Số Cột & Hệ Dung Môi Giải Hấp (Eluent):
+                Thông số cột & Hệ dung môi giải hấp:
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 Chọn chạy cố định 1 hệ hoặc chạy gradient tăng dần độ phân cực
@@ -1002,7 +1063,7 @@ export const ColumnFractionManager = ({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>Hệ cố định (Isocratic)</span>
+                <span>Hệ cố định</span>
               </button>
               <button
                 type="button"
@@ -1255,7 +1316,7 @@ export const ColumnFractionManager = ({
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-indigo-600" />
-                Bản Mỏng Kiểm Tra Phân Đoạn (TLC)
+                Bản Mỏng Kiểm Tra Phân Đoạn
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Chụp 3 ảnh (UV 254, UV 365, Thuốc thử) kèm danh sách các số ống đã chấm
@@ -1303,6 +1364,20 @@ export const ColumnFractionManager = ({
                       </div>
 
                       <div className="flex items-center gap-1 no-print">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDownloadTlcImages(
+                              plate.images,
+                              `TLC_PhanDoan_${plate.spottedFractions?.replace(/[^a-zA-Z0-9]/g, '_') || 'frac'}`,
+                              plate.stainName
+                            )
+                          }
+                          className="text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer transition-colors"
+                          title="Tải tất cả ảnh của bản mỏng này"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleOpenEditFracTlc(plate)}
@@ -1469,7 +1544,7 @@ export const ColumnFractionManager = ({
 
               {/* Tag Selection: spc vs spp */}
               <div className="sm:col-span-4">
-                <label className="text-xs font-bold text-slate-700 block mb-1">Loại mẫu gộp (Tag):</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Phân loại mẫu gộp:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -1558,7 +1633,7 @@ export const ColumnFractionManager = ({
                 className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>+ Gộp nhóm (Pool)</span>
+                <span>+ Gộp nhóm phân đoạn</span>
               </button>
             </div>
           </div>
@@ -1681,14 +1756,32 @@ export const ColumnFractionManager = ({
                             TLC Mẫu Gộp (3 Ảnh):
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPoolTlc(g)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-sm no-print min-h-[36px]"
-                          >
-                            <Camera className="w-3.5 h-3.5" />
-                            <span>{g.tlc ? 'Cập nhật TLC' : 'Chấm TLC mẫu gộp'}</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 no-print">
+                            {g.tlc && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDownloadTlcImages(
+                                    g.tlc.images,
+                                    `TLC_MauGop_${g.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'pool'}`,
+                                    g.tlc.stainName
+                                  )
+                                }
+                                className="bg-slate-200 hover:bg-indigo-100 text-indigo-700 p-1.5 rounded-xl flex items-center justify-center min-h-[36px] min-w-[36px] cursor-pointer transition-colors"
+                                title="Tải tất cả ảnh TLC mẫu gộp này"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPoolTlc(g)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 shadow-sm min-h-[36px]"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>{g.tlc ? 'Cập nhật TLC' : 'Chấm TLC mẫu gộp'}</span>
+                            </button>
+                          </div>
                         </div>
 
                         {g.tlc ? (
@@ -1750,20 +1843,37 @@ export const ColumnFractionManager = ({
                                 <span className="text-[11px] text-slate-500">Chưa có ảnh cho vị trí này</span>
                               )}
                               {activePoolImg && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openLightbox(
-                                      g.tlc.images,
-                                      `TLC Mẫu Gộp: ${g.name}`,
-                                      `Hệ: ${g.tlc.eluent || ''}`,
-                                      g.tlc.stainName
-                                    )
-                                  }
-                                  className="absolute bottom-1 right-1 p-1.5 bg-slate-900/80 text-white rounded-lg no-print"
-                                >
-                                  <Maximize2 className="w-3 h-3" />
-                                </button>
+                                <div className="absolute bottom-1 right-1 flex items-center gap-1 no-print">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleDownloadTlcImages(
+                                        g.tlc.images,
+                                        `TLC_MauGop_${g.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'pool'}`,
+                                        g.tlc.stainName
+                                      )
+                                    }
+                                    className="p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg cursor-pointer transition-colors"
+                                    title="Tải tất cả ảnh TLC mẫu gộp này"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openLightbox(
+                                        g.tlc.images,
+                                        `TLC Mẫu Gộp: ${g.name}`,
+                                        `Hệ: ${g.tlc.eluent || ''}`,
+                                        g.tlc.stainName
+                                      )
+                                    }
+                                    className="p-1.5 bg-slate-900/80 text-white rounded-lg no-print cursor-pointer"
+                                    title="Phóng to ảnh"
+                                  >
+                                    <Maximize2 className="w-3 h-3" />
+                                  </button>
+                                </div>
                               )}
                             </div>
 
@@ -1913,7 +2023,7 @@ export const ColumnFractionManager = ({
             {/* % Hiệu suất phản ứng */}
             <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-3.5 rounded-2xl shadow-md flex flex-col justify-between">
               <div className="text-xs font-semibold text-indigo-200 flex items-center justify-between">
-                <span>% Hiệu suất (Yield):</span>
+                <span>% Hiệu suất:</span>
                 <Award className="w-4 h-4 text-amber-400" />
               </div>
               <div className="font-mono text-3xl font-extrabold text-amber-400 text-right my-1">
@@ -1983,7 +2093,7 @@ export const ColumnFractionManager = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
-                    {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Bản Mỏng Phân Đoạn (TLC)'}
+                    {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Bản Mỏng Phân Đoạn'}
                   </h3>
                 </div>
               </div>
@@ -2311,7 +2421,7 @@ export const ColumnFractionManager = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Hệ dung môi (Eluent):
+                    Hệ dung môi:
                   </label>
                   <input
                     type="text"
@@ -2472,7 +2582,7 @@ export const ColumnFractionManager = ({
                 disabled={poolUploading}
                 className="px-6 py-2.5 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[44px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {poolUploading ? 'Đang lưu...' : 'Lưu TLC Mẫu Gộp (Enter)'}
+                {poolUploading ? 'Đang lưu...' : 'Lưu Sắc Ký Mẫu Gộp (Enter)'}
               </button>
             </div>
           </div>

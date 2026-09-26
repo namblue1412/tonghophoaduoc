@@ -129,7 +129,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
               Sổ Tay Nghiên Cứu Tổng Hợp Hóa Dược
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl">
-              Ghi chép quy trình thực nghiệm, giám sát sắc ký bản mỏng (TLC), sắc ký cột và hiệu suất sản phẩm.
+              Ghi chép quy trình thực nghiệm, giám sát sắc ký bản mỏng, sắc ký cột và hiệu suất sản phẩm.
             </p>
           </div>
 
@@ -332,7 +332,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                     </div>
 
                     <div className="bg-slate-50 p-2 rounded-xl">
-                      <span className="text-slate-400 text-[11px] block">Quy mô (mol):</span>
+                      <span className="text-slate-400 text-[11px] block">Quy mô:</span>
                       <span className="font-mono font-bold text-indigo-700">
                         {limiting?.moles ? `${(limiting.moles * 1000).toFixed(1)} mmol` : '--'}
                       </span>
@@ -347,9 +347,9 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       {formatSecondsToHours(stirringTime)}
                     </span>
-                    <span className="flex items-center gap-1" title="Số bản mỏng TLC">
+                    <span className="flex items-center gap-1" title="Số bản sắc ký">
                       <Layers className="w-3.5 h-3.5 text-slate-400" />
-                      {tlcCount} TLC
+                      {tlcCount} bản sắc ký
                     </span>
                     {yieldPct ? (
                       <span className="flex items-center gap-1 text-emerald-600 font-bold" title="Hiệu suất">

@@ -14,14 +14,14 @@ import {
 const COMMON_PRESETS = [
   { name: 'Bình cầu 2 cổ 100 mL', quantity: 1, notes: 'Sấy khô 110°C' },
   { name: 'Bình cầu 3 cổ 250 mL', quantity: 1, notes: 'Lắp nhiệt kế + sinh hàn' },
-  { name: 'Sinh hàn hồi lưu (Condenser)', quantity: 1, notes: 'Nối ống nước làm mát' },
-  { name: 'Cá từ khuấy (Stirring bar)', quantity: 1, notes: 'Cá từ bọc Teflon cỡ vừa' },
+  { name: 'Sinh hàn hồi lưu', quantity: 1, notes: 'Nối ống nước làm mát' },
+  { name: 'Cá từ khuấy', quantity: 1, notes: 'Cá từ bọc Teflon cỡ vừa' },
   { name: 'Bếp khuấy từ gia nhiệt', quantity: 1, notes: 'Kiểm tra cảm biến nhiệt' },
   { name: 'Ống đong 50 mL', quantity: 1, notes: 'Đong dung môi' },
   { name: 'Phễu chiết 125 mL', quantity: 1, notes: 'Khoá Teflon kín khít' },
   { name: 'Cốc Becher 100 mL', quantity: 2, notes: 'Đựng pha hữu cơ/nước' },
   { name: 'Nhiệt kế thủy ngân (0-150°C)', quantity: 1, notes: 'Gắn cổ nhánh bình cầu' },
-  { name: 'Bình nón Erlenmeyer 100 mL', quantity: 2, notes: 'Hứng dịch lọc' },
+  { name: 'Bình tam giác 100 mL', quantity: 2, notes: 'Hứng dịch lọc' },
   { name: 'Phễu lọc Buchner & bình lọc hút', quantity: 1, notes: 'Kèm giấy lọc vừa khít' },
   { name: 'Bể đá muối (0 - 5°C)', quantity: 1, notes: 'Làm lạnh khi nhỏ giọt' },
   { name: 'Cột sắc ký thuỷ tinh (ĐK 2cm)', quantity: 1, notes: 'Kèm bông gòn + khoá' }

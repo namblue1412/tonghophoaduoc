@@ -438,7 +438,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-base sm:text-lg px-8 py-3.5 rounded-2xl shadow-lg shadow-emerald-900/40 flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer min-h-[56px] min-w-[180px] justify-center"
                 >
                   <Play className="w-6 h-6 fill-current" />
-                  <span>Bắt đầu (Start)</span>
+                  <span>Bắt đầu</span>
                 </button>
               )}
 
@@ -449,7 +449,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-amber-950 font-bold text-base sm:text-lg px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-950/40 flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer min-h-[56px] min-w-[180px] justify-center"
                 >
                   <Pause className="w-6 h-6 fill-current" />
-                  <span>Tạm dừng (Pause)</span>
+                  <span>Tạm dừng</span>
                 </button>
               )}
 
@@ -460,7 +460,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-base sm:text-lg px-8 py-3.5 rounded-2xl shadow-lg shadow-emerald-900/40 flex items-center gap-2.5 transition-all transform active:scale-95 cursor-pointer min-h-[56px] min-w-[180px] justify-center"
                 >
                   <Play className="w-6 h-6 fill-current" />
-                  <span>Tiếp tục (Resume)</span>
+                  <span>Tiếp tục</span>
                 </button>
               )}
 

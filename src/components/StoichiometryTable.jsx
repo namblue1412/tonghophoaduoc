@@ -157,7 +157,7 @@ export const StoichiometryTable = ({
       defaultName = customName || 'Xúc tác mới';
       defaultNotes = customNotes || 'Xúc tác phản ứng';
     } else if (type === 'base_acid') {
-      defaultName = customName || 'Dung dịch môi trường (Base/Acid)';
+      defaultName = customName || 'Dung dịch môi trường';
       defaultNotes = customNotes || '';
     } else if (type === 'solvent') {
       defaultName = customName || 'Dung môi phản ứng';
@@ -344,7 +344,7 @@ export const StoichiometryTable = ({
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              1. Cân đong & Nạp liệu (Stoichiometry)
+              1. Cân đong & Nạp liệu
               <span className="text-xs bg-indigo-500/30 text-indigo-300 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-medium">
                 {activeReagents.length} chất tham gia
               </span>
@@ -866,7 +866,7 @@ export const StoichiometryTable = ({
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-purple-950">
-                  Dung dịch Môi trường (Base / Acid)
+                  Dung dịch Môi trường
                 </h4>
                 <span className="text-[11px] text-purple-600 font-medium">
                   {mediumReagents.length} môi trường đã khai báo
@@ -984,7 +984,7 @@ export const StoichiometryTable = ({
           )}
         </div>
 
-        {/* 2. DUNG MÔI PHẢN ỨNG (SOLVENT) */}
+        {/* 2. DUNG MÔI PHẢN ỨNG */}
         <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -993,7 +993,7 @@ export const StoichiometryTable = ({
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                  Dung môi phản ứng (Solvent)
+                  Dung môi phản ứng
                 </h4>
                 <span className="text-[11px] text-slate-500 font-medium">
                   {solventReagents.length} dung môi

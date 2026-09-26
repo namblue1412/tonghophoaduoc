@@ -94,17 +94,17 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'running':
-        return <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-emerald-300 animate-pulse"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đang khuấy</span>;
+        return <span className="bg-emerald-100 text-emerald-800 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold flex items-center gap-1 border border-emerald-300 animate-pulse whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đang khuấy</span>;
       case 'paused':
-        return <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-amber-300"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Tạm dừng</span>;
+        return <span className="bg-amber-100 text-amber-800 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold flex items-center gap-1 border border-amber-300 whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Tạm dừng</span>;
       case 'workup':
-        return <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-blue-300">Xử lý thô</span>;
+        return <span className="bg-blue-100 text-blue-800 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold flex items-center gap-1 border border-blue-300 whitespace-nowrap">Xử lý thô</span>;
       case 'purification':
-        return <span className="bg-purple-100 text-purple-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-purple-300">Sắc ký cột</span>;
+        return <span className="bg-purple-100 text-purple-800 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold flex items-center gap-1 border border-purple-300 whitespace-nowrap">Sắc ký cột</span>;
       case 'completed':
-        return <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 border border-slate-300"><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Hoàn thành</span>;
+        return <span className="bg-slate-100 text-slate-800 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold flex items-center gap-1 border border-slate-300 whitespace-nowrap"><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Hoàn thành</span>;
       default:
-        return <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-semibold border border-slate-200">Bản nháp</span>;
+        return <span className="bg-slate-100 text-slate-700 text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-semibold border border-slate-200 whitespace-nowrap">Bản nháp</span>;
     }
   };
 
@@ -118,32 +118,37 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               <FlaskConical className="w-6 h-6 text-white" />
               <div className="hidden sm:block text-left">
                 <div className="font-extrabold text-base tracking-tight leading-none text-white">MedChem ELN</div>
-                <div className="text-[10px] text-indigo-200 font-medium tracking-wider uppercase mt-0.5">Lab Notebook</div>
+                <div className="text-[10px] text-indigo-200 font-medium tracking-wider uppercase mt-0.5">Sổ Tay Hóa Dược</div>
               </div>
             </div>
 
-              {/* Experiment dropdown selector */}
-            <div className="relative flex-1 max-w-xs sm:max-w-sm">
+            {/* Experiment selector: Only show Code (kí hiệu) so status badge is never covered */}
+            <div className="relative flex items-center gap-2 min-w-0">
               <button
                 type="button"
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between transition-colors focus:ring-2 focus:ring-indigo-400"
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-indigo-400 min-h-[40px] cursor-pointer flex-shrink-0"
+                title={activeExperiment ? `${activeExperiment.code}: ${activeExperiment.title}` : 'Chọn thí nghiệm'}
               >
-                <div className="truncate pr-2">
-                  {activeExperiment ? (
-                    <>
-                      <span className="text-indigo-400 font-mono font-bold mr-1.5">{activeExperiment.code}:</span>
-                      <span className="text-slate-200">{activeExperiment.title}</span>
-                    </>
-                  ) : (
-                    <span className="text-slate-400 text-xs">Chưa có thí nghiệm • Bấm tạo mới</span>
-                  )}
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                {activeExperiment ? (
+                  <span className="text-indigo-400 font-mono font-extrabold text-xs sm:text-sm tracking-wide">
+                    {activeExperiment.code}
+                  </span>
+                ) : (
+                  <span className="text-slate-400 text-xs">Chưa chọn</span>
+                )}
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               </button>
 
+              {/* Status badge: ALWAYS fully visible on mobile & desktop */}
+              {activeExperiment && (
+                <div className="flex-shrink-0">
+                  {getStatusBadge(activeExperiment.status)}
+                </div>
+              )}
+
               {showDropdown && (
-                <div className="absolute left-0 mt-2 w-72 sm:w-96 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute left-0 top-full mt-2 w-72 sm:w-96 bg-white text-slate-800 rounded-xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách thí nghiệm ({experiments.length})</span>
                     <button
@@ -191,10 +196,6 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               )}
             </div>
 
-            {/* Status indicator on desktop */}
-            <div className="hidden md:flex items-center">
-              {activeExperiment && getStatusBadge(activeExperiment.status)}
-            </div>
           </div>
 
           {/* Sync Mode Indicator & Actions */}
@@ -215,12 +216,12 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               {syncMode === 'firebase' ? (
                 <>
                   <Cloud className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                  <span>Firebase Cloud</span>
+                  <span>Đám mây</span>
                 </>
               ) : (
                 <>
                   <HardDrive className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Offline LocalStorage</span>
+                  <span>Lưu trên máy</span>
                 </>
               )}
               {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-slate-400 ml-1" />}
@@ -335,7 +336,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
 
               <button
                 onClick={handlePrint}
-                title="In Phiếu Nhật Ký Thí Nghiệm (Laboratory Notebook Printout)"
+                title="In sổ tay thí nghiệm"
                 className="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2.5 rounded-xl text-xs font-medium transition-colors border border-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-slate-300" />
@@ -418,13 +419,13 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-900/60 to-indigo-900/60 border border-teal-500/40 text-teal-300 p-2.5 rounded-xl text-xs font-bold min-h-[48px] cursor-pointer"
             >
               <Smartphone className="w-4.5 h-4.5 text-teal-400" />
-              <span>Thêm ứng dụng vào Màn hình chính (PWA)</span>
+              <span>Thêm ứng dụng vào Màn hình chính</span>
             </button>
 
             <div className="flex items-center justify-between px-2 text-xs text-slate-400 pb-2 border-b border-slate-800">
               <span className="flex items-center gap-1.5">
                 {syncMode === 'firebase' ? <Cloud className="w-3.5 h-3.5 text-emerald-400" /> : <HardDrive className="w-3.5 h-3.5 text-indigo-400" />}
-                {syncMode === 'firebase' ? 'Firebase Cloud Mode' : 'LocalStorage Offline Mode'}
+                {syncMode === 'firebase' ? 'Lưu trữ đám mây' : 'Lưu trữ trên máy'}
               </span>
               <span>{activeExperiment?.code}</span>
             </div>
@@ -449,7 +450,7 @@ export const Navbar = ({ onOpenNewModal, onToggleListDrawer }) => {
                 className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 p-2.5 rounded-xl text-xs font-medium min-h-[48px]"
               >
                 <Printer className="w-4 h-4 text-emerald-400" />
-                <span>In Phiếu ELN</span>
+                <span>In sổ tay thí nghiệm</span>
               </button>
 
               <button

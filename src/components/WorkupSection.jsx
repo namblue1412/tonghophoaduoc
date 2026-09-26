@@ -116,7 +116,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           ...workupData,
           quenching: 'Dập bằng nước đá lạnh (20 mL)',
           extractionSolvent: 'Chiết bằng Ethyl Acetate (EtOAc) 3 x 20 mL',
-          washing: 'Rửa dịch chiết hữu cơ bằng Nước cất (15 mL), sau đó rửa Nước muối bão hòa (Brine) 15 mL',
+          washing: 'Rửa dịch chiết hữu cơ bằng Nước cất (15 mL), sau đó rửa Nước muối bão hòa 15 mL',
           dryingAgent: 'Na2SO4 khan'
         });
         break;
@@ -125,7 +125,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           ...workupData,
           quenching: 'Dập từ từ bằng dung dịch NH4Cl bão hòa (15 mL)',
           extractionSolvent: 'Chiết bằng Dichloromethane (DCM) 3 x 25 mL',
-          washing: 'Rửa dung dịch NaHCO3 bão hòa (20 mL), sau đó Brine (20 mL)',
+          washing: 'Rửa dung dịch NaHCO3 bão hòa (20 mL), sau đó Nước muối bão hòa (20 mL)',
           dryingAgent: 'MgSO4 khan'
         });
         break;
@@ -135,7 +135,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           quenching: 'Đổ hỗn hợp vào 50g nước đá vụn, khuấy mạnh kết tủa tạo thành',
           extractionSolvent: 'Lọc hút qua phễu Buchner, không dùng dung môi chiết',
           washing: 'Rửa kết tủa trên phễu 3 lần bằng nước cất lạnh và 1 lần bằng dung môi phân cực kém lạnh',
-          dryingAgent: 'Sấy khô chân không (Vacuum desiccator)'
+          dryingAgent: 'Sấy khô trong bình hút ẩm chân không'
         });
         break;
       default:
@@ -153,7 +153,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              4. Xử Lý Thô & Cô Quay (Workup & Rotavapor)
+              4. Xử Lý Thô & Cô Quay
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               Quy trình dập phản ứng, chiết tách pha hữu cơ, làm khô và thông số cô quay chân không
@@ -169,7 +169,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
             onClick={() => applyPreset('etac_brine')}
             className="text-xs bg-indigo-800/60 hover:bg-indigo-700 text-indigo-200 px-2.5 py-1.5 rounded-lg border border-indigo-500/30 transition-colors"
           >
-            EtOAc / Brine
+            EtOAc / Nước muối bão hòa
           </button>
           <button
             type="button"
@@ -194,7 +194,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Droplets className="w-4 h-4 text-blue-500" />
-              1. Tác nhân dập phản ứng (Quenching):
+              1. Tác nhân dập phản ứng:
             </label>
             <textarea
               rows="2"
@@ -208,7 +208,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <TestTube className="w-4 h-4 text-emerald-500" />
-              2. Dung môi & Số lần chiết (Extraction):
+              2. Dung môi & Số lần chiết:
             </label>
             <textarea
               rows="2"
@@ -225,13 +225,13 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-indigo-500" />
-              3. Rửa pha hữu cơ (Washing):
+              3. Rửa pha hữu cơ:
             </label>
             <input
               type="text"
               value={washing}
               onChange={(e) => handleFieldChange('washing', e.target.value)}
-              placeholder="VD: Rửa bằng Nước muối bão hòa (Brine) 20 mL, NaHCO3 bão hòa 20 mL..."
+              placeholder="VD: Rửa bằng Nước muối bão hòa 20 mL, NaHCO3 bão hòa 20 mL..."
               className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-lg px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
             />
           </div>
@@ -239,7 +239,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              4. Chất làm khô (Drying Agent):
+              4. Chất làm khô:
             </label>
             <div className="flex items-center gap-2">
               <select
@@ -261,7 +261,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
         <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
           <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
             <Wind className="w-4 h-4 text-teal-600" />
-            Thông số máy cô quay chân không (Rotavapor Parameters)
+            Thông số máy cô quay chân không
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -425,7 +425,7 @@ export const WorkupSection = ({ workupData, onChange, massUnit = 'g' }) => {
           {/* Residue Appearance */}
           <div className="mt-4">
             <label className="text-xs font-semibold text-slate-700 block mb-1.5">
-              Cảm quan cắn sau khi cô quay (Crude Residue Appearance):
+              Cảm quan cắn sau khi cô quay:
             </label>
             <input
               type="text"

@@ -274,7 +274,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             title="In phiếu nhật ký phòng thí nghiệm"
           >
             <Printer className="w-4 h-4 text-slate-500" />
-            <span className="hidden sm:inline">In Phiếu ELN</span>
+            <span className="hidden sm:inline">In sổ tay</span>
           </button>
         </div>
       </div>
@@ -308,12 +308,12 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
                 onChange={(e) => handleStatusChange(e.target.value)}
                 className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[44px]"
               >
-                <option value="draft">Bản nháp (Draft)</option>
-                <option value="running">Đang khuấy (Running)</option>
-                <option value="paused">Tạm dừng (Paused)</option>
-                <option value="workup">Xử lý thô (Workup)</option>
-                <option value="purification">Sắc ký cột (Purification)</option>
-                <option value="completed">Đã hoàn thành (Completed)</option>
+                <option value="draft">Bản nháp</option>
+                <option value="running">Đang khuấy</option>
+                <option value="paused">Tạm dừng</option>
+                <option value="workup">Xử lý thô</option>
+                <option value="purification">Sắc ký cột</option>
+                <option value="completed">Đã hoàn thành</option>
               </select>
             </div>
 

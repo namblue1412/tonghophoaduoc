@@ -14,7 +14,8 @@ import {
   Moon,
   Droplet,
   ChevronRight,
-  Pencil
+  Pencil,
+  Download
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
@@ -36,8 +37,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const [customStainName, setCustomStainName] = useState('');
   const [newObservation, setNewObservation] = useState('');
   const [newSpots, setNewSpots] = useState([
-    { label: 'Chất tham gia (SM)', rf: '' },
-    { label: 'Sản phẩm (P)', rf: '' }
+    { label: 'Chất tham gia', rf: '' },
+    { label: 'Sản phẩm', rf: '' }
   ]);
 
   // Active slot inside modal: 'uv254' | 'uv365' | 'reagent'
@@ -87,8 +88,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setCustomStainName('');
     setSelectedStainName('Vanillin / H2SO4');
     setNewSpots([
-      { label: 'Chất tham gia (SM)', rf: '' },
-      { label: 'Sản phẩm (P)', rf: '' }
+      { label: 'Chất tham gia', rf: '' },
+      { label: 'Sản phẩm', rf: '' }
     ]);
     setModalOpen(true);
   };
@@ -111,8 +112,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       plate.spots?.length
         ? plate.spots.map((s) => ({ label: s.label || '', rf: String(s.rf ?? '') }))
         : [
-            { label: 'Chất tham gia (SM)', rf: '' },
-            { label: 'Sản phẩm (P)', rf: '' }
+            { label: 'Chất tham gia', rf: '' },
+            { label: 'Sản phẩm', rf: '' }
           ]
     );
     setPhoto254({ preview: plate.images?.uv254 || plate.imageUrl || null, file: null });
@@ -275,6 +276,68 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
   };
 
+  // Auto-download all uploaded photos of a TLC plate
+  const handleDownloadPlateImages = async (plate) => {
+    const imagesToDownload = [];
+    if (plate.images?.uv254) {
+      imagesToDownload.push({ url: plate.images.uv254, name: `TLC_${plate.minute}m_UV254.jpg` });
+    } else if (plate.imageUrl) {
+      imagesToDownload.push({ url: plate.imageUrl, name: `TLC_${plate.minute}m_UV254.jpg` });
+    }
+    if (plate.images?.uv365) {
+      imagesToDownload.push({ url: plate.images.uv365, name: `TLC_${plate.minute}m_UV365.jpg` });
+    }
+    if (plate.images?.reagent) {
+      const stainSafe = (plate.stainName || 'Reagent').replace(/[^a-zA-Z0-9]/g, '_');
+      imagesToDownload.push({ url: plate.images.reagent, name: `TLC_${plate.minute}m_${stainSafe}.jpg` });
+    }
+
+    if (imagesToDownload.length === 0) {
+      alert('Bản mỏng này chưa có ảnh chụp nào để tải về!');
+      return;
+    }
+
+    for (let i = 0; i < imagesToDownload.length; i++) {
+      const item = imagesToDownload[i];
+      try {
+        if (item.url.startsWith('data:')) {
+          const link = document.createElement('a');
+          link.href = item.url;
+          link.download = item.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          try {
+            const resp = await fetch(item.url, { mode: 'cors' });
+            const blob = await resp.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = item.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          } catch {
+            const link = document.createElement('a');
+            link.href = item.url;
+            link.download = item.name;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        }
+        if (i < imagesToDownload.length - 1) {
+          await new Promise((r) => setTimeout(r, 350));
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải ảnh:', err);
+      }
+    }
+  };
+
   // Open Lightbox
   const openLightbox = (plate, type) => {
     const images = {
@@ -302,7 +365,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              3. Sắc Ký Lớp Mỏng (TLC)
+              3. Sắc Ký Lớp Mỏng
               <span className="text-xs bg-indigo-500/30 text-indigo-300 border border-indigo-400/40 px-2 py-0.5 rounded-full font-mono font-medium">
                 {tlcList.length} bản mỏng
               </span>
@@ -361,6 +424,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     </div>
 
                     <div className="flex items-center gap-1 no-print">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPlateImages(plate)}
+                        className="text-slate-500 hover:text-indigo-600 p-2 rounded-xl hover:bg-indigo-50 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                        title="Tải tất cả ảnh sắc ký của bản mỏng này"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(plate)}
@@ -462,16 +533,26 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       )}
                     </div>
 
-                    {/* Zoom button */}
+                    {/* Floating Zoom & Download Actions */}
                     {activeImg && (
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(plate, currentTab)}
-                        className="absolute bottom-2 right-2 p-2.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl backdrop-blur-sm no-print min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        title="Phóng to ảnh"
-                      >
-                        <Maximize2 className="w-4 h-4" />
-                      </button>
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1.5 no-print">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPlateImages(plate)}
+                          className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl backdrop-blur-sm min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors"
+                          title="Tải tất cả ảnh sắc ký của bản mỏng này"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(plate, currentTab)}
+                          className="p-2.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-xl backdrop-blur-sm min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors"
+                          title="Phóng to ảnh"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -621,14 +702,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-2.5 rounded-xl border border-indigo-200 text-xs font-bold whitespace-nowrap min-h-[44px]"
                       title="Lấy số phút từ đồng hồ đang chạy"
                     >
-                      Sync ({Math.floor(currentTimerSeconds / 60)}m)
+                      Đồng bộ ({Math.floor(currentTimerSeconds / 60)} phút)
                     </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Hệ dung môi (Eluent):
+                    Hệ dung môi:
                   </label>
                   <input
                     type="text"
@@ -852,7 +933,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                         type="text"
                         value={spot.label}
                         onChange={(e) => updateSpotRow(idx, 'label', e.target.value)}
-                        placeholder="Tên vết (VD: SM, P, Vết phụ)"
+                        placeholder="Tên vết (VD: Chất tham gia, Sản phẩm...)"
                         className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm min-h-[44px]"
                       />
                       <div className="flex items-center gap-1 w-28">
@@ -931,14 +1012,29 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               </h4>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setLightboxData(null)}
-              className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full cursor-pointer"
-              title="Đóng (Esc)"
-            >
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const plate = tlcList.find((p) => p.id === lightboxData.plateId);
+                  if (plate) handleDownloadPlateImages(plate);
+                }}
+                className="bg-slate-800 hover:bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Tải tất cả ảnh sắc ký của bản mỏng này"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Tải tất cả ảnh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLightboxData(null)}
+                className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full cursor-pointer transition-colors"
+                title="Đóng (Esc)"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
           {/* Lightbox Image Container */}
