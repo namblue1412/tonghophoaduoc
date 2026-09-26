@@ -314,6 +314,16 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
   }, [modalOpen, lightboxData, uploading]);
 
+  // Lock background document scroll when modal is open so iOS virtual keyboard never shifts caret outside input boxes
+  useEffect(() => {
+    if (!modalOpen && !lightboxData) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [modalOpen, lightboxData]);
+
   // Delete TLC plate
   const handleDeletePlate = (id) => {
     if (window.confirm('Xóa bản mỏng TLC này?')) {
@@ -321,7 +331,23 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
   };
 
-  // Auto-download all uploaded photos of a TLC plate
+  // Synchronous Base64 DataURL -> Blob & File converter (preserves browser user-gesture activation for multi-file download!)
+  const dataUrlToFileSync = (dataUrl, fileName) => {
+    const parts = dataUrl.split(',');
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    const file = new File([blob], fileName, { type: mime });
+    return { blob, file };
+  };
+
+  // Auto-download all uploaded photos (up to 3 images: UV 254, UV 365, Reagent) of a TLC plate at once
   const handleDownloadPlateImages = async (plate) => {
     const imagesToDownload = [];
     if (plate.images?.uv254) {
@@ -342,44 +368,58 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       return;
     }
 
-    for (let i = 0; i < imagesToDownload.length; i++) {
-      const item = imagesToDownload[i];
-      try {
+    try {
+      // 1. Convert all data: URLs synchronously BEFORE any await so user gesture stays active for all 3 files!
+      const preparedItems = [];
+      for (const item of imagesToDownload) {
         if (item.url.startsWith('data:')) {
+          const { blob, file } = dataUrlToFileSync(item.url, item.name);
+          preparedItems.push({ blob, file, name: item.name });
+        } else {
+          const resp = await fetch(item.url, { mode: 'cors' });
+          const blob = await resp.blob();
+          const file = new File([blob], item.name, { type: blob.type || 'image/jpeg' });
+          preparedItems.push({ blob, file, name: item.name });
+        }
+      }
+
+      const filesArray = preparedItems.map((p) => p.file);
+      const isIOS =
+        /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      // 2. On iPhone / iPad: iOS Safari blocks multiple <a download> popups (only downloading 1 image).
+      // Passing all 3 File objects to navigator.share({ files }) saves all 3 images at once ("Lưu 3 hình ảnh")!
+      if (isIOS && navigator.canShare && navigator.canShare({ files: filesArray })) {
+        try {
+          await navigator.share({
+            files: filesArray,
+            title: `TLC ${plate.timeFormatted || `${plate.minute}m`}`
+          });
+          return;
+        } catch (shareErr) {
+          if (shareErr && shareErr.name === 'AbortError') return;
+        }
+      }
+
+      // 3. On Mac / PC (or fallback): trigger Blob URL downloads for all 3 images
+      preparedItems.forEach((item, idx) => {
+        const blobUrl = URL.createObjectURL(item.blob);
+        setTimeout(() => {
           const link = document.createElement('a');
-          link.href = item.url;
+          link.style.display = 'none';
+          link.href = blobUrl;
           link.download = item.name;
           document.body.appendChild(link);
           link.click();
-          document.body.removeChild(link);
-        } else {
-          try {
-            const resp = await fetch(item.url, { mode: 'cors' });
-            const blob = await resp.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = item.name;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-          } catch {
-            const link = document.createElement('a');
-            link.href = item.url;
-            link.download = item.name;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-        }
-        if (i < imagesToDownload.length - 1) {
-          await new Promise((r) => setTimeout(r, 350));
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải ảnh:', err);
-      }
+          setTimeout(() => {
+            if (link.parentNode) document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 2000);
+        }, idx * 120);
+      });
+    } catch (err) {
+      console.error('Lỗi khi tải ảnh:', err);
     }
   };
 
@@ -699,8 +739,12 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
       {/* ADD TLC MODAL - FULL SCREEN MOBILE SHEET DIALOG WITH SMOOTH TOUCH SCROLL */}
       {modalOpen && (
-        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center">
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+            onClick={() => setModalOpen(false)}
+          />
+          <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -728,7 +772,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 touch-pan-y">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
               {/* Time Point & Eluent */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -742,12 +786,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       value={newMinute}
                       onChange={(e) => setNewMinute(e.target.value.replace(/[^0-9.,-]/g, ''))}
                       placeholder="30"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-bold focus:outline-none min-h-[44px]"
+                      spellCheck={false}
+                      autoCorrect="off"
+                      className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm leading-normal font-mono font-bold focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => setNewMinute(String(Math.floor(currentTimerSeconds / 60)))}
-                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl border border-indigo-200 text-xs font-bold whitespace-nowrap min-h-[44px] cursor-pointer"
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl border border-indigo-200 text-xs font-bold whitespace-nowrap h-11 cursor-pointer"
                       title="Lấy số phút từ đồng hồ đang chạy"
                     >
                       Đồng bộ ({Math.floor(currentTimerSeconds / 60)}p)
@@ -764,7 +810,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     value={newEluent}
                     onChange={(e) => setNewEluent(e.target.value)}
                     placeholder="Hexan : EtOAc (3 : 1)"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm leading-normal font-mono focus:outline-none"
                   />
                   <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
                     {COMMON_ELUENTS.map((el) => (
@@ -965,7 +1014,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       value={customStainName}
                       onChange={(e) => setCustomStainName(e.target.value)}
                       placeholder="Nhập tên thuốc thử..."
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none min-h-[44px]"
+                      spellCheck={false}
+                      autoCorrect="off"
+                      className="w-full h-11 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm leading-normal focus:outline-none"
                     />
                   )}
                 </div>
@@ -991,7 +1042,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                         value={solventFrontCm}
                         onChange={(e) => handleSolventFrontChange(e.target.value)}
                         placeholder="5.0"
-                        className="w-12 text-center font-mono font-bold text-xs text-teal-800 focus:outline-none"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        className="w-12 h-8 text-center font-mono font-bold text-xs leading-normal text-teal-800 focus:outline-none"
                       />
                       <span className="text-[11px] font-mono text-slate-400">cm</span>
                     </div>
@@ -1013,7 +1066,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                         value={spot.label}
                         onChange={(e) => updateSpotRow(idx, 'label', e.target.value)}
                         placeholder="Tên vết (VD: Chất tham gia, Sản phẩm...)"
-                        className="flex-1 min-w-[130px] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-medium focus:outline-none min-h-[38px]"
+                        spellCheck={false}
+                        autoCorrect="off"
+                        className="flex-1 min-w-[130px] h-10 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm leading-normal font-medium focus:outline-none"
                       />
                       <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                         <div className="flex items-center gap-1">
@@ -1024,8 +1079,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                             value={spot.distCm || ''}
                             onChange={(e) => updateSpotRow(idx, 'distCm', e.target.value)}
                             placeholder="cm"
+                            spellCheck={false}
+                            autoCorrect="off"
                             title="Khoảng cách vết chạy (cm) để tự chia Rf"
-                            className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:outline-none min-h-[38px]"
+                            className="w-14 h-10 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs leading-normal font-mono text-center focus:outline-none"
                           />
                         </div>
                         <div className="flex items-center gap-1">
@@ -1036,7 +1093,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                             value={spot.rf}
                             onChange={(e) => updateSpotRow(idx, 'rf', e.target.value)}
                             placeholder="0.45"
-                            className="w-16 bg-indigo-50/60 border border-indigo-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-mono font-bold text-indigo-800 text-center focus:outline-none min-h-[38px]"
+                            spellCheck={false}
+                            autoCorrect="off"
+                            className="w-16 h-10 bg-indigo-50/60 border border-indigo-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm leading-normal font-mono font-bold text-indigo-800 text-center focus:outline-none"
                           />
                         </div>
                         {newSpots.length > 1 && (

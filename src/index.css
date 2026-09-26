@@ -28,10 +28,15 @@ button, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent iOS Safari from auto-zooming when focusing on inputs on iPhone & iPad */
+/* Prevent iOS Safari from auto-zooming when focusing on inputs on iPhone & iPad, and lock caret inside input frame */
 @media screen and (max-width: 1024px) {
   input, select, textarea {
     font-size: 16px !important;
+    line-height: 1.35 !important;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+    -webkit-appearance: none;
+    appearance: none;
   }
 }
 
@@ -42,6 +47,7 @@ html[data-device="ipad"] input,
 html[data-device="ipad"] select,
 html[data-device="ipad"] textarea {
   font-size: 16px !important;
+  line-height: 1.35 !important;
 }
 
 /* Safe area padding for iPhone Dynamic Island / Status Bar & Home Indicator */

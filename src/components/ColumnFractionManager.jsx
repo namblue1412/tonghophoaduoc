@@ -646,8 +646,33 @@ export const ColumnFractionManager = ({
     }
   };
 
-  // Open Add Fraction TLC Modal
-  // Download all uploaded TLC photos helper
+  // Lock body scroll when any modal/lightbox is open so iOS virtual keyboard does not drift caret coordinates
+  useEffect(() => {
+    if (!fracTlcModalOpen && !poolTlcModalOpen && !lightboxData) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow || '';
+    };
+  }, [fracTlcModalOpen, poolTlcModalOpen, lightboxData]);
+
+  // Synchronous converter: Base64 DataURL -> File/Blob (preserves transient user activation for multi-file download)
+  const dataUrlToFileSync = (dataUrl, fileName) => {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
+    const file = new File([blob], fileName, { type: mime });
+    return { blob, file };
+  };
+
+  // Download all uploaded TLC photos helper (supports simultaneous 3-image download on iOS, iPadOS, Mac, and PC)
   const handleDownloadTlcImages = async (images, prefix = 'TLC', stainName = 'ThuocThu') => {
     const imagesToDownload = [];
     if (images?.uv254) {
@@ -666,45 +691,82 @@ export const ColumnFractionManager = ({
       return;
     }
 
-    for (let i = 0; i < imagesToDownload.length; i++) {
-      const item = imagesToDownload[i];
+    // 1. Convert data: URLs synchronously so we don't lose user-gesture activation
+    const preparedItems = [];
+    for (const item of imagesToDownload) {
+      if (item.url.startsWith('data:')) {
+        try {
+          const { blob, file } = dataUrlToFileSync(item.url, item.name);
+          preparedItems.push({ ...item, blob, file });
+        } catch {
+          preparedItems.push({ ...item, blob: null, file: null });
+        }
+      } else {
+        try {
+          const resp = await fetch(item.url, { mode: 'cors' });
+          const blob = await resp.blob();
+          const file = new File([blob], item.name, { type: blob.type || 'image/jpeg' });
+          preparedItems.push({ ...item, blob, file });
+        } catch {
+          preparedItems.push({ ...item, blob: null, file: null });
+        }
+      }
+    }
+
+    // 2. On iOS / iPadOS, Safari blocks multiple <a download> triggers in one tap.
+    // Passing all 3 File objects to navigator.share({ files }) lets the user tap "Lưu X hình ảnh" to save all 3 at once!
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const validFiles = preparedItems.map((p) => p.file).filter(Boolean);
+
+    if (
+      isIOS &&
+      validFiles.length > 1 &&
+      typeof navigator.canShare === 'function' &&
+      navigator.canShare({ files: validFiles })
+    ) {
       try {
-        if (item.url.startsWith('data:')) {
-          const link = document.createElement('a');
-          link.href = item.url;
-          link.download = item.name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          try {
-            const resp = await fetch(item.url, { mode: 'cors' });
-            const blob = await resp.blob();
-            const blobUrl = URL.createObjectURL(blob);
+        await navigator.share({
+          files: validFiles,
+          title: `Ảnh sắc ký ${prefix}`
+        });
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        // Fall through to Blob anchor download if share fails
+      }
+    }
+
+    // 3. Desktop & fallback: trigger Blob URL downloads for all images
+    preparedItems.forEach((item, index) => {
+      setTimeout(() => {
+        try {
+          if (item.blob) {
+            const blobUrl = URL.createObjectURL(item.blob);
             const link = document.createElement('a');
             link.href = blobUrl;
             link.download = item.name;
+            link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-          } catch {
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+          } else {
             const link = document.createElement('a');
             link.href = item.url;
             link.download = item.name;
             link.target = '_blank';
+            link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
           }
+        } catch (err) {
+          console.error('Lỗi khi tải ảnh:', err);
         }
-        if (i < imagesToDownload.length - 1) {
-          await new Promise((r) => setTimeout(r, 350));
-        }
-      } catch (err) {
-        console.error('Lỗi khi tải ảnh:', err);
-      }
-    }
+      }, index * 180);
+    });
   };
 
   const handleOpenAddFracTlc = () => {
@@ -2154,8 +2216,13 @@ export const ColumnFractionManager = ({
 
       {/* MODAL 1: ADD / EDIT FRACTION TLC PLATE */}
       {fracTlcModalOpen && (
-        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[92vh] sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center">
+          {/* Separate backdrop so backdrop-filter does not offset iOS WebKit input caret */}
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+            onClick={() => setFracTlcModalOpen(false)}
+          />
+          <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[92vh] sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -2193,7 +2260,10 @@ export const ColumnFractionManager = ({
                     value={fracSpottedInput}
                     onChange={(e) => setFracSpottedInput(e.target.value)}
                     placeholder="VD: F1, F3, F5..."
-                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 focus:outline-none min-h-[38px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    className="w-full h-10 bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 text-xs leading-normal font-mono font-bold text-slate-900 focus:outline-none"
                   />
                   {/* Single-row horizontal scrollable quick chips */}
                   <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
@@ -2227,7 +2297,10 @@ export const ColumnFractionManager = ({
                     value={fracEluent}
                     onChange={(e) => setFracEluent(e.target.value)}
                     placeholder="Hexan:EtOAc (4:1)"
-                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 py-1.5 text-xs font-mono text-slate-900 focus:outline-none min-h-[38px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    className="w-full h-10 bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2.5 text-xs leading-normal font-mono text-slate-900 focus:outline-none"
                   />
                   {/* Quick eluent pills */}
                   <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
@@ -2252,7 +2325,7 @@ export const ColumnFractionManager = ({
                   <select
                     value={fracStain}
                     onChange={(e) => setFracStain(e.target.value)}
-                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2 py-1.5 text-xs text-slate-900 focus:outline-none min-h-[38px]"
+                    className="w-full h-10 bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-2 text-xs leading-normal text-slate-900 focus:outline-none"
                   >
                     {COMMON_STAINS.map((stain) => (
                       <option key={stain} value={stain}>
@@ -2266,7 +2339,9 @@ export const ColumnFractionManager = ({
                       value={customFracStain}
                       onChange={(e) => setCustomFracStain(e.target.value)}
                       placeholder="Tên thuốc thử..."
-                      className="w-full mt-1 bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs focus:outline-none min-h-[32px]"
+                      spellCheck={false}
+                      autoCorrect="off"
+                      className="w-full h-9 mt-1 bg-white border border-slate-300 rounded-xl px-2 text-xs leading-normal focus:outline-none"
                     />
                   )}
                 </div>
@@ -2407,7 +2482,9 @@ export const ColumnFractionManager = ({
                   value={fracNotes}
                   onChange={(e) => setFracNotes(e.target.value)}
                   placeholder="VD: F8-F12 vết sạch, F14 xuất hiện tạp..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none min-h-[38px]"
+                  spellCheck={false}
+                  autoCorrect="off"
+                  className="w-full h-10 bg-slate-50 border border-slate-300 rounded-xl px-3 text-xs leading-normal focus:outline-none"
                 />
               </div>
             </div>
@@ -2436,8 +2513,13 @@ export const ColumnFractionManager = ({
 
       {/* MODAL 2: POOLED SAMPLE TLC MODAL (3 PHOTOS + VERDICT) */}
       {poolTlcModalOpen && activeGroup && (
-        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center">
+          {/* Separate backdrop so backdrop-filter does not offset iOS WebKit input caret */}
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+            onClick={() => setPoolTlcModalOpen(false)}
+          />
+          <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -2501,7 +2583,10 @@ export const ColumnFractionManager = ({
                     value={poolEluent}
                     onChange={(e) => setPoolEluent(e.target.value)}
                     placeholder="Hexan : EtOAc (3 : 1)"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none min-h-[44px]"
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 text-xs leading-normal font-mono focus:outline-none"
                   />
                 </div>
                 <div>
@@ -2511,7 +2596,7 @@ export const ColumnFractionManager = ({
                   <select
                     value={poolStain}
                     onChange={(e) => setPoolStain(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs focus:outline-none min-h-[44px]"
+                    className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 text-xs leading-normal focus:outline-none"
                   >
                     {COMMON_STAINS.map((stain) => (
                       <option key={stain} value={stain}>
