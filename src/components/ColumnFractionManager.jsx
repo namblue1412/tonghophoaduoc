@@ -624,17 +624,26 @@ export const ColumnFractionManager = ({
     }
   }, [limitingMoles, targetMW, massUnit, moleUnit]);
 
-  // Helper to handle local photo selection via native label input
-  const handlePhotoSelect = (e, setPhotoState) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  // Helper to handle local photo selection via native label input (compresses immediately on iOS/Android/Mac)
+  const handlePhotoSelect = async (e, setPhotoState) => {
+    const inputEl = e.target;
+    const file = inputEl.files?.[0];
+    if (!file) return;
+
+    try {
+      const processedUrl = await uploadImage(file, 'fraction_tlc');
+      if (processedUrl) {
+        setPhotoState({ preview: processedUrl, file: null });
+      }
+    } catch (err) {
       const reader = new FileReader();
       reader.onload = () => {
         setPhotoState({ preview: reader.result, file });
       };
       reader.readAsDataURL(file);
+    } finally {
+      inputEl.value = '';
     }
-    e.target.value = '';
   };
 
   // Open Add Fraction TLC Modal
@@ -2145,16 +2154,16 @@ export const ColumnFractionManager = ({
 
       {/* MODAL 1: ADD / EDIT FRACTION TLC PLATE */}
       {fracTlcModalOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-2xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[92vh] sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl flex-shrink-0">
                   <Camera className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-slate-900 truncate">
                     {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Bản Mỏng Phân Đoạn'}
                   </h3>
                 </div>
@@ -2162,10 +2171,11 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={() => setFracTlcModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 px-3 py-2 rounded-xl min-h-[42px] flex items-center gap-1 font-bold text-xs cursor-pointer flex-shrink-0"
                 title="Đóng (Esc)"
               >
-                <X className="w-5 h-5" />
+                <span>Đóng</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2403,7 +2413,7 @@ export const ColumnFractionManager = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 px-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
+            <div className="p-3 px-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setFracTlcModalOpen(false)}
@@ -2426,16 +2436,16 @@ export const ColumnFractionManager = ({
 
       {/* MODAL 2: POOLED SAMPLE TLC MODAL (3 PHOTOS + VERDICT) */}
       {poolTlcModalOpen && activeGroup && (
-        <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl flex-shrink-0">
                   <FlaskConical className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-slate-900 truncate">
                     Sắc Ký TLC Mẫu Gộp: {activeGroup.name}
                   </h3>
                 </div>
@@ -2443,10 +2453,11 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={() => setPoolTlcModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 px-3 py-2 rounded-xl min-h-[42px] flex items-center gap-1 font-bold text-xs cursor-pointer flex-shrink-0"
                 title="Đóng (Esc)"
               >
-                <X className="w-5 h-5" />
+                <span>Đóng</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -2630,7 +2641,7 @@ export const ColumnFractionManager = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
+            <div className="p-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setPoolTlcModalOpen(false)}
@@ -2653,14 +2664,20 @@ export const ColumnFractionManager = ({
 
       {/* 3-WAVELENGTH LIGHTBOX MODAL */}
       {lightboxData && (
-        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-between p-3 sm:p-5 animate-in fade-in">
-          {/* Lightbox Header Bar */}
-          <div className="w-full max-w-4xl flex items-center justify-between text-white pb-3 border-b border-slate-800">
-            <div>
-              <h4 className="font-bold text-sm sm:text-base flex items-center gap-2">
-                <span>{lightboxData.title}</span>
+        <div
+          onClick={() => setLightboxData(null)}
+          className="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[100] modal-safe-top pb-safe flex flex-col items-center justify-between px-3 sm:px-5 animate-in fade-in"
+        >
+          {/* Lightbox Header Bar (Safely below iPhone Battery / Dynamic Island) */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-4xl flex items-center justify-between gap-2 text-white pb-3 border-b border-slate-800"
+          >
+            <div className="min-w-0">
+              <h4 className="font-bold text-sm sm:text-base flex items-center gap-2 truncate">
+                <span className="truncate">{lightboxData.title}</span>
                 {lightboxData.subtitle && (
-                  <span className="text-xs text-slate-400 font-mono">({lightboxData.subtitle})</span>
+                  <span className="text-xs text-slate-400 font-mono truncate hidden sm:inline">({lightboxData.subtitle})</span>
                 )}
               </h4>
             </div>
@@ -2668,10 +2685,11 @@ export const ColumnFractionManager = ({
             <button
               type="button"
               onClick={() => setLightboxData(null)}
-              className="bg-slate-800 hover:bg-rose-600 text-white p-2.5 rounded-full cursor-pointer"
+              className="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-lg min-h-[42px] flex-shrink-0"
               title="Đóng (Esc)"
             >
-              <X className="w-6 h-6" />
+              <span>Đóng</span>
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -2679,51 +2697,68 @@ export const ColumnFractionManager = ({
           <div className="relative flex-1 w-full max-w-4xl flex items-center justify-center p-2 overflow-hidden">
             {lightboxData.images[lightboxData.activeType] ? (
               <img
+                onClick={(e) => e.stopPropagation()}
                 src={lightboxData.images[lightboxData.activeType]}
                 alt={`Zoom ${lightboxData.activeType}`}
-                className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
+                className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl"
               />
             ) : (
-              <div className="text-center text-slate-500">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="text-center text-slate-500"
+              >
                 <Camera className="w-16 h-16 mx-auto mb-2 opacity-30 text-indigo-400" />
                 <p className="text-sm">Chưa có ảnh ở chế độ {lightboxData.activeType}</p>
               </div>
             )}
           </div>
 
-          {/* Lightbox 3-Tab Bottom Selector */}
-          <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-700 flex items-center gap-1.5 shadow-2xl">
+          {/* Lightbox 3-Tab Bottom Selector + Thumb-Zone Close Button */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-slate-900/95 backdrop-blur-md p-2 rounded-2xl border border-slate-700 flex items-center gap-1.5 shadow-2xl mb-2"
+          >
             <button
               type="button"
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'uv254' })}
-              className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[42px] ${
                 lightboxData.activeType === 'uv254' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              <Sun className="w-3.5 h-3.5" />
-              <span>UV 254 nm</span>
+              <Sun className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>UV 254</span>
             </button>
 
             <button
               type="button"
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'uv365' })}
-              className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[42px] ${
                 lightboxData.activeType === 'uv365' ? 'bg-violet-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              <Moon className="w-3.5 h-3.5" />
-              <span>UV 365 nm</span>
+              <Moon className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>UV 365</span>
             </button>
 
             <button
               type="button"
               onClick={() => setLightboxData({ ...lightboxData, activeType: 'reagent' })}
-              className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 truncate ${
+              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 truncate min-h-[42px] ${
                 lightboxData.activeType === 'reagent' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
               <Droplet className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{lightboxData.stainName || 'Thuốc thử'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLightboxData(null)}
+              className="py-2.5 px-3 rounded-xl text-xs font-bold bg-rose-600/90 hover:bg-rose-600 text-white flex items-center justify-center gap-1 min-h-[42px] flex-shrink-0 sm:hidden"
+              title="Đóng ảnh"
+            >
+              <X className="w-4 h-4" />
+              <span>Đóng</span>
             </button>
           </div>
         </div>

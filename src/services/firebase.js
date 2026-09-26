@@ -65,18 +65,106 @@ if (isFirebaseConfigured()) {
   console.info('ℹ️ [MedChem ELN] Running in LocalStorage Dual-Mode.');
 }
 
+// Simple IndexedDB helper for unlimited local storage (especially for multiple TLC photos on iPhone/iPad)
+const IDB_NAME = 'medchem_eln_db';
+const IDB_STORE = 'experiments';
+
+const openExperimentsIDB = () => {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+};
+
+const saveToIDB = async (experiment) => {
+  try {
+    const db = await openExperimentsIDB();
+    if (!db) return;
+    await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(experiment);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (e) {
+    // Ignore IDB errors
+  }
+};
+
+const deleteFromIDB = async (id) => {
+  try {
+    const db = await openExperimentsIDB();
+    if (!db) return;
+    await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (e) {
+    // Ignore
+  }
+};
+
+const loadAllFromIDB = async () => {
+  try {
+    const db = await openExperimentsIDB();
+    if (!db) return [];
+    return await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch (e) {
+    return [];
+  }
+};
+
+const getDeletedIds = () => {
+  try {
+    return JSON.parse(localStorage.getItem('medchem_deleted_ids') || '[]');
+  } catch (e) {
+    return [];
+  }
+};
+
+const markDeletedId = (id) => {
+  try {
+    const list = getDeletedIds();
+    if (!list.includes(id)) {
+      list.push(id);
+      localStorage.setItem('medchem_deleted_ids', JSON.stringify(list));
+    }
+  } catch (e) {
+    // Ignore
+  }
+};
+
 /**
  * Upload an image file:
  * - If Firebase Storage is available -> uploads to storage and returns downloadURL.
- * - Fallback -> converts file to optimized compressed Base64 data URL for offline storage.
+ * - Fallback -> converts file to optimized compressed Base64 data URL for fast cloud & offline storage.
  */
 export const uploadImage = async (file, pathFolder = 'tlc_images') => {
   if (!file) return null;
+  if (typeof file === 'string') return file;
 
   // Try Firebase Storage first if configured
   if (storage) {
     try {
-      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const fileName = `${Date.now()}_${(file.name || 'tlc.jpg').replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const fileRef = storageRef(storage, `${pathFolder}/${fileName}`);
       const snapshot = await uploadBytes(fileRef, file);
       const downloadUrl = await getDownloadURL(snapshot.ref);
@@ -90,38 +178,43 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
+      const rawDataUrl = e.target.result;
       const img = new Image();
       img.onload = () => {
-        // Resize image to max 1280px dimension to keep storage light & fast
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1280;
-        const MAX_HEIGHT = 1280;
-        let width = img.width;
-        let height = img.height;
+        try {
+          // Resize image to max 960px dimension to keep Firebase RTDB & LocalStorage fast and reliable
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 960;
+          const MAX_HEIGHT = 960;
+          let width = img.width;
+          let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Quality 0.78 JPEG for sharp lab TLC spots & compact payload (~65KB per photo)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.78);
+          resolve(compressedBase64);
+        } catch (canvasErr) {
+          resolve(rawDataUrl);
         }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Quality 0.82 JPEG for optimal balance of sharp lab TLC spots & small size
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.82);
-        resolve(compressedBase64);
       };
-      img.onerror = () => resolve(e.target.result); // Fallback to raw base64
-      img.src = e.target.result;
+      img.onerror = () => resolve(rawDataUrl);
+      img.src = rawDataUrl;
     };
     reader.onerror = (err) => reject(err);
     reader.readAsDataURL(file);
@@ -129,51 +222,106 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
 };
 
 /**
- * Save an experiment to Database (Firebase and LocalStorage mirror)
+ * Clean undefined values recursively so Firebase RTDB set() never throws
+ */
+const sanitizeForFirebase = (obj) => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
+/**
+ * Read local experiments from LocalStorage + IndexedDB and merge by newest updatedAt
+ */
+const readMergedLocalExperiments = async () => {
+  let lsList = [];
+  try {
+    lsList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
+  } catch (e) {
+    lsList = [];
+  }
+  const idbList = await loadAllFromIDB();
+  const deletedIds = new Set(getDeletedIds());
+  const map = new Map();
+
+  for (const item of [...lsList, ...idbList]) {
+    if (!item || !item.id || deletedIds.has(item.id)) continue;
+    const existing = map.get(item.id);
+    if (!existing) {
+      map.set(item.id, item);
+    } else {
+      const tNew = new Date(item.updatedAt || item.createdAt || 0).getTime();
+      const tOld = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      if (tNew >= tOld) {
+        map.set(item.id, item);
+      }
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
+  );
+};
+
+/**
+ * Save an experiment to Database (LocalStorage + IndexedDB + Firebase Realtime Database)
  */
 export const saveExperimentData = async (experiment) => {
-  // Always mirror in localStorage for immediate resilience
+  if (!experiment || !experiment.id) return { success: false };
+
+  const cleanExp = sanitizeForFirebase({
+    ...experiment,
+    updatedAt: experiment.updatedAt || new Date().toISOString(),
+  });
+
+  // 1. Always mirror synchronously in localStorage first
   try {
     const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-    const index = existing.findIndex((e) => e.id === experiment.id);
-    const updatedExp = {
-      ...experiment,
-      updatedAt: new Date().toISOString(),
-    };
+    const index = existing.findIndex((e) => e.id === cleanExp.id);
 
     if (index >= 0) {
-      existing[index] = updatedExp;
+      existing[index] = cleanExp;
     } else {
-      existing.unshift(updatedExp);
+      existing.unshift(cleanExp);
     }
 
     localStorage.setItem('medchem_experiments', JSON.stringify(existing));
   } catch (err) {
-    console.error('LocalStorage mirror error:', err);
+    console.warn('LocalStorage quota/mirror warning (saved in IndexedDB & Firebase):', err);
   }
 
-  // Firebase Realtime Database
+  // 2. Always mirror in IndexedDB (no 5MB quota limit for photos)
+  await saveToIDB(cleanExp);
+
+  // 3. Firebase Realtime Database
   if (database) {
     try {
-      const experimentRef = ref(database, `experiments/${experiment.id}`);
-      await set(experimentRef, {
-        ...experiment,
-        updatedAt: new Date().toISOString(),
-      });
-      return { success: true, mode: 'firebase' };
+      const experimentRef = ref(database, `experiments/${cleanExp.id}`);
+      await set(experimentRef, cleanExp);
+      return { success: true, mode: 'firebase', data: cleanExp };
     } catch (err) {
       console.error('Firebase save error:', err);
-      return { success: true, mode: 'local' };
+      return { success: true, mode: 'local', data: cleanExp };
     }
   }
 
-  return { success: true, mode: 'local' };
+  return { success: true, mode: 'local', data: cleanExp };
 };
 
 /**
- * Delete experiment
+ * Delete experiment from Firebase, LocalStorage, and IndexedDB
  */
 export const deleteExperimentData = async (id) => {
+  markDeletedId(id);
+
+  try {
+    const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
+    const filtered = existing.filter((e) => e.id !== id);
+    localStorage.setItem('medchem_experiments', JSON.stringify(filtered));
+  } catch (err) {
+    // Ignore
+  }
+
+  await deleteFromIDB(id);
+
   if (database) {
     try {
       const experimentRef = ref(database, `experiments/${id}`);
@@ -183,41 +331,129 @@ export const deleteExperimentData = async (id) => {
     }
   }
 
-  try {
-    const existing = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-    const filtered = existing.filter((e) => e.id !== id);
-    localStorage.setItem('medchem_experiments', JSON.stringify(filtered));
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true };
 };
 
 /**
- * Subscribe or load experiments
+ * Normalize an experiment loaded from Firebase RTDB (which strips empty arrays [] and null keys)
+ */
+const normalizeExperimentArrays = (exp) => {
+  if (!exp) return exp;
+  return {
+    ...exp,
+    equipment: Array.isArray(exp.equipment) ? exp.equipment : [],
+    stoichiometry: Array.isArray(exp.stoichiometry) ? exp.stoichiometry : [],
+    tlcTimeline: Array.isArray(exp.tlcTimeline)
+      ? exp.tlcTimeline.map((p) => ({
+          ...p,
+          images: {
+            uv254: p.images?.uv254 || null,
+            uv365: p.images?.uv365 || null,
+            reagent: p.images?.reagent || null
+          },
+          spots: Array.isArray(p.spots) ? p.spots : []
+        }))
+      : [],
+    workup: {
+      ...(exp.workup || {}),
+      crudeTubes: Array.isArray(exp.workup?.crudeTubes) ? exp.workup.crudeTubes : []
+    },
+    columnAndYield: {
+      ...(exp.columnAndYield || {}),
+      fractions: Array.isArray(exp.columnAndYield?.fractions) ? exp.columnAndYield.fractions : [],
+      fractionGroups: Array.isArray(exp.columnAndYield?.fractionGroups) ? exp.columnAndYield.fractionGroups : [],
+      fractionTlcPlates: Array.isArray(exp.columnAndYield?.fractionTlcPlates)
+        ? exp.columnAndYield.fractionTlcPlates.map((p) => ({
+            ...p,
+            images: {
+              uv254: p.images?.uv254 || null,
+              uv365: p.images?.uv365 || null,
+              reagent: p.images?.reagent || null
+            }
+          }))
+        : [],
+      eppendorfYield: {
+        ...(exp.columnAndYield?.eppendorfYield || {}),
+        tubes: Array.isArray(exp.columnAndYield?.eppendorfYield?.tubes)
+          ? exp.columnAndYield.eppendorfYield.tubes
+          : []
+      }
+    }
+  };
+};
+
+/**
+ * Subscribe or load experiments, merging Firebase RTDB with LocalStorage + IndexedDB by newest updatedAt
  */
 export const loadExperimentsData = (onDataUpdate) => {
+  // Immediately load local data first so UI is fast & never blank
+  readMergedLocalExperiments().then((initialLocal) => {
+    if (initialLocal.length > 0) {
+      onDataUpdate(initialLocal.map(normalizeExperimentArrays), database ? 'firebase' : 'local');
+    }
+  });
+
   if (database) {
     try {
       const expRef = ref(database, 'experiments');
       const unsubscribe = onValue(
         expRef,
-        (snapshot) => {
+        async (snapshot) => {
           const val = snapshot.val();
-          if (val) {
-            const list = Object.values(val).sort(
-              (a, b) => new Date(b.updatedAt || b.date) - new Date(a.updatedAt || a.date)
-            );
-            onDataUpdate(list, 'firebase');
-          } else {
-            // Firebase is connected and completely clean/empty
-            onDataUpdate([], 'firebase');
+          const remoteList = val ? Object.values(val) : [];
+          const localList = await readMergedLocalExperiments();
+          const deletedIds = new Set(getDeletedIds());
+
+          const mergedMap = new Map();
+
+          // 1. Add remote items
+          for (const rItem of remoteList) {
+            if (!rItem || !rItem.id || deletedIds.has(rItem.id)) continue;
+            mergedMap.set(rItem.id, normalizeExperimentArrays(rItem));
           }
+
+          // 2. Merge local items: if local is newer or missing on remote, keep local and sync up to Firebase!
+          for (const lItem of localList) {
+            if (!lItem || !lItem.id || deletedIds.has(lItem.id)) continue;
+            const normLocal = normalizeExperimentArrays(lItem);
+            const existingRemote = mergedMap.get(lItem.id);
+
+            if (!existingRemote) {
+              mergedMap.set(lItem.id, normLocal);
+              // Push local experiment that wasn't on Firebase yet
+              const cleanExp = sanitizeForFirebase(normLocal);
+              set(ref(database, `experiments/${cleanExp.id}`), cleanExp).catch(() => {});
+            } else {
+              const tLocal = new Date(normLocal.updatedAt || normLocal.createdAt || 0).getTime();
+              const tRemote = new Date(existingRemote.updatedAt || existingRemote.createdAt || 0).getTime();
+              if (tLocal > tRemote) {
+                mergedMap.set(lItem.id, normLocal);
+                // Push newer local version to Firebase so cloud catches up
+                const cleanExp = sanitizeForFirebase(normLocal);
+                set(ref(database, `experiments/${cleanExp.id}`), cleanExp).catch(() => {});
+              } else {
+                // Remote is newer or equal -> update local caches
+                saveToIDB(existingRemote);
+              }
+            }
+          }
+
+          const finalSorted = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
+          );
+
+          try {
+            localStorage.setItem('medchem_experiments', JSON.stringify(finalSorted));
+          } catch (e) {
+            // Ignore quota warning if many images
+          }
+
+          onDataUpdate(finalSorted, 'firebase');
         },
-        (error) => {
-          console.warn('Firebase onValue error, falling back to LocalStorage:', error);
-          const localList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-          onDataUpdate(localList, 'local');
+        async (error) => {
+          console.warn('Firebase onValue error, falling back to LocalStorage/IndexedDB:', error);
+          const localList = await readMergedLocalExperiments();
+          onDataUpdate(localList.map(normalizeExperimentArrays), 'local');
         }
       );
       return unsubscribe;
@@ -226,9 +462,10 @@ export const loadExperimentsData = (onDataUpdate) => {
     }
   }
 
-  // LocalStorage read
-  const localList = JSON.parse(localStorage.getItem('medchem_experiments') || '[]');
-  onDataUpdate(localList, 'local');
+  // LocalStorage + IndexedDB fallback
+  readMergedLocalExperiments().then((localList) => {
+    onDataUpdate(localList.map(normalizeExperimentArrays), 'local');
+  });
   return () => {};
 };
 

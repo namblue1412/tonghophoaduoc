@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import {
   saveExperimentData,
@@ -13,6 +13,7 @@ const ExperimentContext = createContext();
 export const ExperimentProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const [allExperiments, setAllExperiments] = useState([]);
+  const allExperimentsRef = useRef([]);
   const [activeExperimentId, setActiveExperimentId] = useState(null);
   const [syncMode, setSyncMode] = useState('local'); // 'firebase' | 'local'
   const [isSyncing, setIsSyncing] = useState(false);
@@ -36,8 +37,33 @@ export const ExperimentProvider = ({ children }) => {
 
     const unsubscribe = loadExperimentsData((loadedData, mode) => {
       setSyncMode(mode);
-      const safeData = loadedData || [];
-      setAllExperiments(safeData);
+      const incoming = loadedData || [];
+      // Merge with any newer in-memory state so active edits are never overwritten by an older network snapshot
+      const currentMem = allExperimentsRef.current || [];
+      const mergedMap = new Map();
+
+      for (const item of incoming) {
+        if (item && item.id) mergedMap.set(item.id, item);
+      }
+      for (const memItem of currentMem) {
+        if (!memItem || !memItem.id) continue;
+        const incItem = mergedMap.get(memItem.id);
+        if (!incItem) {
+          mergedMap.set(memItem.id, memItem);
+        } else {
+          const tMem = new Date(memItem.updatedAt || memItem.createdAt || 0).getTime();
+          const tInc = new Date(incItem.updatedAt || incItem.createdAt || 0).getTime();
+          if (tMem > tInc) {
+            mergedMap.set(memItem.id, memItem);
+          }
+        }
+      }
+
+      const finalData = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
+      );
+      allExperimentsRef.current = finalData;
+      setAllExperiments(finalData);
     });
 
     return () => {
@@ -89,27 +115,36 @@ export const ExperimentProvider = ({ children }) => {
 
   const activeExperiment = experiments.find((e) => e.id === activeExperimentId) || (experiments.length > 0 ? experiments[0] : null);
 
-  // Save/Update experiment
+  // Save/Update experiment synchronously in ref + state and persist to LocalStorage, IndexedDB & Firebase
   const updateExperiment = async (id, updatedFields) => {
+    if (!id) return;
     setIsSyncing(true);
-    let merged = null;
 
-    setAllExperiments((prev) => {
-      const target = prev.find((e) => e.id === id);
-      if (!target) return prev;
-      merged = {
-        ...target,
-        ...updatedFields,
-        updatedAt: new Date().toISOString()
-      };
-      return prev.map((e) => (e.id === id ? merged : e));
-    });
-
-    if (merged) {
-      await saveExperimentData(merged);
+    const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
+    const target = baseList.find((e) => e.id === id);
+    if (!target) {
+      setIsSyncing(false);
+      return;
     }
-    setIsSyncing(false);
-    setLastSaved(new Date());
+
+    const merged = {
+      ...target,
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    };
+
+    const nextList = baseList.map((e) => (e.id === id ? merged : e));
+    allExperimentsRef.current = nextList;
+    setAllExperiments(nextList);
+
+    try {
+      await saveExperimentData(merged);
+      setLastSaved(new Date());
+    } catch (err) {
+      console.error('Failed to save experiment:', err);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   // Create new experiment strictly tagged to currentUser
@@ -302,15 +337,20 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    setAllExperiments((prev) => [newExperiment, ...prev]);
+    const nextCreatedList = [newExperiment, ...allExperimentsRef.current];
+    allExperimentsRef.current = nextCreatedList;
+    setAllExperiments(nextCreatedList);
     setActiveExperimentId(newId);
     await saveExperimentData(newExperiment);
+    setLastSaved(new Date());
     return newExperiment;
   };
 
   // Delete experiment
   const deleteExperiment = async (id) => {
-    setAllExperiments((prev) => prev.filter((e) => e.id !== id));
+    const nextDeletedList = allExperimentsRef.current.filter((e) => e.id !== id);
+    allExperimentsRef.current = nextDeletedList;
+    setAllExperiments(nextDeletedList);
     if (activeExperimentId === id) {
       const remaining = experiments.filter((e) => e.id !== id);
       setActiveExperimentId(remaining.length > 0 ? remaining[0].id : null);
@@ -320,7 +360,10 @@ export const ExperimentProvider = ({ children }) => {
 
   // Duplicate experiment
   const duplicateExperiment = async (id) => {
-    const original = experiments.find((e) => e.id === id) || allExperiments.find((e) => e.id === id);
+    const original =
+      experiments.find((e) => e.id === id) ||
+      allExperimentsRef.current.find((e) => e.id === id) ||
+      allExperiments.find((e) => e.id === id);
     if (!original) return;
 
     const dupId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
@@ -346,9 +389,12 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    setAllExperiments((prev) => [duplicated, ...prev]);
+    const nextDupList = [duplicated, ...allExperimentsRef.current];
+    allExperimentsRef.current = nextDupList;
+    setAllExperiments(nextDupList);
     setActiveExperimentId(dupId);
     await saveExperimentData(duplicated);
+    setLastSaved(new Date());
   };
 
   // Export all user's data to JSON
@@ -378,13 +424,17 @@ export const ExperimentProvider = ({ children }) => {
               ...item,
               creatorId: currentUser?.uid || item.creatorId,
               creatorEmail: currentUser?.email || item.creatorEmail,
-              creatorName: currentUser?.displayName || item.creatorName
+              creatorName: currentUser?.displayName || item.creatorName,
+              updatedAt: new Date().toISOString()
             }));
             for (const item of tagged) {
               await saveExperimentData(item);
             }
-            setAllExperiments((prev) => [...tagged, ...prev]);
+            const nextImportList = [...tagged, ...allExperimentsRef.current];
+            allExperimentsRef.current = nextImportList;
+            setAllExperiments(nextImportList);
             setActiveExperimentId(tagged[0].id);
+            setLastSaved(new Date());
             resolve({ success: true, count: tagged.length });
           } else {
             reject(new Error('Tệp JSON không đúng định dạng danh sách thí nghiệm'));
