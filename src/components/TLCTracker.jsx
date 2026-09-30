@@ -7,6 +7,7 @@ import {
   Trash2,
   Maximize2,
   Clock,
+  Calendar,
   Layers,
   CheckCircle2,
   X,
@@ -19,6 +20,28 @@ import {
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
+
+const toLocalDatetimeInput = (isoStr) => {
+  const d = isoStr ? new Date(isoStr) : new Date();
+  const valid = Number.isNaN(d.getTime()) ? new Date() : d;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${valid.getFullYear()}-${pad(valid.getMonth() + 1)}-${pad(valid.getDate())}T${pad(valid.getHours())}:${pad(valid.getMinutes())}`;
+};
+
+const fromLocalDatetimeInput = (localVal, fallbackIso) => {
+  if (!localVal) return fallbackIso || new Date().toISOString();
+  const parsed = new Date(localVal);
+  if (Number.isNaN(parsed.getTime())) return fallbackIso || new Date().toISOString();
+  return parsed.toISOString();
+};
+
+const formatTlcTimestamp = (isoStr) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} • ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
 
 export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) => {
   const { uploadImage } = useExperiment();
@@ -36,6 +59,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Form state for adding/editing a TLC plate
   const [newMinute, setNewMinute] = useState('');
+  const [captureDatetime, setCaptureDatetime] = useState(() => toLocalDatetimeInput(new Date().toISOString()));
+  const [originalTimestamp, setOriginalTimestamp] = useState(null);
+  const [isTimestampModified, setIsTimestampModified] = useState(false);
   const [newEluent, setNewEluent] = useState('Hexan : EtOAc (3 : 1)');
   const [selectedStainName, setSelectedStainName] = useState('Vanillin / H2SO4');
   const [customStainName, setCustomStainName] = useState('');
@@ -85,6 +111,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setModalSessionKey((k) => k + 1);
     setModalOpen(false);
     setEditingPlateId(null);
+    setOriginalTimestamp(null);
+    setIsTimestampModified(false);
     setPhotoLoadingSlot(null);
     setUploading(false);
     savingRef.current = false;
@@ -93,7 +121,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setPhotoReagent({ preview: null, file: null });
   };
 
-  // Open Add Modal with 100% isolated clean state
+  // Open Add Modal with 100% isolated clean state & auto-filled current date/time
   const handleOpenAddModal = () => {
     modalSessionRef.current += 1;
     setModalSessionKey((k) => k + 1);
@@ -101,6 +129,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setUploading(false);
     setPhotoLoadingSlot(null);
     setEditingPlateId(null);
+    const nowIso = new Date().toISOString();
+    setOriginalTimestamp(nowIso);
+    setCaptureDatetime(toLocalDatetimeInput(nowIso));
+    setIsTimestampModified(false);
     const currentMins = Math.floor(currentTimerSeconds / 60);
     if (currentMins > 0) {
       setNewMinute(String(currentMins));
@@ -125,7 +157,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setModalOpen(true);
   };
 
-  // Open Edit Modal for an existing TLC plate
+  // Open Edit Modal for an existing TLC plate (preserves original timestamp unless user actively edits it)
   const handleOpenEditModal = (plate) => {
     modalSessionRef.current += 1;
     setModalSessionKey((k) => k + 1);
@@ -133,6 +165,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setUploading(false);
     setPhotoLoadingSlot(null);
     setEditingPlateId(plate.id);
+    const existingIso = plate.timestamp || new Date().toISOString();
+    setOriginalTimestamp(existingIso);
+    setCaptureDatetime(toLocalDatetimeInput(existingIso));
+    setIsTimestampModified(false);
     setNewMinute(String(plate.minute ?? ''));
     setNewEluent(plate.eluent || 'Hexan : EtOAc (3 : 1)');
     const isStandard = COMMON_STAINS.includes(plate.stainName);
@@ -312,10 +348,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       ? (customStainName.trim() || 'Thuốc thử hiện màu')
       : selectedStainName;
 
+    const resolvedTimestamp = isTimestampModified
+      ? fromLocalDatetimeInput(captureDatetime, originalTimestamp)
+      : (originalTimestamp || new Date().toISOString());
+
     const platePayload = {
       minute: minNum,
       timeFormatted: formattedTime,
-      timestamp: new Date().toISOString(),
+      timestamp: resolvedTimestamp,
       eluent: newEluent,
       stainName: finalStain,
       solventFrontCm: solventFrontCm || '',
@@ -333,7 +373,13 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     let updatedList;
     if (targetEditingId) {
       updatedList = currentList.map((p) =>
-        p.id === targetEditingId ? { ...p, ...platePayload } : p
+        p.id === targetEditingId
+          ? {
+              ...p,
+              ...platePayload,
+              timestamp: isTimestampModified ? resolvedTimestamp : (p.timestamp || resolvedTimestamp)
+            }
+          : p
       );
     } else {
       const newPlate = {
@@ -501,6 +547,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       activeType: type,
       plateId: plate.id,
       title: plate.timeFormatted || `${plate.minute} phút`,
+      timestampLabel: formatTlcTimestamp(plate.timestamp),
       stainName: plate.stainName || 'Thuốc thử',
       eluent: plate.eluent
     });
@@ -563,14 +610,20 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                   className="bg-slate-50 rounded-3xl border border-slate-200 overflow-hidden hover:shadow-md transition-all flex flex-col justify-between"
                 >
                   {/* Plate Header Bar */}
-                  <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-sm">
+                  <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                      <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-sm flex-shrink-0">
                         <Clock className="w-3.5 h-3.5" /> {plate.timeFormatted || `${plate.minute}m`}
                       </span>
-                      <span className="text-xs text-slate-400 font-mono">
-                        {plate.timestamp ? new Date(plate.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
-                      </span>
+                      {plate.timestamp && (
+                        <span
+                          className="text-[11px] text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg font-mono flex items-center gap-1 whitespace-nowrap"
+                          title="Giờ & ngày chụp bản sắc ký"
+                        >
+                          <Calendar className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+                          <span>{formatTlcTimestamp(plate.timestamp)}</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 no-print">
@@ -836,11 +889,11 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
             {/* Modal Scrollable Body */}
             <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
-              {/* Time Point & Eluent */}
+              {/* Time Point, Capture Date/Time & Eluent */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Thời điểm (phút):
+                    Thời điểm phản ứng (phút):
                   </label>
                   <div className="flex items-center gap-1.5">
                     <input
@@ -865,6 +918,42 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 </div>
 
                 <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">
+                      Giờ & Ngày chụp sắc ký:
+                    </label>
+                    {editingPlateId && !isTimestampModified && (
+                      <span className="text-[10px] font-medium text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                        Giữ giờ gốc
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="datetime-local"
+                      value={captureDatetime}
+                      onChange={(e) => {
+                        setCaptureDatetime(e.target.value);
+                        setIsTimestampModified(true);
+                      }}
+                      className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 text-xs sm:text-sm leading-normal font-mono font-semibold text-slate-800 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nowIso = new Date().toISOString();
+                        setCaptureDatetime(toLocalDatetimeInput(nowIso));
+                        setIsTimestampModified(true);
+                      }}
+                      className="bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 px-2.5 py-2 rounded-xl border border-slate-300 text-[11px] font-bold whitespace-nowrap h-11 cursor-pointer"
+                      title="Cập nhật sang giờ & ngày hiện tại"
+                    >
+                      Hiện tại
+                    </button>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Hệ dung môi:
                   </label>
@@ -1267,6 +1356,12 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                 <span className="truncate">Bản mỏng {lightboxData.title}</span>
                 <span className="text-xs text-slate-400 font-mono truncate hidden sm:inline">({lightboxData.eluent})</span>
               </h4>
+              {lightboxData.timestampLabel && (
+                <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                  <Calendar className="w-3 h-3 text-indigo-400" />
+                  <span>Chụp lúc: {lightboxData.timestampLabel}</span>
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-2 flex-shrink-0">

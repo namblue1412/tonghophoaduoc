@@ -26,11 +26,34 @@ import {
   FlaskConical,
   Eye,
   Clock,
+  Calendar,
   ArrowRight,
   Download
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
+
+const toLocalDatetimeInput = (isoStr) => {
+  const d = isoStr ? new Date(isoStr) : new Date();
+  const valid = Number.isNaN(d.getTime()) ? new Date() : d;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${valid.getFullYear()}-${pad(valid.getMonth() + 1)}-${pad(valid.getDate())}T${pad(valid.getHours())}:${pad(valid.getMinutes())}`;
+};
+
+const fromLocalDatetimeInput = (localVal, fallbackIso) => {
+  if (!localVal) return fallbackIso || new Date().toISOString();
+  const parsed = new Date(localVal);
+  if (Number.isNaN(parsed.getTime())) return fallbackIso || new Date().toISOString();
+  return parsed.toISOString();
+};
+
+const formatTlcTimestamp = (isoStr) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} • ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
 
 const COMMON_STAINS = [
   'Vanillin / H2SO4',
@@ -130,6 +153,9 @@ export const ColumnFractionManager = ({
   const [fracTlcModalOpen, setFracTlcModalOpen] = useState(false);
   const [editingFracTlcId, setEditingFracTlcId] = useState(null);
   const [fracSpottedInput, setFracSpottedInput] = useState('');
+  const [fracCaptureDatetime, setFracCaptureDatetime] = useState(() => toLocalDatetimeInput(new Date().toISOString()));
+  const [fracOriginalTimestamp, setFracOriginalTimestamp] = useState(null);
+  const [fracTimestampModified, setFracTimestampModified] = useState(false);
   const [fracEluent, setFracEluent] = useState('Hexan : EtOAc (4 : 1)');
   const [fracStain, setFracStain] = useState('Vanillin / H2SO4');
   const [customFracStain, setCustomFracStain] = useState('');
@@ -148,6 +174,9 @@ export const ColumnFractionManager = ({
   // Pooled Sample TLC Modal State
   const [poolTlcModalOpen, setPoolTlcModalOpen] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(null);
+  const [poolCaptureDatetime, setPoolCaptureDatetime] = useState(() => toLocalDatetimeInput(new Date().toISOString()));
+  const [poolOriginalTimestamp, setPoolOriginalTimestamp] = useState(null);
+  const [poolTimestampModified, setPoolTimestampModified] = useState(false);
   const [poolTlcSlot, setPoolTlcSlot] = useState('uv254');
   const [poolPhoto254, setPoolPhoto254] = useState({ preview: null, file: null });
   const [poolPhoto365, setPoolPhoto365] = useState({ preview: null, file: null });
@@ -916,6 +945,10 @@ export const ColumnFractionManager = ({
     setFracUploading(false);
     setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(null);
+    const nowIso = new Date().toISOString();
+    setFracOriginalTimestamp(nowIso);
+    setFracCaptureDatetime(toLocalDatetimeInput(nowIso));
+    setFracTimestampModified(false);
     setFracSpottedInput('');
     setFracEluent(columnParams.eluentGradient || 'Hexan : EtOAc (4 : 1)');
     setFracStain('Vanillin / H2SO4');
@@ -936,6 +969,10 @@ export const ColumnFractionManager = ({
     setFracUploading(false);
     setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(plate.id);
+    const existingIso = plate.timestamp || new Date().toISOString();
+    setFracOriginalTimestamp(existingIso);
+    setFracCaptureDatetime(toLocalDatetimeInput(existingIso));
+    setFracTimestampModified(false);
     setFracSpottedInput(plate.spottedFractions || '');
     setFracEluent(plate.eluent || 'Hexan : EtOAc (4 : 1)');
     const isStandard = COMMON_STAINS.includes(plate.stainName);
@@ -998,6 +1035,10 @@ export const ColumnFractionManager = ({
           ? customFracStain.trim() || 'Thuốc thử hiện màu'
           : fracStain;
 
+      const resolvedTimestamp = fracTimestampModified
+        ? fromLocalDatetimeInput(fracCaptureDatetime, fracOriginalTimestamp)
+        : (fracOriginalTimestamp || new Date().toISOString());
+
       const payload = {
         spottedFractions: fracSpottedInput.trim() || 'Chưa ghi số phân đoạn',
         eluent: fracEluent,
@@ -1008,14 +1049,20 @@ export const ColumnFractionManager = ({
           uv365: url365 || null,
           reagent: urlReagent || null
         },
-        timestamp: new Date().toISOString()
+        timestamp: resolvedTimestamp
       };
 
       const currentPlates = fractionTlcPlates || [];
       let updatedPlates;
       if (targetFracPlateId) {
         updatedPlates = currentPlates.map((p) =>
-          p.id === targetFracPlateId ? { ...p, ...payload } : p
+          p.id === targetFracPlateId
+            ? {
+                ...p,
+                ...payload,
+                timestamp: fracTimestampModified ? resolvedTimestamp : (p.timestamp || resolvedTimestamp)
+              }
+            : p
         );
       } else {
         updatedPlates = [
@@ -1055,6 +1102,10 @@ export const ColumnFractionManager = ({
     setPoolPhotoLoadingSlot(null);
     setActiveGroupId(group.id);
     const existingTlc = group.tlc || {};
+    const existingIso = existingTlc.timestamp || existingTlc.updatedAt || new Date().toISOString();
+    setPoolOriginalTimestamp(existingIso);
+    setPoolCaptureDatetime(toLocalDatetimeInput(existingIso));
+    setPoolTimestampModified(false);
     setPoolEluent(existingTlc.eluent || columnParams.eluentGradient || 'Hexan : EtOAc (3 : 1)');
     const isStandard = COMMON_STAINS.includes(existingTlc.stainName);
     if (isStandard) {
@@ -1120,6 +1171,10 @@ export const ColumnFractionManager = ({
           ? customPoolStain.trim() || 'Thuốc thử hiện màu'
           : poolStain;
 
+      const resolvedPoolTimestamp = poolTimestampModified
+        ? fromLocalDatetimeInput(poolCaptureDatetime, poolOriginalTimestamp)
+        : (poolOriginalTimestamp || new Date().toISOString());
+
       const tlcData = {
         eluent: poolEluent,
         stainName: finalStain,
@@ -1130,12 +1185,15 @@ export const ColumnFractionManager = ({
           uv365: url365 || null,
           reagent: urlReagent || null
         },
-        updatedAt: new Date().toISOString()
+        timestamp: resolvedPoolTimestamp,
+        updatedAt: resolvedPoolTimestamp
       };
 
       const updatedGroups = fractionGroups.map((g) => {
         if (g.id === targetGroupId) {
-          return { ...g, tlc: tlcData };
+          const prevTs = g.tlc?.timestamp || g.tlc?.updatedAt;
+          const finalTs = poolTimestampModified ? resolvedPoolTimestamp : (prevTs || resolvedPoolTimestamp);
+          return { ...g, tlc: { ...tlcData, timestamp: finalTs, updatedAt: finalTs } };
         }
         return g;
       });
@@ -1708,12 +1766,20 @@ export const ColumnFractionManager = ({
                     className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between"
                   >
                     {/* Header */}
-                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <Tag className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                        <span className="font-mono font-bold text-xs text-amber-300 truncate">
-                          {plate.spottedFractions}
-                        </span>
+                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between gap-2">
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Tag className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                          <span className="font-mono font-bold text-xs text-amber-300 truncate">
+                            {plate.spottedFractions}
+                          </span>
+                        </div>
+                        {plate.timestamp && (
+                          <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                            <Calendar className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
+                            <span>{formatTlcTimestamp(plate.timestamp)}</span>
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1 no-print">
@@ -2104,11 +2170,19 @@ export const ColumnFractionManager = ({
 
                       {/* Pooled TLC Sub-section */}
                       <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                            <FlaskConical className="w-3.5 h-3.5 text-indigo-600" />
-                            TLC Mẫu Gộp (3 Ảnh):
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <FlaskConical className="w-3.5 h-3.5 text-indigo-600" />
+                              TLC Mẫu Gộp (3 Ảnh):
+                            </span>
+                            {(g.tlc?.timestamp || g.tlc?.updatedAt) && (
+                              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+                                <Calendar className="w-2.5 h-2.5 text-slate-400" />
+                                <span>{formatTlcTimestamp(g.tlc.timestamp || g.tlc.updatedAt)}</span>
+                              </span>
+                            )}
+                          </div>
 
                           <div className="flex items-center gap-1.5 no-print">
                             {g.tlc && (
@@ -2709,6 +2783,43 @@ export const ColumnFractionManager = ({
                 </div>
               </div>
 
+              {/* Capture Date & Time */}
+              <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                  <span className="text-xs font-bold text-slate-700">
+                    Giờ & Ngày chụp sắc ký:
+                  </span>
+                  {editingFracPlateId && !fracTimestampModified && (
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">
+                      Giữ giờ gốc
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="datetime-local"
+                    value={fracCaptureDatetime}
+                    onChange={(e) => {
+                      setFracCaptureDatetime(e.target.value);
+                      setFracTimestampModified(true);
+                    }}
+                    className="flex-1 sm:w-auto h-9 bg-white border border-slate-300 rounded-xl px-2.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFracCaptureDatetime(toLocalDatetimeInput(new Date().toISOString()));
+                      setFracTimestampModified(true);
+                    }}
+                    className="h-9 px-2.5 bg-white hover:bg-amber-50 text-amber-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer"
+                    title="Lấy giờ hiện tại"
+                  >
+                    Hiện tại
+                  </button>
+                </div>
+              </div>
+
               {/* 3 Photo Slots Switcher */}
               <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-2xl">
                 <button
@@ -2975,6 +3086,43 @@ export const ColumnFractionManager = ({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* Capture Date & Time */}
+              <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                  <span className="text-xs font-bold text-slate-700">
+                    Giờ & Ngày chụp sắc ký:
+                  </span>
+                  {poolOriginalTimestamp && !poolTimestampModified && (
+                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md">
+                      Giữ giờ gốc
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="datetime-local"
+                    value={poolCaptureDatetime}
+                    onChange={(e) => {
+                      setPoolCaptureDatetime(e.target.value);
+                      setPoolTimestampModified(true);
+                    }}
+                    className="flex-1 sm:w-auto h-9 bg-white border border-slate-300 rounded-xl px-2.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPoolCaptureDatetime(toLocalDatetimeInput(new Date().toISOString()));
+                      setPoolTimestampModified(true);
+                    }}
+                    className="h-9 px-2.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-300 rounded-xl text-[11px] font-bold transition-colors whitespace-nowrap cursor-pointer"
+                    title="Lấy giờ hiện tại"
+                  >
+                    Hiện tại
+                  </button>
                 </div>
               </div>
 
