@@ -30,6 +30,12 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     intervals = []
   } = timerData || {};
 
+  const safeIntervals = Array.isArray(intervals)
+    ? intervals.filter(Boolean)
+    : intervals && typeof intervals === 'object'
+    ? Object.values(intervals).filter(Boolean)
+    : [];
+
   const [currentSessionSeconds, setCurrentSessionSeconds] = useState(0);
   const [justPausedSessionId, setJustPausedSessionId] = useState(null);
   const intervalRef = useRef(null);
@@ -47,16 +53,56 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     date: new Date().toISOString().split('T')[0]
   });
 
-  // Live timer tick when status is 'running'
+  // Compute true elapsed seconds from lastStartTime (immune to background tab throttling or unmounts)
+  const computeLiveElapsedSeconds = (startIso, endIso = null, fallbackSecs = 0) => {
+    if (startIso) {
+      const startMs = new Date(startIso).getTime();
+      const endMs = endIso ? new Date(endIso).getTime() : Date.now();
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs >= startMs) {
+        const wallSecs = Math.floor((endMs - startMs) / 1000);
+        return Math.max(1, wallSecs, Number(fallbackSecs) || 0);
+      }
+    }
+    return Math.max(1, Number(fallbackSecs) || 0);
+  };
+
+  // Recover interval duration if durationSeconds was 0/1 despite a larger startTime -> endTime difference
+  const getIntervalDurationSeconds = (it) => {
+    if (!it) return 0;
+    const explicitDur = Number(it.durationSeconds) || 0;
+    if (it.startTime && it.endTime) {
+      const startMs = new Date(it.startTime).getTime();
+      const endMs = new Date(it.endTime).getTime();
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+        const wallDiff = Math.floor((endMs - startMs) / 1000);
+        if (!explicitDur || (explicitDur <= 1 && wallDiff > 2)) {
+          return wallDiff;
+        }
+      }
+    }
+    return Math.max(0, explicitDur);
+  };
+
+  // Live timer tick when status is 'running' (runs immediately on mount & when waking up phone/tab)
   useEffect(() => {
     if (status === 'running') {
       const startTime = lastStartTime ? new Date(lastStartTime).getTime() : Date.now();
-
-      intervalRef.current = setInterval(() => {
+      const updateTick = () => {
         const now = Date.now();
         const diffSeconds = Math.max(0, Math.floor((now - startTime) / 1000));
         setCurrentSessionSeconds(diffSeconds);
-      }, 1000);
+      };
+
+      updateTick();
+      intervalRef.current = setInterval(updateTick, 1000);
+      document.addEventListener('visibilitychange', updateTick);
+      window.addEventListener('focus', updateTick);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        document.removeEventListener('visibilitychange', updateTick);
+        window.removeEventListener('focus', updateTick);
+      };
     } else {
       setCurrentSessionSeconds(0);
       if (intervalRef.current) {
@@ -79,10 +125,15 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
   };
 
   const calculateTotalSeconds = (intervalList) => {
-    return (intervalList || []).reduce((acc, it) => acc + (Number(it.durationSeconds) || 0), 0);
+    return (intervalList || []).reduce((acc, it) => acc + getIntervalDurationSeconds(it), 0);
   };
 
-  const grandTotalSeconds = totalSeconds + (status === 'running' ? currentSessionSeconds : 0);
+  const computedIntervalsTotal = calculateTotalSeconds(safeIntervals);
+  const effectiveTotalSeconds =
+    safeIntervals.length > 0
+      ? Math.max(Number(totalSeconds) || 0, computedIntervalsTotal)
+      : Number(totalSeconds) || 0;
+  const grandTotalSeconds = effectiveTotalSeconds + (status === 'running' ? currentSessionSeconds : 0);
 
   // START / RESUME: 1-Tap instant response
   const handleStart = () => {
@@ -90,16 +141,18 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     const nextTimer = {
       ...timerData,
       status: 'running',
-      lastStartTime: nowIso
+      totalSeconds: effectiveTotalSeconds,
+      lastStartTime: nowIso,
+      intervals: safeIntervals
     };
     onChange(nextTimer, 'running');
   };
 
-  // PAUSE: 1-Tap instant pause, immediately adds session and updates total
+  // PAUSE: 1-Tap instant pause, computes exact elapsed time from lastStartTime -> nowIso and adds to total
   const handlePause = () => {
     const nowIso = new Date().toISOString();
-    const sessionDuration = Math.max(1, currentSessionSeconds);
-    const sessionNum = (intervals?.length || 0) + 1;
+    const sessionDuration = computeLiveElapsedSeconds(lastStartTime, nowIso, currentSessionSeconds);
+    const sessionNum = safeIntervals.length + 1;
     const newInterval = {
       id: `interval-${Date.now()}`,
       startTime: lastStartTime || nowIso,
@@ -108,7 +161,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       note: `Phiên #${sessionNum}`
     };
 
-    const updatedIntervals = [newInterval, ...(intervals || [])];
+    const updatedIntervals = [newInterval, ...safeIntervals];
     const newTotal = calculateTotalSeconds(updatedIntervals);
 
     const nextTimer = {
@@ -126,8 +179,8 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
   // QUÊN BẤM DỪNG: 1-Tap stops and opens edit modal immediately
   const handlePauseAndEdit = () => {
     const nowIso = new Date().toISOString();
-    const sessionDuration = Math.max(1, currentSessionSeconds);
-    const sessionNum = (intervals?.length || 0) + 1;
+    const sessionDuration = computeLiveElapsedSeconds(lastStartTime, nowIso, currentSessionSeconds);
+    const sessionNum = safeIntervals.length + 1;
     const newInterval = {
       id: `interval-${Date.now()}`,
       startTime: lastStartTime || nowIso,
@@ -136,7 +189,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       note: `Phiên #${sessionNum}`
     };
 
-    const updatedIntervals = [newInterval, ...(intervals || [])];
+    const updatedIntervals = [newInterval, ...safeIntervals];
     const newTotal = calculateTotalSeconds(updatedIntervals);
 
     const nextTimer = {
@@ -159,6 +212,8 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       minutes: m.toString(),
       seconds: s.toString(),
       note: newInterval.note,
+      startTime: newInterval.startTime,
+      endTime: newInterval.endTime,
       date: new Date().toISOString().split('T')[0]
     });
   };
@@ -170,12 +225,12 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
   // STOP / FINISH REACTION: 1-Tap concludes reaction
   const handleStop = () => {
-    let updatedIntervals = [...(intervals || [])];
+    let updatedIntervals = [...safeIntervals];
 
     if (status === 'running') {
       const nowIso = new Date().toISOString();
-      const sessionDuration = Math.max(1, currentSessionSeconds);
-      const sessionNum = (intervals?.length || 0) + 1;
+      const sessionDuration = computeLiveElapsedSeconds(lastStartTime, nowIso, currentSessionSeconds);
+      const sessionNum = safeIntervals.length + 1;
       updatedIntervals.unshift({
         id: `interval-${Date.now()}`,
         startTime: lastStartTime || nowIso,
@@ -217,7 +272,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
   // DELETE SPECIFIC SESSION
   const handleDeleteSession = (sessionId) => {
     if (window.confirm('Bạn có chắc muốn xoá phiên khuấy này khỏi nhật ký?')) {
-      const updatedIntervals = (intervals || []).filter((item) => item.id !== sessionId);
+      const updatedIntervals = safeIntervals.filter((item) => item.id !== sessionId);
       const newTotal = calculateTotalSeconds(updatedIntervals);
       onChange({
         ...timerData,
@@ -232,7 +287,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
   // START EDITING SESSION
   const handleStartEdit = (session) => {
-    const totalSec = session.durationSeconds || 0;
+    const totalSec = getIntervalDurationSeconds(session);
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
@@ -242,6 +297,8 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       minutes: m.toString(),
       seconds: s.toString(),
       note: session.note || '',
+      startTime: session.startTime || null,
+      endTime: session.endTime || null,
       date: session.startTime ? new Date(session.startTime).toISOString().split('T')[0] : ''
     });
   };
@@ -254,7 +311,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     const s = parseInt(editingSession.seconds, 10) || 0;
     const newDuration = Math.max(0, h * 3600 + m * 60 + s);
 
-    const updatedIntervals = (intervals || []).map((it) => {
+    const updatedIntervals = safeIntervals.map((it) => {
       if (it.id === editingSession.id) {
         return {
           ...it,
@@ -282,7 +339,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     const m = parseInt(manualSessionData.minutes, 10) || 0;
     const s = parseInt(manualSessionData.seconds, 10) || 0;
     const durationSeconds = Math.max(1, h * 3600 + m * 60 + s);
-    const sessionNum = (intervals?.length || 0) + 1;
+    const sessionNum = safeIntervals.length + 1;
     const dateIso = manualSessionData.date ? new Date(manualSessionData.date).toISOString() : new Date().toISOString();
 
     const newInterval = {
@@ -293,7 +350,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       note: manualSessionData.note.trim() || `Phiên #${sessionNum} (Thêm thủ công)`
     };
 
-    const updatedIntervals = [newInterval, ...(intervals || [])];
+    const updatedIntervals = [newInterval, ...safeIntervals];
     const newTotal = calculateTotalSeconds(updatedIntervals);
 
     onChange({
@@ -533,10 +590,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
             <div>
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 <History className="w-4 h-4 text-indigo-600" />
-                Lịch sử các phiên khuấy ({intervals?.length || 0})
+                Lịch sử các phiên khuấy ({safeIntervals.length})
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Tổng cộng: <strong className="font-mono text-indigo-700 font-bold">{formatTime(totalSeconds)}</strong> • Bạn có thể sửa giờ hoặc thêm/xoá phiên nếu quên bấm dừng
+                Tổng cộng: <strong className="font-mono text-indigo-700 font-bold">{formatTime(effectiveTotalSeconds)}</strong> • Bạn có thể sửa giờ hoặc thêm/xoá phiên nếu quên bấm dừng
               </p>
             </div>
 
@@ -551,10 +608,10 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
             </button>
           </div>
 
-          {intervals && intervals.length > 0 ? (
+          {safeIntervals.length > 0 ? (
             <div className="space-y-2.5">
-              {intervals.map((session, index) => {
-                const sessionNum = intervals.length - index;
+              {safeIntervals.map((session, index) => {
+                const sessionNum = safeIntervals.length - index;
                 const startStr = session.startTime
                   ? new Date(session.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                   : '--:--';
@@ -563,6 +620,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                   : '--:--';
                 const dateStr = session.startTime ? new Date(session.startTime).toLocaleDateString('vi-VN') : '';
                 const isRecentlyPaused = justPausedSessionId === session.id;
+                const effectiveDuration = getIntervalDurationSeconds(session);
 
                 return (
                   <div
@@ -595,7 +653,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                     {/* Time & Action buttons */}
                     <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
                       <div className="font-mono font-bold text-indigo-700 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs sm:text-sm">
-                        +{formatTime(session.durationSeconds)}
+                        +{formatTime(effectiveDuration)}
                       </div>
 
                       {/* Edit Button */}
@@ -667,9 +725,38 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
             {/* Time inputs: Hours, Minutes, Seconds */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-700 block">
-                Thời lượng khuấy thực tế của phiên này:
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Thời lượng khuấy thực tế của phiên này:
+                </label>
+                {editingSession.startTime &&
+                  editingSession.endTime &&
+                  new Date(editingSession.endTime).getTime() > new Date(editingSession.startTime).getTime() + 1000 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const diffSec = Math.max(
+                          1,
+                          Math.floor(
+                            (new Date(editingSession.endTime).getTime() -
+                              new Date(editingSession.startTime).getTime()) /
+                              1000
+                          )
+                        );
+                        setEditingSession({
+                          ...editingSession,
+                          hours: String(Math.floor(diffSec / 3600)),
+                          minutes: String(Math.floor((diffSec % 3600) / 60)),
+                          seconds: String(diffSec % 60)
+                        });
+                      }}
+                      className="text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                      title="Tự động lấy hiệu số từ thời điểm Bắt đầu đến Kết thúc"
+                    >
+                      Tính từ mốc giờ ({new Date(editingSession.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ➔ {new Date(editingSession.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})
+                    </button>
+                  )}
+              </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-xl">

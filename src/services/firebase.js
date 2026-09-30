@@ -241,51 +241,82 @@ export const permanentlyDeleteExperimentsBatch = async (ids = []) => {
   return { success: false };
 };
 
+const toArray = (val) => {
+  if (Array.isArray(val)) return val.filter(Boolean);
+  if (val && typeof val === 'object') return Object.values(val).filter(Boolean);
+  return [];
+};
+
 /**
  * Normalize an experiment loaded from Firebase RTDB (which strips empty arrays [] and null keys)
  */
 const normalizeExperimentArrays = (exp) => {
   if (!exp) return exp;
+  const rawIntervals = toArray(exp.reactionTimer?.intervals);
+  const normalizedIntervals = rawIntervals.map((it) => {
+    const explicitDur = Number(it?.durationSeconds) || 0;
+    if (it?.startTime && it?.endTime) {
+      const startMs = new Date(it.startTime).getTime();
+      const endMs = new Date(it.endTime).getTime();
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+        const wallDiff = Math.floor((endMs - startMs) / 1000);
+        if (!explicitDur || (explicitDur <= 1 && wallDiff > 2)) {
+          return { ...it, durationSeconds: wallDiff };
+        }
+      }
+    }
+    return { ...it, durationSeconds: Math.max(0, explicitDur) };
+  });
+  const computedTotalSeconds = normalizedIntervals.reduce(
+    (acc, it) => acc + (Number(it.durationSeconds) || 0),
+    0
+  );
+
   return {
     ...exp,
     inTrash: Boolean(exp.inTrash),
     trashedAt: exp.trashedAt || null,
-    equipment: Array.isArray(exp.equipment) ? exp.equipment : [],
-    stoichiometry: Array.isArray(exp.stoichiometry) ? exp.stoichiometry : [],
-    tlcTimeline: Array.isArray(exp.tlcTimeline)
-      ? exp.tlcTimeline.map((p) => ({
-          ...p,
-          images: {
-            uv254: p.images?.uv254 || null,
-            uv365: p.images?.uv365 || null,
-            reagent: p.images?.reagent || null
-          },
-          spots: Array.isArray(p.spots) ? p.spots : []
-        }))
-      : [],
+    equipment: toArray(exp.equipment),
+    stoichiometry: toArray(exp.stoichiometry),
+    reactionTimer: {
+      status: exp.reactionTimer?.status || 'idle',
+      totalSeconds:
+        normalizedIntervals.length > 0
+          ? Math.max(Number(exp.reactionTimer?.totalSeconds) || 0, computedTotalSeconds)
+          : Number(exp.reactionTimer?.totalSeconds) || 0,
+      lastStartTime: exp.reactionTimer?.lastStartTime || null,
+      temperature: exp.reactionTimer?.temperature ?? '',
+      stirringSpeed: exp.reactionTimer?.stirringSpeed ?? '600 rpm',
+      intervals: normalizedIntervals
+    },
+    tlcTimeline: toArray(exp.tlcTimeline).map((p) => ({
+      ...p,
+      images: {
+        uv254: p.images ? p.images.uv254 || null : p.imageUrl || null,
+        uv365: p.images?.uv365 || null,
+        reagent: p.images?.reagent || null
+      },
+      spots: toArray(p.spots)
+    })),
     workup: {
       ...(exp.workup || {}),
-      crudeTubes: Array.isArray(exp.workup?.crudeTubes) ? exp.workup.crudeTubes : []
+      crudeTubes: toArray(exp.workup?.crudeTubes)
     },
     columnAndYield: {
       ...(exp.columnAndYield || {}),
-      fractions: Array.isArray(exp.columnAndYield?.fractions) ? exp.columnAndYield.fractions : [],
-      fractionGroups: Array.isArray(exp.columnAndYield?.fractionGroups) ? exp.columnAndYield.fractionGroups : [],
-      fractionTlcPlates: Array.isArray(exp.columnAndYield?.fractionTlcPlates)
-        ? exp.columnAndYield.fractionTlcPlates.map((p) => ({
-            ...p,
-            images: {
-              uv254: p.images?.uv254 || null,
-              uv365: p.images?.uv365 || null,
-              reagent: p.images?.reagent || null
-            }
-          }))
-        : [],
+      fractions: toArray(exp.columnAndYield?.fractions),
+      fractionGroups: toArray(exp.columnAndYield?.fractionGroups),
+      fractionTlcPlates: toArray(exp.columnAndYield?.fractionTlcPlates).map((p) => ({
+        ...p,
+        images: {
+          uv254: p.images?.uv254 || null,
+          uv365: p.images?.uv365 || null,
+          reagent: p.images?.reagent || null
+        }
+      })),
       eppendorfYield: {
         ...(exp.columnAndYield?.eppendorfYield || {}),
-        tubes: Array.isArray(exp.columnAndYield?.eppendorfYield?.tubes)
-          ? exp.columnAndYield.eppendorfYield.tubes
-          : []
+        tubes: toArray(exp.columnAndYield?.eppendorfYield?.tubes)
       }
     }
   };

@@ -138,7 +138,11 @@ export const ColumnFractionManager = ({
   const [fracPhoto254, setFracPhoto254] = useState({ preview: null, file: null });
   const [fracPhoto365, setFracPhoto365] = useState({ preview: null, file: null });
   const [fracPhotoReagent, setFracPhotoReagent] = useState({ preview: null, file: null });
+  const [fracPhotoLoadingSlot, setFracPhotoLoadingSlot] = useState(null);
   const [fracUploading, setFracUploading] = useState(false);
+  const [fracModalSessionKey, setFracModalSessionKey] = useState(0);
+  const fracModalSessionRef = useRef(0);
+  const fracSavingRef = useRef(false);
   const [activeTabPerFracTlc, setActiveTabPerFracTlc] = useState({});
 
   // Pooled Sample TLC Modal State
@@ -148,12 +152,16 @@ export const ColumnFractionManager = ({
   const [poolPhoto254, setPoolPhoto254] = useState({ preview: null, file: null });
   const [poolPhoto365, setPoolPhoto365] = useState({ preview: null, file: null });
   const [poolPhotoReagent, setPoolPhotoReagent] = useState({ preview: null, file: null });
+  const [poolPhotoLoadingSlot, setPoolPhotoLoadingSlot] = useState(null);
   const [poolEluent, setPoolEluent] = useState('Hexan : EtOAc (3 : 1)');
   const [poolStain, setPoolStain] = useState('Vanillin / H2SO4');
   const [customPoolStain, setCustomPoolStain] = useState('');
   const [poolPurity, setPoolPurity] = useState('pure'); // 'pure' | 'trace_impurity' | 'mixed'
   const [poolNotes, setPoolNotes] = useState('');
   const [poolUploading, setPoolUploading] = useState(false);
+  const [poolModalSessionKey, setPoolModalSessionKey] = useState(0);
+  const poolModalSessionRef = useRef(0);
+  const poolSavingRef = useRef(false);
   const [activeTabPerPoolGroup, setActiveTabPerPoolGroup] = useState({});
 
   // Lightbox Modal State
@@ -699,25 +707,82 @@ export const ColumnFractionManager = ({
     }
   }, [limitingMoles, targetMW, massUnit, moleUnit]);
 
+  // Helper to close & reset Fraction TLC modal cleanly
+  const handleCloseFracTlcModal = () => {
+    fracModalSessionRef.current += 1;
+    setFracTlcModalOpen(false);
+    setEditingFracTlcId(null);
+    setFracUploading(false);
+    setFracPhotoLoadingSlot(null);
+    fracSavingRef.current = false;
+    setFracPhoto254({ preview: null, file: null });
+    setFracPhoto365({ preview: null, file: null });
+    setFracPhotoReagent({ preview: null, file: null });
+  };
+
+  // Helper to close & reset Pooled Sample TLC modal cleanly
+  const handleClosePoolTlcModal = () => {
+    poolModalSessionRef.current += 1;
+    setPoolTlcModalOpen(false);
+    setActiveGroupId(null);
+    setPoolUploading(false);
+    setPoolPhotoLoadingSlot(null);
+    poolSavingRef.current = false;
+    setPoolPhoto254({ preview: null, file: null });
+    setPoolPhoto365({ preview: null, file: null });
+    setPoolPhotoReagent({ preview: null, file: null });
+  };
+
   // Helper to handle local photo selection via native label input (compresses immediately on iOS/Android/Mac)
-  const handlePhotoSelect = async (e, setPhotoState) => {
+  // Guarded by modalSessionRef so stale uploads never leak into another modal session or slot
+  const handlePhotoSelect = async (e, mode, slotKey) => {
     const inputEl = e.target;
     const file = inputEl.files?.[0];
     if (!file) return;
+    inputEl.value = '';
+
+    const isFrac = mode === 'frac';
+    const sessionToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+    const setLoading = isFrac ? setFracPhotoLoadingSlot : setPoolPhotoLoadingSlot;
+
+    const setPhotoState = (val) => {
+      if (isFrac) {
+        if (slotKey === 'uv254') setFracPhoto254(val);
+        else if (slotKey === 'uv365') setFracPhoto365(val);
+        else if (slotKey === 'reagent') setFracPhotoReagent(val);
+      } else {
+        if (slotKey === 'uv254') setPoolPhoto254(val);
+        else if (slotKey === 'uv365') setPoolPhoto365(val);
+        else if (slotKey === 'reagent') setPoolPhotoReagent(val);
+      }
+    };
+
+    setLoading(slotKey);
 
     try {
-      const processedUrl = await uploadImage(file, 'fraction_tlc');
+      const processedUrl = await uploadImage(file, `fraction_tlc_${slotKey}`);
+      const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+      if (currentToken !== sessionToken) return;
       if (processedUrl) {
         setPhotoState({ preview: processedUrl, file: null });
       }
     } catch (err) {
+      const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+      if (currentToken !== sessionToken) return;
       const reader = new FileReader();
       reader.onload = () => {
+        const latestToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+        if (latestToken !== sessionToken) return;
         setPhotoState({ preview: reader.result, file });
+        setLoading((prev) => (prev === slotKey ? null : prev));
       };
       reader.readAsDataURL(file);
+      return;
     } finally {
-      inputEl.value = '';
+      const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+      if (currentToken === sessionToken) {
+        setLoading((prev) => (prev === slotKey ? null : prev));
+      }
     }
   };
 
@@ -845,6 +910,11 @@ export const ColumnFractionManager = ({
   };
 
   const handleOpenAddFracTlc = () => {
+    fracModalSessionRef.current += 1;
+    setFracModalSessionKey(fracModalSessionRef.current);
+    fracSavingRef.current = false;
+    setFracUploading(false);
+    setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(null);
     setFracSpottedInput('');
     setFracEluent(columnParams.eluentGradient || 'Hexan : EtOAc (4 : 1)');
@@ -860,6 +930,11 @@ export const ColumnFractionManager = ({
 
   // Open Edit Fraction TLC Modal
   const handleOpenEditFracTlc = (plate) => {
+    fracModalSessionRef.current += 1;
+    setFracModalSessionKey(fracModalSessionRef.current);
+    fracSavingRef.current = false;
+    setFracUploading(false);
+    setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(plate.id);
     setFracSpottedInput(plate.spottedFractions || '');
     setFracEluent(plate.eluent || 'Hexan : EtOAc (4 : 1)');
@@ -872,80 +947,93 @@ export const ColumnFractionManager = ({
       setCustomFracStain(plate.stainName || '');
     }
     setFracNotes(plate.notes || '');
-    setFracSlot('uv254');
-    setFracPhoto254({ preview: plate.images?.uv254 || null, file: null });
-    setFracPhoto365({ preview: plate.images?.uv365 || null, file: null });
-    setFracPhotoReagent({ preview: plate.images?.reagent || null, file: null });
+    const img254 = plate.images?.uv254 || null;
+    const img365 = plate.images?.uv365 || null;
+    const imgReagent = plate.images?.reagent || null;
+    setFracSlot(img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254');
+    setFracPhoto254({ preview: img254, file: null });
+    setFracPhoto365({ preview: img365, file: null });
+    setFracPhotoReagent({ preview: imgReagent, file: null });
     setFracTlcModalOpen(true);
   };
 
   // Save Fraction TLC Plate
   const handleSaveFracTlc = async () => {
+    if (fracSavingRef.current || fracUploading || fracPhotoLoadingSlot) return;
+    fracSavingRef.current = true;
     setFracUploading(true);
 
-    let url254 = fracPhoto254.preview || '';
-    if (fracPhoto254.file) {
-      try {
-        url254 = await uploadImage(fracPhoto254.file, 'fraction_tlc_254');
-      } catch (err) {
-        console.warn('Upload fraction 254 error:', err);
+    const targetFracPlateId = editingFracTlcId;
+
+    try {
+      let url254 = fracPhoto254.preview || '';
+      if (fracPhoto254.file) {
+        try {
+          url254 = await uploadImage(fracPhoto254.file, 'fraction_tlc_254');
+        } catch (err) {
+          console.warn('Upload fraction 254 error:', err);
+        }
       }
-    }
 
-    let url365 = fracPhoto365.preview || '';
-    if (fracPhoto365.file) {
-      try {
-        url365 = await uploadImage(fracPhoto365.file, 'fraction_tlc_365');
-      } catch (err) {
-        console.warn('Upload fraction 365 error:', err);
+      let url365 = fracPhoto365.preview || '';
+      if (fracPhoto365.file) {
+        try {
+          url365 = await uploadImage(fracPhoto365.file, 'fraction_tlc_365');
+        } catch (err) {
+          console.warn('Upload fraction 365 error:', err);
+        }
       }
-    }
 
-    let urlReagent = fracPhotoReagent.preview || '';
-    if (fracPhotoReagent.file) {
-      try {
-        urlReagent = await uploadImage(fracPhotoReagent.file, 'fraction_tlc_reagent');
-      } catch (err) {
-        console.warn('Upload fraction reagent error:', err);
+      let urlReagent = fracPhotoReagent.preview || '';
+      if (fracPhotoReagent.file) {
+        try {
+          urlReagent = await uploadImage(fracPhotoReagent.file, 'fraction_tlc_reagent');
+        } catch (err) {
+          console.warn('Upload fraction reagent error:', err);
+        }
       }
+
+      const finalStain =
+        fracStain === 'Khác (Tự nhập)'
+          ? customFracStain.trim() || 'Thuốc thử hiện màu'
+          : fracStain;
+
+      const payload = {
+        spottedFractions: fracSpottedInput.trim() || 'Chưa ghi số phân đoạn',
+        eluent: fracEluent,
+        stainName: finalStain,
+        notes: fracNotes,
+        images: {
+          uv254: url254 || null,
+          uv365: url365 || null,
+          reagent: urlReagent || null
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      const currentPlates = fractionTlcPlates || [];
+      let updatedPlates;
+      if (targetFracPlateId) {
+        updatedPlates = currentPlates.map((p) =>
+          p.id === targetFracPlateId ? { ...p, ...payload } : p
+        );
+      } else {
+        updatedPlates = [
+          ...currentPlates,
+          { id: `frac-tlc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...payload }
+        ];
+      }
+
+      onChange({
+        ...columnData,
+        fractionTlcPlates: updatedPlates
+      });
+
+      handleCloseFracTlcModal();
+    } finally {
+      fracSavingRef.current = false;
+      setFracUploading(false);
     }
-
-    const finalStain =
-      fracStain === 'Khác (Tự nhập)'
-        ? customFracStain.trim() || 'Thuốc thử hiện màu'
-        : fracStain;
-
-    const payload = {
-      spottedFractions: fracSpottedInput.trim() || 'Chưa ghi số phân đoạn',
-      eluent: fracEluent,
-      stainName: finalStain,
-      notes: fracNotes,
-      images: {
-        uv254: url254 || null,
-        uv365: url365 || null,
-        reagent: urlReagent || null
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    const currentPlates = fractionTlcPlates || [];
-    let updatedPlates;
-    if (editingFracTlcId) {
-      updatedPlates = currentPlates.map((p) =>
-        p.id === editingFracTlcId ? { ...p, ...payload } : p
-      );
-    } else {
-      updatedPlates = [...currentPlates, { id: `frac-tlc-${Date.now()}`, ...payload }];
-    }
-
-    onChange({
-      ...columnData,
-      fractionTlcPlates: updatedPlates
-    });
-
-    setFracUploading(false);
-    setFracTlcModalOpen(false);
-    setEditingFracTlcId(null);
   };
 
   const handleDeleteFracTlc = (id) => {
@@ -960,6 +1048,11 @@ export const ColumnFractionManager = ({
 
   // Open Pooled Sample TLC Modal
   const handleOpenPoolTlc = (group) => {
+    poolModalSessionRef.current += 1;
+    setPoolModalSessionKey(poolModalSessionRef.current);
+    poolSavingRef.current = false;
+    setPoolUploading(false);
+    setPoolPhotoLoadingSlot(null);
     setActiveGroupId(group.id);
     const existingTlc = group.tlc || {};
     setPoolEluent(existingTlc.eluent || columnParams.eluentGradient || 'Hexan : EtOAc (3 : 1)');
@@ -976,78 +1069,87 @@ export const ColumnFractionManager = ({
     }
     setPoolPurity(existingTlc.purityVerdict || 'pure');
     setPoolNotes(existingTlc.notes || '');
-    setPoolTlcSlot('uv254');
-    setPoolPhoto254({ preview: existingTlc.images?.uv254 || null, file: null });
-    setPoolPhoto365({ preview: existingTlc.images?.uv365 || null, file: null });
-    setPoolPhotoReagent({ preview: existingTlc.images?.reagent || null, file: null });
+    const img254 = existingTlc.images?.uv254 || null;
+    const img365 = existingTlc.images?.uv365 || null;
+    const imgReagent = existingTlc.images?.reagent || null;
+    setPoolTlcSlot(img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254');
+    setPoolPhoto254({ preview: img254, file: null });
+    setPoolPhoto365({ preview: img365, file: null });
+    setPoolPhotoReagent({ preview: imgReagent, file: null });
     setPoolTlcModalOpen(true);
   };
 
   // Save Pooled Sample TLC
   const handleSavePoolTlc = async () => {
-    if (!activeGroupId) return;
+    if (!activeGroupId || poolSavingRef.current || poolUploading || poolPhotoLoadingSlot) return;
+    poolSavingRef.current = true;
     setPoolUploading(true);
 
-    let url254 = poolPhoto254.preview || '';
-    if (poolPhoto254.file) {
-      try {
-        url254 = await uploadImage(poolPhoto254.file, 'pool_tlc_254');
-      } catch (err) {
-        console.warn('Upload pool 254 error:', err);
+    const targetGroupId = activeGroupId;
+
+    try {
+      let url254 = poolPhoto254.preview || '';
+      if (poolPhoto254.file) {
+        try {
+          url254 = await uploadImage(poolPhoto254.file, 'pool_tlc_254');
+        } catch (err) {
+          console.warn('Upload pool 254 error:', err);
+        }
       }
+
+      let url365 = poolPhoto365.preview || '';
+      if (poolPhoto365.file) {
+        try {
+          url365 = await uploadImage(poolPhoto365.file, 'pool_tlc_365');
+        } catch (err) {
+          console.warn('Upload pool 365 error:', err);
+        }
+      }
+
+      let urlReagent = poolPhotoReagent.preview || '';
+      if (poolPhotoReagent.file) {
+        try {
+          urlReagent = await uploadImage(poolPhotoReagent.file, 'pool_tlc_reagent');
+        } catch (err) {
+          console.warn('Upload pool reagent error:', err);
+        }
+      }
+
+      const finalStain =
+        poolStain === 'Khác (Tự nhập)'
+          ? customPoolStain.trim() || 'Thuốc thử hiện màu'
+          : poolStain;
+
+      const tlcData = {
+        eluent: poolEluent,
+        stainName: finalStain,
+        purityVerdict: poolPurity,
+        notes: poolNotes,
+        images: {
+          uv254: url254 || null,
+          uv365: url365 || null,
+          reagent: urlReagent || null
+        },
+        updatedAt: new Date().toISOString()
+      };
+
+      const updatedGroups = fractionGroups.map((g) => {
+        if (g.id === targetGroupId) {
+          return { ...g, tlc: tlcData };
+        }
+        return g;
+      });
+
+      onChange({
+        ...columnData,
+        fractionGroups: updatedGroups
+      });
+
+      handleClosePoolTlcModal();
+    } finally {
+      poolSavingRef.current = false;
+      setPoolUploading(false);
     }
-
-    let url365 = poolPhoto365.preview || '';
-    if (poolPhoto365.file) {
-      try {
-        url365 = await uploadImage(poolPhoto365.file, 'pool_tlc_365');
-      } catch (err) {
-        console.warn('Upload pool 365 error:', err);
-      }
-    }
-
-    let urlReagent = poolPhotoReagent.preview || '';
-    if (poolPhotoReagent.file) {
-      try {
-        urlReagent = await uploadImage(poolPhotoReagent.file, 'pool_tlc_reagent');
-      } catch (err) {
-        console.warn('Upload pool reagent error:', err);
-      }
-    }
-
-    const finalStain =
-      poolStain === 'Khác (Tự nhập)'
-        ? customPoolStain.trim() || 'Thuốc thử hiện màu'
-        : poolStain;
-
-    const tlcData = {
-      eluent: poolEluent,
-      stainName: finalStain,
-      purityVerdict: poolPurity,
-      notes: poolNotes,
-      images: {
-        uv254: url254 || null,
-        uv365: url365 || null,
-        reagent: urlReagent || null
-      },
-      updatedAt: new Date().toISOString()
-    };
-
-    const updatedGroups = fractionGroups.map((g) => {
-      if (g.id === activeGroupId) {
-        return { ...g, tlc: tlcData };
-      }
-      return g;
-    });
-
-    onChange({
-      ...columnData,
-      fractionGroups: updatedGroups
-    });
-
-    setPoolUploading(false);
-    setPoolTlcModalOpen(false);
-    setActiveGroupId(null);
   };
 
   // Keyboard shortcut handlers: Esc to close, Enter to save
@@ -1065,23 +1167,23 @@ export const ColumnFractionManager = ({
           return;
         }
         if (fracTlcModalOpen) {
-          setFracTlcModalOpen(false);
+          handleCloseFracTlcModal();
           return;
         }
         if (poolTlcModalOpen) {
-          setPoolTlcModalOpen(false);
+          handleClosePoolTlcModal();
           return;
         }
       }
 
       if (e.key === 'Enter') {
         if (e.target && e.target.tagName === 'TEXTAREA') return;
-        if (fracTlcModalOpen && !fracUploading) {
+        if (fracTlcModalOpen && !fracUploading && !fracPhotoLoadingSlot) {
           e.preventDefault();
           handleSaveFracTlcRef.current?.();
           return;
         }
-        if (poolTlcModalOpen && !poolUploading) {
+        if (poolTlcModalOpen && !poolUploading && !poolPhotoLoadingSlot) {
           e.preventDefault();
           handleSavePoolTlcRef.current?.();
           return;
@@ -1093,7 +1195,7 @@ export const ColumnFractionManager = ({
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [fracTlcModalOpen, poolTlcModalOpen, lightboxData, fracUploading, poolUploading]);
+  }, [fracTlcModalOpen, poolTlcModalOpen, lightboxData, fracUploading, poolUploading, fracPhotoLoadingSlot, poolPhotoLoadingSlot]);
 
   // Lightbox Zoom Handler
   const openLightbox = (images, title, subtitle, stainName) => {
@@ -1589,17 +1691,16 @@ export const ColumnFractionManager = ({
           {fractionTlcPlates && fractionTlcPlates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {fractionTlcPlates.map((plate) => {
-                const currentTab = activeTabPerFracTlc[plate.id] || 'uv254';
-                const img254 = plate.images?.uv254;
-                const img365 = plate.images?.uv365;
-                const imgReagent = plate.images?.reagent;
+                const img254 = plate.images?.uv254 || null;
+                const img365 = plate.images?.uv365 || null;
+                const imgReagent = plate.images?.reagent || null;
+                const defaultTab = img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254';
+                const currentTab = activeTabPerFracTlc[plate.id] || defaultTab;
 
                 let activeImg = null;
                 if (currentTab === 'uv254') activeImg = img254;
                 else if (currentTab === 'uv365') activeImg = img365;
                 else if (currentTab === 'reagent') activeImg = imgReagent;
-
-                if (!activeImg) activeImg = img254 || img365 || imgReagent;
 
                 return (
                   <div
@@ -1899,13 +2000,14 @@ export const ColumnFractionManager = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {fractionGroups.map((g) => {
-                  const currentGroupTab = activeTabPerPoolGroup[g.id] || 'uv254';
                   const tlc = g.tlc || {};
-                  const img254 = tlc.images?.uv254;
-                  const img365 = tlc.images?.uv365;
-                  const imgReagent = tlc.images?.reagent;
-                  let activePoolImg = currentGroupTab === 'uv254' ? img254 : currentGroupTab === 'uv365' ? img365 : imgReagent;
-                  if (!activePoolImg) activePoolImg = img254 || img365 || imgReagent;
+                  const img254 = tlc.images?.uv254 || null;
+                  const img365 = tlc.images?.uv365 || null;
+                  const imgReagent = tlc.images?.reagent || null;
+                  const defaultGroupTab = img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254';
+                  const currentGroupTab = activeTabPerPoolGroup[g.id] || defaultGroupTab;
+                  const activePoolImg =
+                    currentGroupTab === 'uv254' ? img254 : currentGroupTab === 'uv365' ? img365 : imgReagent;
 
                   return (
                     <div
@@ -2480,7 +2582,7 @@ export const ColumnFractionManager = ({
           {/* Separate backdrop so backdrop-filter does not offset iOS WebKit input caret */}
           <div
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
-            onClick={() => setFracTlcModalOpen(false)}
+            onClick={handleCloseFracTlcModal}
           />
           <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[92vh] sm:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -2497,7 +2599,7 @@ export const ColumnFractionManager = ({
               </div>
               <button
                 type="button"
-                onClick={() => setFracTlcModalOpen(false)}
+                onClick={handleCloseFracTlcModal}
                 className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 px-3 py-2 rounded-xl min-h-[42px] flex items-center gap-1 font-bold text-xs cursor-pointer flex-shrink-0"
                 title="Đóng (Esc)"
               >
@@ -2677,23 +2779,32 @@ export const ColumnFractionManager = ({
                 </div>
 
                 <div className="relative aspect-[16/9] sm:aspect-[2/1] max-h-[200px] bg-black/80 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                  {fracSlot === 'uv254' && fracPhoto254.preview && (
-                    <img src={fracPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
-                  )}
-                  {fracSlot === 'uv365' && fracPhoto365.preview && (
-                    <img src={fracPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
-                  )}
-                  {fracSlot === 'reagent' && fracPhotoReagent.preview && (
-                    <img src={fracPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
-                  )}
-
-                  {!((fracSlot === 'uv254' && fracPhoto254.preview) ||
-                    (fracSlot === 'uv365' && fracPhoto365.preview) ||
-                    (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
-                    <div className="text-center p-3 text-slate-400">
-                      <Camera className="w-8 h-8 mx-auto mb-1 opacity-50 text-indigo-400" />
-                      <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
+                  {fracPhotoLoadingSlot === fracSlot ? (
+                    <div className="text-center p-3 text-indigo-300">
+                      <Camera className="w-8 h-8 mx-auto mb-1 animate-pulse text-indigo-400" />
+                      <p className="text-xs font-bold">Đang xử lý ảnh...</p>
                     </div>
+                  ) : (
+                    <>
+                      {fracSlot === 'uv254' && fracPhoto254.preview && (
+                        <img src={fracPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
+                      )}
+                      {fracSlot === 'uv365' && fracPhoto365.preview && (
+                        <img src={fracPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
+                      )}
+                      {fracSlot === 'reagent' && fracPhotoReagent.preview && (
+                        <img src={fracPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
+                      )}
+
+                      {!((fracSlot === 'uv254' && fracPhoto254.preview) ||
+                        (fracSlot === 'uv365' && fracPhoto365.preview) ||
+                        (fracSlot === 'reagent' && fracPhotoReagent.preview)) && (
+                        <div className="text-center p-3 text-slate-400">
+                          <Camera className="w-8 h-8 mx-auto mb-1 opacity-50 text-indigo-400" />
+                          <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -2703,14 +2814,11 @@ export const ColumnFractionManager = ({
                     <Camera className="w-4 h-4 flex-shrink-0" />
                     <span>Mở Camera</span>
                     <input
+                      key={`frac-cam-${fracModalSessionKey}-${fracSlot}`}
                       type="file"
                       accept="image/*"
                       capture="environment"
-                      onChange={(e) => {
-                        if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
-                        else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
-                        else handlePhotoSelect(e, setFracPhotoReagent);
-                      }}
+                      onChange={(e) => handlePhotoSelect(e, 'frac', fracSlot)}
                       className="sr-only"
                     />
                   </label>
@@ -2719,13 +2827,10 @@ export const ColumnFractionManager = ({
                     <Upload className="w-4 h-4 flex-shrink-0" />
                     <span>Chọn Từ Máy</span>
                     <input
+                      key={`frac-gal-${fracModalSessionKey}-${fracSlot}`}
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
-                        if (fracSlot === 'uv254') handlePhotoSelect(e, setFracPhoto254);
-                        else if (fracSlot === 'uv365') handlePhotoSelect(e, setFracPhoto365);
-                        else handlePhotoSelect(e, setFracPhotoReagent);
-                      }}
+                      onChange={(e) => handlePhotoSelect(e, 'frac', fracSlot)}
                       className="sr-only"
                     />
                   </label>
@@ -2753,7 +2858,7 @@ export const ColumnFractionManager = ({
             <div className="p-3 px-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
-                onClick={() => setFracTlcModalOpen(false)}
+                onClick={handleCloseFracTlcModal}
                 className="px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[40px] cursor-pointer"
               >
                 Hủy (Esc)
@@ -2761,10 +2866,16 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={handleSaveFracTlc}
-                disabled={fracUploading}
+                disabled={fracUploading || Boolean(fracPhotoLoadingSlot)}
                 className="px-5 py-2 rounded-xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[40px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {fracUploading ? 'Đang lưu...' : editingFracTlcId ? 'Cập Nhật (Enter)' : 'Lưu Bản Mỏng (Enter)'}
+                {fracPhotoLoadingSlot
+                  ? 'Đang nạp ảnh...'
+                  : fracUploading
+                    ? 'Đang lưu...'
+                    : editingFracTlcId
+                      ? 'Cập Nhật (Enter)'
+                      : 'Lưu Bản Mỏng (Enter)'}
               </button>
             </div>
           </div>
@@ -2777,7 +2888,7 @@ export const ColumnFractionManager = ({
           {/* Separate backdrop so backdrop-filter does not offset iOS WebKit input caret */}
           <div
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
-            onClick={() => setPoolTlcModalOpen(false)}
+            onClick={handleClosePoolTlcModal}
           />
           <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -2794,7 +2905,7 @@ export const ColumnFractionManager = ({
               </div>
               <button
                 type="button"
-                onClick={() => setPoolTlcModalOpen(false)}
+                onClick={handleClosePoolTlcModal}
                 className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 px-3 py-2 rounded-xl min-h-[42px] flex items-center gap-1 font-bold text-xs cursor-pointer flex-shrink-0"
                 title="Đóng (Esc)"
               >
@@ -2914,23 +3025,32 @@ export const ColumnFractionManager = ({
                 {/* Active Photo Slot interactive preview */}
                 <div className="bg-slate-900 rounded-3xl p-4 text-white border border-slate-800 space-y-3">
                   <div className="relative aspect-[4/3] bg-black/80 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                    {poolTlcSlot === 'uv254' && poolPhoto254.preview && (
-                      <img src={poolPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
-                    )}
-                    {poolTlcSlot === 'uv365' && poolPhoto365.preview && (
-                      <img src={poolPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
-                    )}
-                    {poolTlcSlot === 'reagent' && poolPhotoReagent.preview && (
-                      <img src={poolPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
-                    )}
-
-                    {!((poolTlcSlot === 'uv254' && poolPhoto254.preview) ||
-                      (poolTlcSlot === 'uv365' && poolPhoto365.preview) ||
-                      (poolTlcSlot === 'reagent' && poolPhotoReagent.preview)) && (
-                      <div className="text-center p-6 text-slate-400">
-                        <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-emerald-400" />
-                        <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
+                    {poolPhotoLoadingSlot === poolTlcSlot ? (
+                      <div className="text-center p-6 text-emerald-300">
+                        <Camera className="w-10 h-10 mx-auto mb-2 animate-pulse text-emerald-400" />
+                        <p className="text-xs font-bold">Đang xử lý ảnh...</p>
                       </div>
+                    ) : (
+                      <>
+                        {poolTlcSlot === 'uv254' && poolPhoto254.preview && (
+                          <img src={poolPhoto254.preview} alt="UV 254" className="w-full h-full object-contain" />
+                        )}
+                        {poolTlcSlot === 'uv365' && poolPhoto365.preview && (
+                          <img src={poolPhoto365.preview} alt="UV 365" className="w-full h-full object-contain" />
+                        )}
+                        {poolTlcSlot === 'reagent' && poolPhotoReagent.preview && (
+                          <img src={poolPhotoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
+                        )}
+
+                        {!((poolTlcSlot === 'uv254' && poolPhoto254.preview) ||
+                          (poolTlcSlot === 'uv365' && poolPhoto365.preview) ||
+                          (poolTlcSlot === 'reagent' && poolPhotoReagent.preview)) && (
+                          <div className="text-center p-6 text-slate-400">
+                            <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-emerald-400" />
+                            <p className="text-xs font-medium">Chưa có ảnh ở vị trí này</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -2940,14 +3060,11 @@ export const ColumnFractionManager = ({
                       <Camera className="w-4 h-4 flex-shrink-0" />
                       <span>Mở Camera Chụp</span>
                       <input
+                        key={`pool-cam-${poolModalSessionKey}-${poolTlcSlot}`}
                         type="file"
                         accept="image/*"
                         capture="environment"
-                        onChange={(e) => {
-                          if (poolTlcSlot === 'uv254') handlePhotoSelect(e, setPoolPhoto254);
-                          else if (poolTlcSlot === 'uv365') handlePhotoSelect(e, setPoolPhoto365);
-                          else handlePhotoSelect(e, setPoolPhotoReagent);
-                        }}
+                        onChange={(e) => handlePhotoSelect(e, 'pool', poolTlcSlot)}
                         className="sr-only"
                       />
                     </label>
@@ -2956,13 +3073,10 @@ export const ColumnFractionManager = ({
                       <Upload className="w-4 h-4 flex-shrink-0" />
                       <span>Chọn Từ Thư Viện</span>
                       <input
+                        key={`pool-gal-${poolModalSessionKey}-${poolTlcSlot}`}
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
-                          if (poolTlcSlot === 'uv254') handlePhotoSelect(e, setPoolPhoto254);
-                          else if (poolTlcSlot === 'uv365') handlePhotoSelect(e, setPoolPhoto365);
-                          else handlePhotoSelect(e, setPoolPhotoReagent);
-                        }}
+                        onChange={(e) => handlePhotoSelect(e, 'pool', poolTlcSlot)}
                         className="sr-only"
                       />
                     </label>
@@ -2989,7 +3103,7 @@ export const ColumnFractionManager = ({
             <div className="p-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
-                onClick={() => setPoolTlcModalOpen(false)}
+                onClick={handleClosePoolTlcModal}
                 className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[44px] cursor-pointer"
               >
                 Hủy (Esc)
@@ -2997,10 +3111,14 @@ export const ColumnFractionManager = ({
               <button
                 type="button"
                 onClick={handleSavePoolTlc}
-                disabled={poolUploading}
+                disabled={poolUploading || Boolean(poolPhotoLoadingSlot)}
                 className="px-6 py-2.5 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[44px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {poolUploading ? 'Đang lưu...' : 'Lưu Sắc Ký Mẫu Gộp (Enter)'}
+                {poolPhotoLoadingSlot
+                  ? 'Đang nạp ảnh...'
+                  : poolUploading
+                    ? 'Đang lưu...'
+                    : 'Lưu Sắc Ký Mẫu Gộp (Enter)'}
               </button>
             </div>
           </div>

@@ -115,10 +115,21 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         ? new Date(activeExperiment.reactionTimer.lastStartTime).getTime()
         : Date.now();
 
-      interval = setInterval(() => {
+      const updateTick = () => {
         const diff = Math.max(0, Math.floor((Date.now() - start) / 1000));
         setRunningSeconds(diff);
-      }, 1000);
+      };
+
+      updateTick();
+      interval = setInterval(updateTick, 1000);
+      document.addEventListener('visibilitychange', updateTick);
+      window.addEventListener('focus', updateTick);
+
+      return () => {
+        if (interval) clearInterval(interval);
+        document.removeEventListener('visibilitychange', updateTick);
+        window.removeEventListener('focus', updateTick);
+      };
     } else {
       setRunningSeconds(0);
     }
@@ -136,7 +147,23 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const totalCurrentTimer = (activeExperiment?.reactionTimer?.totalSeconds || 0) + runningSeconds;
+  const timerIntervalsList = Array.isArray(activeExperiment?.reactionTimer?.intervals)
+    ? activeExperiment.reactionTimer.intervals
+    : activeExperiment?.reactionTimer?.intervals &&
+      typeof activeExperiment.reactionTimer.intervals === 'object'
+    ? Object.values(activeExperiment.reactionTimer.intervals)
+    : [];
+  const intervalsSumSeconds = timerIntervalsList.reduce(
+    (acc, it) => acc + (Number(it?.durationSeconds) || 0),
+    0
+  );
+  const baseTotalSeconds = Math.max(
+    Number(activeExperiment?.reactionTimer?.totalSeconds) || 0,
+    intervalsSumSeconds
+  );
+  const totalCurrentTimer =
+    baseTotalSeconds +
+    (activeExperiment?.reactionTimer?.status === 'running' ? runningSeconds : 0);
 
   if (!activeExperiment) {
     return (

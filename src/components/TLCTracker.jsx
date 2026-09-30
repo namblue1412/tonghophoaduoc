@@ -29,6 +29,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const [lightboxData, setLightboxData] = useState(null);
 
   const [uploading, setUploading] = useState(false);
+  const [photoLoadingSlot, setPhotoLoadingSlot] = useState(null);
+  const [modalSessionKey, setModalSessionKey] = useState(0);
+  const modalSessionRef = useRef(0);
+  const savingRef = useRef(false);
 
   // Form state for adding/editing a TLC plate
   const [newMinute, setNewMinute] = useState('');
@@ -76,11 +80,36 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     'Petroleum Ether : Acetone (5 : 1)'
   ];
 
-  // Open Add Modal
+  const handleCloseModal = () => {
+    modalSessionRef.current += 1;
+    setModalSessionKey((k) => k + 1);
+    setModalOpen(false);
+    setEditingPlateId(null);
+    setPhotoLoadingSlot(null);
+    setUploading(false);
+    savingRef.current = false;
+    setPhoto254({ preview: null, file: null });
+    setPhoto365({ preview: null, file: null });
+    setPhotoReagent({ preview: null, file: null });
+  };
+
+  // Open Add Modal with 100% isolated clean state
   const handleOpenAddModal = () => {
+    modalSessionRef.current += 1;
+    setModalSessionKey((k) => k + 1);
+    savingRef.current = false;
+    setUploading(false);
+    setPhotoLoadingSlot(null);
     setEditingPlateId(null);
     const currentMins = Math.floor(currentTimerSeconds / 60);
-    setNewMinute(currentMins > 0 ? String(currentMins) : '15');
+    if (currentMins > 0) {
+      setNewMinute(String(currentMins));
+    } else if (tlcList && tlcList.length > 0) {
+      const maxExistingMin = Math.max(...tlcList.map((p) => Number(p.minute) || 0));
+      setNewMinute(String(maxExistingMin + 15));
+    } else {
+      setNewMinute('15');
+    }
     setNewObservation('');
     setPhoto254({ preview: null, file: null });
     setPhoto365({ preview: null, file: null });
@@ -98,6 +127,11 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Open Edit Modal for an existing TLC plate
   const handleOpenEditModal = (plate) => {
+    modalSessionRef.current += 1;
+    setModalSessionKey((k) => k + 1);
+    savingRef.current = false;
+    setUploading(false);
+    setPhotoLoadingSlot(null);
     setEditingPlateId(plate.id);
     setNewMinute(String(plate.minute ?? ''));
     setNewEluent(plate.eluent || 'Hexan : EtOAc (3 : 1)');
@@ -123,32 +157,48 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
             { label: 'Sản phẩm', distCm: '', rf: '' }
           ]
     );
-    setPhoto254({ preview: plate.images?.uv254 || plate.imageUrl || null, file: null });
+    const existing254 = plate.images ? plate.images.uv254 || null : plate.imageUrl || null;
+    setPhoto254({ preview: existing254, file: null });
     setPhoto365({ preview: plate.images?.uv365 || null, file: null });
     setPhotoReagent({ preview: plate.images?.reagent || null, file: null });
     setActivePhotoSlot('uv254');
     setModalOpen(true);
   };
 
-  // Helper to handle local image selection via native label input (compresses immediately on iOS/Android/Mac)
-  const handlePhotoSelect = async (e, setPhotoState) => {
+  const applySlotPhoto = (slotKey, photoObj) => {
+    if (slotKey === 'uv254') setPhoto254(photoObj);
+    else if (slotKey === 'uv365') setPhoto365(photoObj);
+    else if (slotKey === 'reagent') setPhotoReagent(photoObj);
+  };
+
+  // Helper to handle local image selection via native label input (guarded against stale async resolution)
+  const handlePhotoSelect = async (e, slotKey) => {
     const inputEl = e.target;
     const file = inputEl.files?.[0];
+    inputEl.value = '';
     if (!file) return;
+
+    const sessionAtStart = modalSessionRef.current;
+    setPhotoLoadingSlot(slotKey);
 
     try {
       const processedUrl = await uploadImage(file, 'tlc_plate');
+      if (modalSessionRef.current !== sessionAtStart) return;
       if (processedUrl) {
-        setPhotoState({ preview: processedUrl, file: null });
+        applySlotPhoto(slotKey, { preview: processedUrl, file: null });
       }
     } catch (err) {
+      if (modalSessionRef.current !== sessionAtStart) return;
       const reader = new FileReader();
       reader.onload = () => {
-        setPhotoState({ preview: reader.result, file });
+        if (modalSessionRef.current !== sessionAtStart) return;
+        applySlotPhoto(slotKey, { preview: reader.result, file });
       };
       reader.readAsDataURL(file);
     } finally {
-      inputEl.value = '';
+      if (modalSessionRef.current === sessionAtStart) {
+        setPhotoLoadingSlot(null);
+      }
     }
   };
 
@@ -198,6 +248,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Save or update TLC plate with 3 photos
   const handleSaveTLC = async () => {
+    if (savingRef.current || uploading || photoLoadingSlot) return;
     if (!newMinute) {
       alert('Vui lòng nhập thời điểm chấm TLC (phút)');
       return;
@@ -218,6 +269,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       return;
     }
 
+    const targetEditingId = editingPlateId;
+    savingRef.current = true;
     setUploading(true);
 
     let url254 = photo254.preview || '';
@@ -271,30 +324,29 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
         uv365: url365 || null,
         reagent: urlReagent || null
       },
-      imageUrl: url254 || url365 || urlReagent || '',
+      imageUrl: url254 || '',
       spots: newSpots.filter((s) => s.rf.trim() !== '' || s.label.trim() !== ''),
       observations: newObservation || 'Theo dõi tiến trình phản ứng'
     };
 
+    const currentList = Array.isArray(tlcList) ? tlcList : [];
     let updatedList;
-    if (editingPlateId) {
-      updatedList = tlcList.map((p) =>
-        p.id === editingPlateId ? { ...p, ...platePayload } : p
+    if (targetEditingId) {
+      updatedList = currentList.map((p) =>
+        p.id === targetEditingId ? { ...p, ...platePayload } : p
       );
     } else {
       const newPlate = {
-        id: `tlc-${Date.now()}`,
+        id: `tlc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         ...platePayload
       };
-      updatedList = [...tlcList, newPlate];
+      updatedList = [...currentList, newPlate];
     }
 
     updatedList.sort((a, b) => (a.minute || 0) - (b.minute || 0));
     onChange(updatedList);
 
-    setUploading(false);
-    setModalOpen(false);
-    setEditingPlateId(null);
+    handleCloseModal();
   };
 
   // Keyboard shortcut handlers: Esc to close, Enter to save
@@ -309,14 +361,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
           return;
         }
         if (modalOpen) {
-          setModalOpen(false);
+          handleCloseModal();
           return;
         }
       }
 
       if (e.key === 'Enter') {
         if (e.target && e.target.tagName === 'TEXTAREA') return;
-        if (modalOpen && !uploading) {
+        if (modalOpen && !uploading && !photoLoadingSlot) {
           e.preventDefault();
           handleSaveTLCRef.current?.();
         }
@@ -327,7 +379,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [modalOpen, lightboxData, uploading]);
+  }, [modalOpen, lightboxData, uploading, photoLoadingSlot]);
 
   // Lock background document scroll when modal is open so iOS virtual keyboard never shifts caret outside input boxes
   useEffect(() => {
@@ -365,10 +417,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   // Auto-download all uploaded photos (up to 3 images: UV 254, UV 365, Reagent) of a TLC plate at once
   const handleDownloadPlateImages = async (plate) => {
     const imagesToDownload = [];
-    if (plate.images?.uv254) {
-      imagesToDownload.push({ url: plate.images.uv254, name: `TLC_${plate.minute}m_UV254.jpg` });
-    } else if (plate.imageUrl) {
-      imagesToDownload.push({ url: plate.imageUrl, name: `TLC_${plate.minute}m_UV254.jpg` });
+    const img254 = plate.images ? plate.images.uv254 || null : plate.imageUrl || null;
+    if (img254) {
+      imagesToDownload.push({ url: img254, name: `TLC_${plate.minute}m_UV254.jpg` });
     }
     if (plate.images?.uv365) {
       imagesToDownload.push({ url: plate.images.uv365, name: `TLC_${plate.minute}m_UV365.jpg` });
@@ -441,7 +492,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   // Open Lightbox
   const openLightbox = (plate, type) => {
     const images = {
-      uv254: plate.images?.uv254 || plate.imageUrl || null,
+      uv254: plate.images ? plate.images.uv254 || null : plate.imageUrl || null,
       uv365: plate.images?.uv365 || null,
       reagent: plate.images?.reagent || null,
     };
@@ -494,20 +545,17 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
         {tlcList && tlcList.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {tlcList.map((plate) => {
-              const currentTab = activeTabPerPlate[plate.id] || 'uv254';
-              const img254 = plate.images?.uv254 || plate.imageUrl;
-              const img365 = plate.images?.uv365;
-              const imgReagent = plate.images?.reagent;
+              const img254 = plate.images ? plate.images.uv254 || null : plate.imageUrl || null;
+              const img365 = plate.images?.uv365 || null;
+              const imgReagent = plate.images?.reagent || null;
+              const defaultTab = img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254';
+              const currentTab = activeTabPerPlate[plate.id] || defaultTab;
               const stainLabel = plate.stainName || 'Thuốc thử';
 
               let activeImg = null;
               if (currentTab === 'uv254') activeImg = img254;
               else if (currentTab === 'uv365') activeImg = img365;
               else if (currentTab === 'reagent') activeImg = imgReagent;
-
-              if (!activeImg) {
-                activeImg = img254 || img365 || imgReagent;
-              }
 
               return (
                 <div
@@ -757,7 +805,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
         <div className="fixed inset-0 z-[100] modal-safe-top flex flex-col sm:items-center sm:justify-center">
           <div
             className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
-            onClick={() => setModalOpen(false)}
+            onClick={handleCloseModal}
           />
           <div className="relative z-10 bg-white w-full flex-1 sm:flex-initial sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -777,7 +825,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               </div>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={handleCloseModal}
                 className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 px-3 py-2 rounded-xl min-h-[42px] flex items-center gap-1 font-bold text-xs cursor-pointer flex-shrink-0"
                 title="Đóng (Esc)"
               >
@@ -942,25 +990,34 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
                   {/* Photo Preview Box */}
                   <div className="relative aspect-[4/3] bg-black/80 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                    {activePhotoSlot === 'uv254' && photo254.preview && (
-                      <img src={photo254.preview} alt="UV 254" className="w-full h-full object-contain" />
-                    )}
-                    {activePhotoSlot === 'uv365' && photo365.preview && (
-                      <img src={photo365.preview} alt="UV 365" className="w-full h-full object-contain" />
-                    )}
-                    {activePhotoSlot === 'reagent' && photoReagent.preview && (
-                      <img src={photoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
-                    )}
-
-                    {/* Placeholder when no photo taken */}
-                    {!((activePhotoSlot === 'uv254' && photo254.preview) ||
-                      (activePhotoSlot === 'uv365' && photo365.preview) ||
-                      (activePhotoSlot === 'reagent' && photoReagent.preview)) && (
-                      <div className="text-center p-6 text-slate-400">
-                        <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-indigo-400" />
-                        <p className="text-xs font-medium">Chưa có ảnh cho vị trí này</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Nhấn một trong 2 nút bên dưới để chụp hoặc tải</p>
+                    {photoLoadingSlot === activePhotoSlot ? (
+                      <div className="text-center p-6 text-indigo-300">
+                        <Camera className="w-10 h-10 mx-auto mb-2 animate-pulse text-indigo-400" />
+                        <p className="text-xs font-bold">Đang xử lý & nén ảnh sắc ký...</p>
                       </div>
+                    ) : (
+                      <>
+                        {activePhotoSlot === 'uv254' && photo254.preview && (
+                          <img src={photo254.preview} alt="UV 254" className="w-full h-full object-contain" />
+                        )}
+                        {activePhotoSlot === 'uv365' && photo365.preview && (
+                          <img src={photo365.preview} alt="UV 365" className="w-full h-full object-contain" />
+                        )}
+                        {activePhotoSlot === 'reagent' && photoReagent.preview && (
+                          <img src={photoReagent.preview} alt="Thuốc thử" className="w-full h-full object-contain" />
+                        )}
+
+                        {/* Placeholder when no photo taken */}
+                        {!((activePhotoSlot === 'uv254' && photo254.preview) ||
+                          (activePhotoSlot === 'uv365' && photo365.preview) ||
+                          (activePhotoSlot === 'reagent' && photoReagent.preview)) && (
+                          <div className="text-center p-6 text-slate-400">
+                            <Camera className="w-10 h-10 mx-auto mb-2 opacity-50 text-indigo-400" />
+                            <p className="text-xs font-medium">Chưa có ảnh cho vị trí này</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Nhấn một trong 2 nút bên dưới để chụp hoặc tải</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -971,14 +1028,11 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       <Camera className="w-5 h-5 flex-shrink-0" />
                       <span>Mở Camera Chụp</span>
                       <input
+                        key={`cam-${modalSessionKey}-${activePhotoSlot}`}
                         type="file"
                         accept="image/*"
                         capture="environment"
-                        onChange={(e) => {
-                          if (activePhotoSlot === 'uv254') handlePhotoSelect(e, setPhoto254);
-                          else if (activePhotoSlot === 'uv365') handlePhotoSelect(e, setPhoto365);
-                          else handlePhotoSelect(e, setPhotoReagent);
-                        }}
+                        onChange={(e) => handlePhotoSelect(e, activePhotoSlot)}
                         className="sr-only"
                       />
                     </label>
@@ -988,13 +1042,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                       <Upload className="w-5 h-5 flex-shrink-0" />
                       <span>Chọn Từ Thư Viện</span>
                       <input
+                        key={`gal-${modalSessionKey}-${activePhotoSlot}`}
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
-                          if (activePhotoSlot === 'uv254') handlePhotoSelect(e, setPhoto254);
-                          else if (activePhotoSlot === 'uv365') handlePhotoSelect(e, setPhoto365);
-                          else handlePhotoSelect(e, setPhotoReagent);
-                        }}
+                        onChange={(e) => handlePhotoSelect(e, activePhotoSlot)}
                         className="sr-only"
                       />
                     </label>
@@ -1176,7 +1227,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
             <div className="p-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={handleCloseModal}
                 className="px-4 py-3 rounded-2xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[48px] cursor-pointer"
               >
                 Hủy (Esc)
@@ -1184,10 +1235,16 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
               <button
                 type="button"
                 onClick={handleSaveTLC}
-                disabled={uploading}
+                disabled={uploading || Boolean(photoLoadingSlot)}
                 className="px-6 py-3 rounded-2xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[48px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {uploading ? 'Đang lưu...' : (editingPlateId ? 'Cập Nhật (Enter)' : 'Lưu Bản Mỏng (Enter)')}
+                {photoLoadingSlot
+                  ? 'Đang nạp ảnh...'
+                  : uploading
+                    ? 'Đang lưu...'
+                    : editingPlateId
+                      ? 'Cập Nhật (Enter)'
+                      : 'Lưu Bản Mỏng (Enter)'}
               </button>
             </div>
           </div>
