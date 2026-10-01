@@ -15,6 +15,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { parseDecimal } from './StoichiometryTable';
+import { theoreticalMass as getTheoreticalMass } from '../domain/chemistry.js';
 
 export const WorkupSection = ({
   workupData,
@@ -22,7 +23,9 @@ export const WorkupSection = ({
   massUnit = 'g',
   moleUnit = 'mol',
   limitingMoles = 0,
-  targetMW = 0
+  targetMW = 0,
+  limitingCoefficient = 1,
+  productCoefficient = 1
 }) => {
   const {
     quenching = '',
@@ -39,7 +42,7 @@ export const WorkupSection = ({
     workupNotes = ''
   } = workupData || {};
 
-  const theoreticalMass = limitingMoles > 0 && targetMW > 0 ? limitingMoles * targetMW : 0;
+  const theoreticalMass = getTheoreticalMass(limitingMoles, targetMW, { mass: massUnit, mole: moleUnit }, limitingCoefficient, productCoefficient);
   const crudeMassNum = parseDecimal(crudeMass);
   const crudeYieldPct =
     theoreticalMass > 0 && crudeMassNum > 0
@@ -68,12 +71,13 @@ export const WorkupSection = ({
 
   const recalculateCrudeTubes = (updatedTubes) => {
     const totalMass = updatedTubes.reduce((sum, t) => sum + (t.crudeMass || 0), 0);
-    const roundedTotal = parseFloat(totalMass.toFixed(4));
+    const roundedTotal = totalMass;
     const firstTare = updatedTubes[0]?.tareMass || '';
     const firstGross = updatedTubes[0]?.grossMass || '';
 
     onChange({
       ...workupData,
+      crudeMassSource: 'tubes',
       crudeTubes: updatedTubes,
       crudeTareMass: firstTare,
       crudeGrossMass: firstGross,
@@ -88,7 +92,7 @@ export const WorkupSection = ({
       const nextTube = { ...t, [field]: cleanVal };
       const tare = parseDecimal(field === 'tareMass' ? cleanVal : t.tareMass);
       const gross = parseDecimal(field === 'grossMass' ? cleanVal : t.grossMass);
-      nextTube.crudeMass = parseFloat(Math.max(0, gross - tare).toFixed(4));
+      nextTube.crudeMass = Math.max(0, gross - tare);
       return nextTube;
     });
 
@@ -159,6 +163,7 @@ export const WorkupSection = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden card-print">
+      {normalizedCrudeTubes.some((t) => t.weighingError) && <p role="alert" className="p-3 text-rose-800">{normalizedCrudeTubes.filter((t) => t.weighingError).map((t) => `${t.label}: ${t.weighingError}`).join('; ')}</p>}
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -385,7 +390,7 @@ export const WorkupSection = ({
                       m(cắn thô):
                     </span>
                     <span className="font-mono font-extrabold text-amber-950 text-xs sm:text-sm text-right mt-1 truncate">
-                      {(tube.crudeMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
+                      {Number(tube.crudeMass || 0).toPrecision(6)} <span className="font-normal text-[10px]">{massUnit}</span>
                     </span>
                   </div>
                 </div>
@@ -418,7 +423,7 @@ export const WorkupSection = ({
                   </span>
                   {theoreticalMass > 0 && (
                     <span className="text-[11px] font-medium text-amber-800 block mt-0.5">
-                      Lý thuyết (100%): <strong>{theoreticalMass.toFixed(massUnit === 'mg' ? 2 : 4)} {massUnit}</strong> • Hiệu suất thô:{' '}
+                      Lý thuyết (100%): <strong>{theoreticalMass.toPrecision(6)} {massUnit}</strong> • Hiệu suất thô:{' '}
                       <strong className={crudeYieldPct > 100 ? 'text-rose-700 underline' : 'text-amber-950'}>
                         {crudeYieldPct}%
                       </strong>
@@ -428,12 +433,14 @@ export const WorkupSection = ({
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-center">
+                <label className="text-xs"><input type="checkbox" checked={workupData?.crudeMassSource === 'manual'} onChange={(e) => handleFieldChange('crudeMassSource', e.target.checked ? 'manual' : 'tubes')} /> Nhập tổng thủ công</label>
                 <input
                   type="text"
                   inputMode="decimal"
                   value={crudeMass ?? ''}
+                  readOnly={workupData?.crudeMassSource !== 'manual'}
                   onChange={(e) => handleFieldChange('crudeMass', e.target.value.replace(/[^0-9.,]/g, ''))}
-                  title="Nhấn để chỉnh sửa hoặc nhập tay tổng khối lượng cắn thô nếu cần"
+                  title="Tổng từ cân trừ bì; bật Nhập tổng thủ công để nhập giá trị độc lập"
                   placeholder="0.0000"
                   className="w-36 text-right font-mono font-extrabold text-xl text-amber-950 bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-3 py-1.5 focus:outline-none min-h-[44px]"
                 />

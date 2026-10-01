@@ -20,6 +20,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { duration } from '../domain/experiment.js';
+import { localDate } from '../domain/chemistry.js';
+
 export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusChange }) => {
   const {
     status = 'idle', // 'idle' | 'running' | 'paused' | 'stopped'
@@ -50,7 +53,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     minutes: '0',
     seconds: '0',
     note: '',
-    date: new Date().toISOString().split('T')[0]
+    date: localDate()
   });
 
   // Compute true elapsed seconds from lastStartTime (immune to background tab throttling or unmounts)
@@ -60,27 +63,15 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       const endMs = endIso ? new Date(endIso).getTime() : Date.now();
       if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs >= startMs) {
         const wallSecs = Math.floor((endMs - startMs) / 1000);
-        return Math.max(1, wallSecs, Number(fallbackSecs) || 0);
+        return Math.max(0, wallSecs);
       }
     }
-    return Math.max(1, Number(fallbackSecs) || 0);
+    return Math.max(0, Number(fallbackSecs) || 0);
   };
 
   // Recover interval duration if durationSeconds was 0/1 despite a larger startTime -> endTime difference
   const getIntervalDurationSeconds = (it) => {
-    if (!it) return 0;
-    const explicitDur = Number(it.durationSeconds) || 0;
-    if (it.startTime && it.endTime) {
-      const startMs = new Date(it.startTime).getTime();
-      const endMs = new Date(it.endTime).getTime();
-      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
-        const wallDiff = Math.floor((endMs - startMs) / 1000);
-        if (!explicitDur || (explicitDur <= 1 && wallDiff > 2)) {
-          return wallDiff;
-        }
-      }
-    }
-    return Math.max(0, explicitDur);
+    return duration(it);
   };
 
   // Live timer tick when status is 'running' (runs immediately on mount & when waking up phone/tab)
@@ -89,7 +80,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       const startTime = lastStartTime ? new Date(lastStartTime).getTime() : Date.now();
       const updateTick = () => {
         const now = Date.now();
-        const diffSeconds = Math.max(0, Math.floor((now - startTime) / 1000));
+        const diffSeconds = Number.isFinite(startTime) ? Math.max(0, Math.floor((now - startTime) / 1000)) : 0;
         setCurrentSessionSeconds(diffSeconds);
       };
 
@@ -130,13 +121,12 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
   const computedIntervalsTotal = calculateTotalSeconds(safeIntervals);
   const effectiveTotalSeconds =
-    safeIntervals.length > 0
-      ? Math.max(Number(totalSeconds) || 0, computedIntervalsTotal)
-      : Number(totalSeconds) || 0;
+    computedIntervalsTotal;
   const grandTotalSeconds = effectiveTotalSeconds + (status === 'running' ? currentSessionSeconds : 0);
 
   // START / RESUME: 1-Tap instant response
   const handleStart = () => {
+    if (status === 'running') return;
     const nowIso = new Date().toISOString();
     const nextTimer = {
       ...timerData,
@@ -150,6 +140,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
   // PAUSE: 1-Tap instant pause, computes exact elapsed time from lastStartTime -> nowIso and adds to total
   const handlePause = () => {
+    if (status !== 'running') return;
     const nowIso = new Date().toISOString();
     const sessionDuration = computeLiveElapsedSeconds(lastStartTime, nowIso, currentSessionSeconds);
     const sessionNum = safeIntervals.length + 1;
@@ -178,6 +169,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
 
   // QUÊN BẤM DỪNG: 1-Tap stops and opens edit modal immediately
   const handlePauseAndEdit = () => {
+    if (status !== 'running') return;
     const nowIso = new Date().toISOString();
     const sessionDuration = computeLiveElapsedSeconds(lastStartTime, nowIso, currentSessionSeconds);
     const sessionNum = safeIntervals.length + 1;
@@ -214,7 +206,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       note: newInterval.note,
       startTime: newInterval.startTime,
       endTime: newInterval.endTime,
-      date: new Date().toISOString().split('T')[0]
+      date: localDate()
     });
   };
 
@@ -299,7 +291,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       note: session.note || '',
       startTime: session.startTime || null,
       endTime: session.endTime || null,
-      date: session.startTime ? new Date(session.startTime).toISOString().split('T')[0] : ''
+      date: session.observedDate || (session.startTime ? localDate(session.startTime) : localDate())
     });
   };
 
@@ -316,6 +308,9 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
         return {
           ...it,
           durationSeconds: newDuration,
+          durationEdited: true,
+          observedDate: editingSession.date,
+          correctedAt: new Date().toISOString(),
           note: editingSession.note.trim()
         };
       }
@@ -338,14 +333,18 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     const h = parseInt(manualSessionData.hours, 10) || 0;
     const m = parseInt(manualSessionData.minutes, 10) || 0;
     const s = parseInt(manualSessionData.seconds, 10) || 0;
-    const durationSeconds = Math.max(1, h * 3600 + m * 60 + s);
+    const durationSeconds = Math.max(0, h * 3600 + m * 60 + s);
+    if (!manualSessionData.date) { alert('Chọn ngày thực nghiệm.'); return; }
     const sessionNum = safeIntervals.length + 1;
-    const dateIso = manualSessionData.date ? new Date(manualSessionData.date).toISOString() : new Date().toISOString();
+    const dateIso = new Date(`${manualSessionData.date}T00:00:00`).toISOString();
 
     const newInterval = {
       id: `interval-${Date.now()}`,
       startTime: dateIso,
-      endTime: dateIso,
+      endTime: new Date(Date.parse(dateIso) + durationSeconds * 1000).toISOString(),
+      manual: true,
+      observedDate: manualSessionData.date,
+      durationEdited: true,
       durationSeconds,
       note: manualSessionData.note.trim() || `Phiên #${sessionNum} (Thêm thủ công)`
     };
@@ -365,7 +364,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
       minutes: '0',
       seconds: '0',
       note: '',
-      date: new Date().toISOString().split('T')[0]
+      date: localDate()
     });
   };
 
@@ -618,7 +617,7 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                 const endStr = session.endTime
                   ? new Date(session.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                   : '--:--';
-                const dateStr = session.startTime ? new Date(session.startTime).toLocaleDateString('vi-VN') : '';
+                const dateStr = session.observedDate || (session.startTime ? new Date(session.startTime).toLocaleDateString('vi-VN') : 'Không có mốc giờ gốc');
                 const isRecentlyPaused = justPausedSessionId === session.id;
                 const effectiveDuration = getIntervalDurationSeconds(session);
 
@@ -646,6 +645,8 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
                         </div>
                         <div className="text-slate-500 text-xs mt-0.5">
                           {dateStr} • {startStr} ➔ {endStr}
+                          {session.durationEdited && <span> · thời lượng đã hiệu chỉnh; giờ gốc giữ để đối chiếu</span>}
+                          {session.manual && <span> · thủ công, mốc 00:00 quy ước</span>}
                         </div>
                       </div>
                     </div>

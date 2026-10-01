@@ -31,24 +31,7 @@ export const AuthProvider = ({ children }) => {
             isLocal: false
           });
         } else {
-          // Check cached session
-          const cachedLocal = localStorage.getItem('medchem_current_student');
-          if (cachedLocal) {
-            try {
-              const parsed = JSON.parse(cachedLocal);
-              if (parsed && parsed.uid && parsed.uid !== 'student-default') {
-                setCurrentUser(parsed);
-              } else {
-                localStorage.removeItem('medchem_current_student');
-                setCurrentUser(null);
-              }
-            } catch (e) {
-              localStorage.removeItem('medchem_current_student');
-              setCurrentUser(null);
-            }
-          } else {
-            setCurrentUser(null);
-          }
+          setCurrentUser(null);
         }
         setLoading(false);
       });
@@ -56,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       // Local mode
       setAuthMode('local');
-      const cached = localStorage.getItem('medchem_current_student');
+      const cached = localStorage.getItem('medchem_demo_current_user');
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -64,11 +47,11 @@ export const AuthProvider = ({ children }) => {
           if (parsed && parsed.uid && parsed.uid !== 'student-default') {
             setCurrentUser(parsed);
           } else {
-            localStorage.removeItem('medchem_current_student');
+            localStorage.removeItem('medchem_demo_current_user');
             setCurrentUser(null);
           }
         } catch (e) {
-          localStorage.removeItem('medchem_current_student');
+          localStorage.removeItem('medchem_demo_current_user');
           setCurrentUser(null);
         }
       } else {
@@ -104,7 +87,7 @@ export const AuthProvider = ({ children }) => {
         isLocal: false
       };
       setCurrentUser(studentProfile);
-      localStorage.setItem('medchem_current_student', JSON.stringify(studentProfile));
+      localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));
       return studentProfile;
     } else {
       // Local & Firebase Realtime Database Account Mode
@@ -145,7 +128,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setCurrentUser(sessionProfile);
-      localStorage.setItem('medchem_current_student', JSON.stringify(sessionProfile));
+      localStorage.setItem('medchem_demo_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
     }
   };
@@ -169,7 +152,7 @@ export const AuthProvider = ({ children }) => {
         isLocal: false
       };
       setCurrentUser(studentProfile);
-      localStorage.setItem('medchem_current_student', JSON.stringify(studentProfile));
+      localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));
       return studentProfile;
     } else {
       // Local & Firebase Realtime Database Account Mode
@@ -199,7 +182,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setCurrentUser(sessionProfile);
-      localStorage.setItem('medchem_current_student', JSON.stringify(sessionProfile));
+      localStorage.setItem('medchem_demo_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
     }
   };
@@ -209,14 +192,14 @@ export const AuthProvider = ({ children }) => {
     if (isAuthAvailable()) {
       await firebaseSignOut();
     }
-    localStorage.removeItem('medchem_current_student');
+    localStorage.removeItem('medchem_demo_current_user');
     setCurrentUser(null);
   };
 
   // List of local lab students
   const getLabStudents = () => {
     try {
-      return JSON.parse(localStorage.getItem('medchem_lab_students') || '[]');
+      return JSON.parse(localStorage.getItem('medchem_demo_lab_students') || '[]');
     } catch {
       return [];
     }

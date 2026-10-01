@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
 import { parseDecimal } from './StoichiometryTable';
+import { theoreticalMass } from '../domain/chemistry.js';
+import { downloadTlcZip } from '../services/downloads.js';
 
 const toLocalDatetimeInput = (isoStr) => {
   const d = isoStr ? new Date(isoStr) : new Date();
@@ -52,7 +54,7 @@ const formatTlcTimestamp = (isoStr) => {
   const d = new Date(isoStr);
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())} • ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return d.toLocaleString('vi-VN', { timeZoneName: 'short' });
 };
 
 const COMMON_STAINS = [
@@ -99,7 +101,9 @@ export const ColumnFractionManager = ({
   onTargetMWChange,
   crudeMass = 0,
   massUnit = 'g',
-  moleUnit = 'mol'
+  moleUnit = 'mol',
+  limitingCoefficient = 1,
+  productCoefficient = 1
 }) => {
   const { uploadImage } = useExperiment();
 
@@ -200,6 +204,7 @@ export const ColumnFractionManager = ({
   const handleFractionCountChange = (newCount) => {
     const count = Math.max(1, Math.min(200, parseInt(newCount, 10) || 1));
     const currentFractions = [...(fractions || [])];
+    if (count < totalFractions && currentFractions.some((f) => f.number > count && (f.tlcChecked || f.group || f.note || f.discarded))) { alert('Không thể cắt ống đã có lịch sử. Đánh dấu bỏ ống để giữ nhãn vật lý.'); return; }
     let newFractionsList = [];
 
     for (let i = 1; i <= count; i++) {
@@ -220,14 +225,16 @@ export const ColumnFractionManager = ({
     onChange({
       ...columnData,
       totalFractions: count,
-      fractions: newFractionsList
+      fractions: newFractionsList,
+      fractionGroups: fractionGroups.map((g) => ({ ...g, fractionNumbers: g.fractionNumbers.filter((n) => n <= count) })).filter((g) => g.fractionNumbers.length)
     });
   };
 
   // Add single next fraction tube (F_N+1)
   const handleAddNextTube = () => {
     const currentList = fractions && fractions.length > 0 ? fractions : [];
-    const nextNumber = currentList.length + 1;
+    const nextNumber = Math.max(0, ...currentList.map((f) => f.number)) + 1;
+    if (nextNumber > 200) { alert('Giới hạn 200 phân đoạn.'); return; }
     const newTube = {
       number: nextNumber,
       tlcChecked: false,
@@ -235,10 +242,7 @@ export const ColumnFractionManager = ({
       group: null,
       note: ''
     };
-    const updated = [...currentList, newTube].map((f, idx) => ({
-      ...f,
-      number: idx + 1
-    }));
+    const updated = [...currentList, newTube];
     onChange({
       ...columnData,
       totalFractions: updated.length,
@@ -248,41 +252,15 @@ export const ColumnFractionManager = ({
 
   // Remove last fraction tube (minimum 1 tube) and keep groups synced
   const handleRemoveLastTube = () => {
-    const currentList = fractions || [];
-    if (currentList.length <= 1) return;
-    const removedNumber = currentList[currentList.length - 1]?.number;
-    const updated = currentList.slice(0, currentList.length - 1).map((f, idx) => ({
-      ...f,
-      number: idx + 1
-    }));
-    const updatedGroups = (fractionGroups || [])
-      .map((g) => {
-        const nextNums = (g.fractionNumbers || []).filter(
-          (n) => n !== removedNumber && n <= updated.length
-        );
-        if (nextNums.length === 0) return null;
-        const minN = Math.min(...nextNums);
-        const maxN = Math.max(...nextNums);
-        return {
-          ...g,
-          fractionNumbers: nextNums,
-          range: minN === maxN ? `F${minN}` : `F${minN} - F${maxN}`
-        };
-      })
-      .filter(Boolean);
-    onChange({
-      ...columnData,
-      totalFractions: updated.length,
-      fractions: updated,
-      fractionGroups: updatedGroups
-    });
+    const last = [...fractions].reverse().find((f) => !f.discarded);
+    if (last) handleDeleteSpecificTube(last.number);
   };
 
   // Toggle fraction status when user clicks an individual tube
   const toggleFractionState = (fractionNumber) => {
     const patterns = ['empty', 'product', 'impurity', 'mixed'];
     const updated = fractions.map((f) => {
-      if (f.number === fractionNumber) {
+      if (f.number === fractionNumber && !f.discarded) {
         const nextIndex = (patterns.indexOf(f.spotPattern || 'empty') + 1) % patterns.length;
         const nextPattern = patterns[nextIndex];
         return {
@@ -319,11 +297,16 @@ export const ColumnFractionManager = ({
 
   // Add pooled fraction group (e.g. F8 -> F15)
   const handleAddGroup = () => {
-    const start = Math.min(fromFraction, toFraction);
-    const end = Math.max(fromFraction, toFraction);
+    const from = Number(fromFraction), to = Number(toFraction);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < 1 || from > totalFractions || to > totalFractions) { alert('Khoảng gộp phải nằm trong các ống hiện có.'); return; }
+    const start = Math.min(from, to);
+    const end = Math.max(from, to);
     const numbers = [];
     for (let i = start; i <= end; i++) numbers.push(i);
 
+    if (numbers.some((n) => fractions.find((f) => f.number === n)?.discarded || !fractions.some((f) => f.number === n))) { alert('Khoảng gộp có ống bỏ/không tồn tại.'); return; }
+    const overlap = numbers.filter((n) => fractions.some((f) => f.number === n && f.group) || fractionGroups.some((g) => g.fractionNumbers?.includes(n)));
+    if (overlap.length) { alert(`Ống đã thuộc nhóm khác: ${overlap.map((n) => `F${n}`).join(', ')}`); return; }
     const tag = groupTag || 'spc';
     const color = groupColor || (tag === 'spc' ? '#10b981' : '#f59e0b');
     const defaultName = tag === 'spc' ? `Sản phẩm chính F${start}-F${end}` : `Sản phẩm phụ F${start}-F${end}`;
@@ -552,8 +535,8 @@ export const ColumnFractionManager = ({
     const sppTubes = updatedTubes.filter((t) => t.tag === 'spp');
     const totalProdMass = spcTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
     const totalByproductMass = sppTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
-    const roundedProd = parseFloat(totalProdMass.toFixed(4));
-    const roundedByprod = parseFloat(totalByproductMass.toFixed(4));
+    const roundedProd = totalProdMass;
+    const roundedByprod = totalByproductMass;
 
     const mw =
       customMW !== null
@@ -569,7 +552,7 @@ export const ColumnFractionManager = ({
     let theoYield = 0;
     let yieldPct = 0;
     if (limitingMoles > 0 && mw > 0) {
-      theoYield = limitingMoles * mw * scale;
+      theoYield = theoreticalMass(limitingMoles, mw, { mass: massUnit, mole: moleUnit }, limitingCoefficient, productCoefficient);
       if (theoYield > 0 && roundedProd > 0) {
         yieldPct = (roundedProd / theoYield) * 100;
       }
@@ -587,8 +570,8 @@ export const ColumnFractionManager = ({
         tubeGrossMass: firstGross,
         productMass: roundedProd,
         byproductMass: roundedByprod,
-        theoreticalYield: parseFloat(theoYield.toFixed(4)),
-        yieldPercent: parseFloat(yieldPct.toFixed(2))
+        theoreticalYield: theoYield,
+        yieldPercent: yieldPct
       }
     });
   };
@@ -600,7 +583,7 @@ export const ColumnFractionManager = ({
       const nextTube = { ...t, [field]: cleanVal };
       const tare = parseDecimal(field === 'tareMass' ? cleanVal : t.tareMass);
       const gross = parseDecimal(field === 'grossMass' ? cleanVal : t.grossMass);
-      nextTube.productMass = parseFloat(Math.max(0, gross - tare).toFixed(4));
+      nextTube.productMass = Math.max(0, gross - tare);
       return nextTube;
     });
 
@@ -655,86 +638,15 @@ export const ColumnFractionManager = ({
 
   // Delete a specific fraction tube by number and renumber remaining tubes 1..N without gaps
   const handleDeleteSpecificTube = (tubeNumber) => {
-    if ((fractions || []).length <= 1) return;
-    const filtered = (fractions || []).filter((f) => f.number !== tubeNumber);
-    const renumbered = filtered.map((f, idx) => ({
-      ...f,
-      number: idx + 1
-    }));
-    const updatedGroups = (fractionGroups || [])
-      .map((g) => {
-        const nextNums = (g.fractionNumbers || [])
-          .filter((n) => n !== tubeNumber)
-          .map((n) => (n > tubeNumber ? n - 1 : n));
-        if (nextNums.length === 0) return null;
-        const minN = Math.min(...nextNums);
-        const maxN = Math.max(...nextNums);
-        return {
-          ...g,
-          fractionNumbers: nextNums,
-          range: minN === maxN ? `F${minN}` : `F${minN} - F${maxN}`
-        };
-      })
-      .filter(Boolean);
-
-    onChange({
-      ...columnData,
-      totalFractions: renumbered.length,
-      fractions: renumbered,
-      fractionGroups: updatedGroups
+    if (!window.confirm(`Đánh dấu F${tubeNumber} là ống bỏ? Nhãn các ống khác và TLC cũ được giữ nguyên.`)) return;
+    onChange({ ...columnData,
+      fractions: fractions.map((f) => f.number === tubeNumber ? { ...f, discarded: true, group: null, groupTag: null, groupColor: null, spotPattern: 'empty' } : f),
+      fractionGroups: fractionGroups.map((g) => ({ ...g, fractionNumbers: (g.fractionNumbers || []).filter((n) => n !== tubeNumber) })).filter((g) => g.fractionNumbers.length)
     });
   };
 
-  // Sync theoretical yield when stoichiometry units, target MW, or limiting moles change
-  useEffect(() => {
-    const spcTubes = tubes.filter((t) => (t.tag || 'spc') === 'spc');
-    const sppTubes = tubes.filter((t) => t.tag === 'spp');
-    const totalProdMass = spcTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
-    const totalByprodMass = sppTubes.reduce((sum, t) => sum + (t.productMass || 0), 0);
-    const mw = targetMW > 0 ? targetMW : parseDecimal(eppendorfYield?.targetMW);
+  // Derived yields are recalculated centrally; mounting this component does not write data.
 
-    let scale = 1;
-    if (moleUnit === 'mmol' && massUnit === 'g') scale = 0.001;
-    if (moleUnit === 'mol' && massUnit === 'mg') scale = 1000;
-
-    let theoYield = 0;
-    let yieldPct = 0;
-    if (limitingMoles > 0 && mw > 0) {
-      theoYield = limitingMoles * mw * scale;
-      if (theoYield > 0 && totalProdMass > 0) {
-        yieldPct = (totalProdMass / theoYield) * 100;
-      }
-    }
-
-    const currentTheo = eppendorfYield?.theoreticalYield || 0;
-    const currentPct = eppendorfYield?.yieldPercent || 0;
-    const currentProd = eppendorfYield?.productMass || 0;
-    const currentByprod = eppendorfYield?.byproductMass || 0;
-
-    const newTheo = parseFloat(theoYield.toFixed(4));
-    const newPct = parseFloat(yieldPct.toFixed(2));
-    const newProd = parseFloat(totalProdMass.toFixed(4));
-    const newByprod = parseFloat(totalByprodMass.toFixed(4));
-
-    if (
-      newTheo !== currentTheo ||
-      newPct !== currentPct ||
-      newProd !== currentProd ||
-      newByprod !== currentByprod
-    ) {
-      onChange({
-        ...columnData,
-        eppendorfYield: {
-          ...eppendorfYield,
-          tubes,
-          productMass: newProd,
-          byproductMass: newByprod,
-          theoreticalYield: newTheo,
-          yieldPercent: newPct
-        }
-      });
-    }
-  }, [limitingMoles, targetMW, massUnit, moleUnit]);
 
   // Helper to close & reset Fraction TLC modal cleanly
   const handleCloseFracTlcModal = () => {
@@ -843,99 +755,8 @@ export const ColumnFractionManager = ({
 
   // Download all uploaded TLC photos helper (supports simultaneous 3-image download on iOS, iPadOS, Mac, and PC)
   const handleDownloadTlcImages = async (images, prefix = 'TLC', stainName = 'ThuocThu') => {
-    const imagesToDownload = [];
-    if (images?.uv254) {
-      imagesToDownload.push({ url: images.uv254, name: `${prefix}_UV254.jpg` });
-    }
-    if (images?.uv365) {
-      imagesToDownload.push({ url: images.uv365, name: `${prefix}_UV365.jpg` });
-    }
-    if (images?.reagent) {
-      const stainSafe = (stainName || 'Reagent').replace(/[^a-zA-Z0-9]/g, '_');
-      imagesToDownload.push({ url: images.reagent, name: `${prefix}_${stainSafe}.jpg` });
-    }
-
-    if (imagesToDownload.length === 0) {
-      alert('Chưa có ảnh sắc ký nào được tải lên!');
-      return;
-    }
-
-    // 1. Convert data: URLs synchronously so we don't lose user-gesture activation
-    const preparedItems = [];
-    for (const item of imagesToDownload) {
-      if (item.url.startsWith('data:')) {
-        try {
-          const { blob, file } = dataUrlToFileSync(item.url, item.name);
-          preparedItems.push({ ...item, blob, file });
-        } catch {
-          preparedItems.push({ ...item, blob: null, file: null });
-        }
-      } else {
-        try {
-          const resp = await fetch(item.url, { mode: 'cors' });
-          const blob = await resp.blob();
-          const file = new File([blob], item.name, { type: blob.type || 'image/jpeg' });
-          preparedItems.push({ ...item, blob, file });
-        } catch {
-          preparedItems.push({ ...item, blob: null, file: null });
-        }
-      }
-    }
-
-    // 2. On iOS / iPadOS, Safari blocks multiple <a download> triggers in one tap.
-    // Passing all 3 File objects to navigator.share({ files }) lets the user tap "Lưu X hình ảnh" to save all 3 at once!
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const validFiles = preparedItems.map((p) => p.file).filter(Boolean);
-
-    if (
-      isIOS &&
-      validFiles.length > 1 &&
-      typeof navigator.canShare === 'function' &&
-      navigator.canShare({ files: validFiles })
-    ) {
-      try {
-        await navigator.share({
-          files: validFiles,
-          title: `Ảnh sắc ký ${prefix}`
-        });
-        return;
-      } catch (err) {
-        if (err?.name === 'AbortError') return;
-        // Fall through to Blob anchor download if share fails
-      }
-    }
-
-    // 3. Desktop & fallback: trigger Blob URL downloads for all images
-    preparedItems.forEach((item, index) => {
-      setTimeout(() => {
-        try {
-          if (item.blob) {
-            const blobUrl = URL.createObjectURL(item.blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = item.name;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-          } else {
-            const link = document.createElement('a');
-            link.href = item.url;
-            link.download = item.name;
-            link.target = '_blank';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-        } catch (err) {
-          console.error('Lỗi khi tải ảnh:', err);
-        }
-      }, index * 180);
-    });
+    try { downloadTlcZip(images, prefix, { stainName }); }
+    catch (error) { alert(error.message); }
   };
 
   const handleOpenAddFracTlc = () => {
@@ -969,7 +790,7 @@ export const ColumnFractionManager = ({
     setFracUploading(false);
     setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(plate.id);
-    const existingIso = plate.timestamp || new Date().toISOString();
+    const existingIso = plate.timestamp || null;
     setFracOriginalTimestamp(existingIso);
     setFracCaptureDatetime(toLocalDatetimeInput(existingIso));
     setFracTimestampModified(false);
@@ -999,6 +820,7 @@ export const ColumnFractionManager = ({
     if (fracSavingRef.current || fracUploading || fracPhotoLoadingSlot) return;
     fracSavingRef.current = true;
     setFracUploading(true);
+    const saveSession = fracModalSessionRef.current;
 
     const targetFracPlateId = editingFracTlcId;
 
@@ -1008,7 +830,7 @@ export const ColumnFractionManager = ({
         try {
           url254 = await uploadImage(fracPhoto254.file, 'fraction_tlc_254');
         } catch (err) {
-          console.warn('Upload fraction 254 error:', err);
+          throw err;
         }
       }
 
@@ -1017,7 +839,7 @@ export const ColumnFractionManager = ({
         try {
           url365 = await uploadImage(fracPhoto365.file, 'fraction_tlc_365');
         } catch (err) {
-          console.warn('Upload fraction 365 error:', err);
+          throw err;
         }
       }
 
@@ -1026,7 +848,7 @@ export const ColumnFractionManager = ({
         try {
           urlReagent = await uploadImage(fracPhotoReagent.file, 'fraction_tlc_reagent');
         } catch (err) {
-          console.warn('Upload fraction reagent error:', err);
+          throw err;
         }
       }
 
@@ -1035,9 +857,10 @@ export const ColumnFractionManager = ({
           ? customFracStain.trim() || 'Thuốc thử hiện màu'
           : fracStain;
 
+      if (fracModalSessionRef.current !== saveSession) return;
       const resolvedTimestamp = fracTimestampModified
         ? fromLocalDatetimeInput(fracCaptureDatetime, fracOriginalTimestamp)
-        : (fracOriginalTimestamp || new Date().toISOString());
+        : (targetFracPlateId ? fracOriginalTimestamp : (fracOriginalTimestamp || new Date().toISOString()));
 
       const payload = {
         spottedFractions: fracSpottedInput.trim() || 'Chưa ghi số phân đoạn',
@@ -1071,15 +894,13 @@ export const ColumnFractionManager = ({
         ];
       }
 
-      onChange({
-        ...columnData,
-        fractionTlcPlates: updatedPlates
-      });
-
-      handleCloseFracTlcModal();
+      const saved = await onChange({ ...columnData, fractionTlcPlates: updatedPlates });
+      if (!saved?.success) { alert(saved?.error?.message || 'Chưa lưu được TLC phân đoạn.'); return; }
+      if (fracModalSessionRef.current === saveSession) handleCloseFracTlcModal();
+    } catch (error) {
+      if (fracModalSessionRef.current === saveSession) alert(error.message || 'Không lưu được ảnh TLC.');
     } finally {
-      fracSavingRef.current = false;
-      setFracUploading(false);
+      if (fracModalSessionRef.current === saveSession) { fracSavingRef.current = false; setFracUploading(false); }
     }
   };
 
@@ -1102,7 +923,7 @@ export const ColumnFractionManager = ({
     setPoolPhotoLoadingSlot(null);
     setActiveGroupId(group.id);
     const existingTlc = group.tlc || {};
-    const existingIso = existingTlc.timestamp || existingTlc.updatedAt || new Date().toISOString();
+    const existingIso = group.tlc ? (existingTlc.timestamp || existingTlc.updatedAt || null) : new Date().toISOString();
     setPoolOriginalTimestamp(existingIso);
     setPoolCaptureDatetime(toLocalDatetimeInput(existingIso));
     setPoolTimestampModified(false);
@@ -1137,6 +958,7 @@ export const ColumnFractionManager = ({
     setPoolUploading(true);
 
     const targetGroupId = activeGroupId;
+    const saveSession = poolModalSessionRef.current;
 
     try {
       let url254 = poolPhoto254.preview || '';
@@ -1144,7 +966,7 @@ export const ColumnFractionManager = ({
         try {
           url254 = await uploadImage(poolPhoto254.file, 'pool_tlc_254');
         } catch (err) {
-          console.warn('Upload pool 254 error:', err);
+          throw err;
         }
       }
 
@@ -1153,7 +975,7 @@ export const ColumnFractionManager = ({
         try {
           url365 = await uploadImage(poolPhoto365.file, 'pool_tlc_365');
         } catch (err) {
-          console.warn('Upload pool 365 error:', err);
+          throw err;
         }
       }
 
@@ -1162,7 +984,7 @@ export const ColumnFractionManager = ({
         try {
           urlReagent = await uploadImage(poolPhotoReagent.file, 'pool_tlc_reagent');
         } catch (err) {
-          console.warn('Upload pool reagent error:', err);
+          throw err;
         }
       }
 
@@ -1171,9 +993,10 @@ export const ColumnFractionManager = ({
           ? customPoolStain.trim() || 'Thuốc thử hiện màu'
           : poolStain;
 
+      if (poolModalSessionRef.current !== saveSession) return;
       const resolvedPoolTimestamp = poolTimestampModified
         ? fromLocalDatetimeInput(poolCaptureDatetime, poolOriginalTimestamp)
-        : (poolOriginalTimestamp || new Date().toISOString());
+        : poolOriginalTimestamp;
 
       const tlcData = {
         eluent: poolEluent,
@@ -1186,27 +1009,25 @@ export const ColumnFractionManager = ({
           reagent: urlReagent || null
         },
         timestamp: resolvedPoolTimestamp,
-        updatedAt: resolvedPoolTimestamp
+        updatedAt: new Date().toISOString()
       };
 
       const updatedGroups = fractionGroups.map((g) => {
         if (g.id === targetGroupId) {
           const prevTs = g.tlc?.timestamp || g.tlc?.updatedAt;
           const finalTs = poolTimestampModified ? resolvedPoolTimestamp : (prevTs || resolvedPoolTimestamp);
-          return { ...g, tlc: { ...tlcData, timestamp: finalTs, updatedAt: finalTs } };
+          return { ...g, tlc: { ...tlcData, timestamp: finalTs, updatedAt: new Date().toISOString() } };
         }
         return g;
       });
 
-      onChange({
-        ...columnData,
-        fractionGroups: updatedGroups
-      });
-
-      handleClosePoolTlcModal();
+      const saved = await onChange({ ...columnData, fractionGroups: updatedGroups });
+      if (!saved?.success) { alert(saved?.error?.message || 'Chưa lưu được TLC mẫu gộp.'); return; }
+      if (poolModalSessionRef.current === saveSession) handleClosePoolTlcModal();
+    } catch (error) {
+      if (poolModalSessionRef.current === saveSession) alert(error.message || 'Không lưu được ảnh TLC mẫu gộp.');
     } finally {
-      poolSavingRef.current = false;
-      setPoolUploading(false);
+      if (poolModalSessionRef.current === saveSession) { poolSavingRef.current = false; setPoolUploading(false); }
     }
   };
 
@@ -1290,6 +1111,7 @@ export const ColumnFractionManager = ({
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print space-y-6">
+      {tubes.some((t) => t.weighingError) && <p role="alert" className="p-3 text-rose-800">{tubes.filter((t) => t.weighingError).map((t) => `${t.label}: ${t.weighingError}`).join('; ')}</p>}
       {/* Header */}
       <div className="bg-slate-900 border-b border-slate-800 text-white p-3.5 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -1613,6 +1435,7 @@ export const ColumnFractionManager = ({
               const tag = matchingGroup?.tag || f.groupTag;
               const color = matchingGroup?.color || f.groupColor;
               const isGrouped = Boolean(matchingGroup || f.group);
+              const discardedLabel = f.discarded ? ' (bỏ)' : '';
               const pattern = f.spotPattern || 'empty';
 
               let ungroupedCardStyle = 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300';
@@ -1677,7 +1500,7 @@ export const ColumnFractionManager = ({
                       className="font-mono font-bold text-xs"
                       style={isGrouped && color ? { color: color } : {}}
                     >
-                      F{f.number}
+                      F{f.number}{f.discarded ? " (bỏ)" : ""}
                     </span>
 
                     {isGrouped ? (
@@ -1700,7 +1523,7 @@ export const ColumnFractionManager = ({
                         handleDeleteSpecificTube(f.number);
                       }}
                       className="absolute -top-1.5 -right-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded-full p-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity no-print cursor-pointer shadow"
-                      title={`Xóa ống F${f.number}`}
+                      title={`Đánh dấu bỏ F${f.number}`}
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -2460,7 +2283,7 @@ export const ColumnFractionManager = ({
                           isSpp ? 'text-amber-950' : 'text-emerald-950'
                         }`}
                       >
-                        {(tube.productMass || 0).toFixed(4)} <span className="font-normal text-[10px]">{massUnit}</span>
+                        {Number(tube.productMass || 0).toPrecision(6)} <span className="font-normal text-[10px]">{massUnit}</span>
                       </span>
                     </div>
                   </div>
@@ -2516,14 +2339,14 @@ export const ColumnFractionManager = ({
                       <span>Tổng m(sản phẩm chính - spc):</span>
                     </div>
                     <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right">
-                      {spcMass.toFixed(4)}{' '}
+                      {spcMass.toPrecision(6)}{' '}
                       <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
                     </div>
                     <div className="text-[11px] text-emerald-900 font-medium space-y-0.5 pt-1 border-t border-emerald-200/80">
                       {sppMass > 0 ? (
                         <div className="flex items-center justify-between text-amber-900">
                           <span>Tổng m(phụ/tạp - spp):</span>
-                          <strong className="font-mono">{sppMass.toFixed(4)} {massUnit}</strong>
+                          <strong className="font-mono">{sppMass.toPrecision(6)} {massUnit}</strong>
                         </div>
                       ) : (
                         <div>= Tổng khối lượng các ống spc</div>
@@ -2553,7 +2376,7 @@ export const ColumnFractionManager = ({
                     <div className="text-[11px] text-slate-300 font-mono space-y-1 pt-1 border-t border-slate-700/80">
                       <div className="flex items-center justify-between">
                         <span>Lý thuyết (100%):</span>
-                        <strong className="text-white">{theoMass.toFixed(4)} {massUnit}</strong>
+                        <strong className="text-white">{theoMass.toPrecision(6)} {massUnit}</strong>
                       </div>
                       {crudeYieldPct > 0 && (
                         <div className="flex items-center justify-between text-amber-200">
@@ -2571,11 +2394,7 @@ export const ColumnFractionManager = ({
                             const cleaned = e.target.value.replace(/[^0-9.,]/g, '');
                             onTargetMWChange?.(cleaned);
                             const mwNum = parseDecimal(cleaned);
-                            recalculateYield(
-                              tubes,
-                              { ...eppendorfYield, targetMW: cleaned },
-                              mwNum
-                            );
+                            if (!onTargetMWChange) recalculateYield(tubes, { ...eppendorfYield, targetMW: cleaned }, mwNum);
                           }}
                           placeholder="Nhập M..."
                           className="w-24 bg-slate-800 border border-indigo-400/50 focus:border-amber-400 rounded-lg px-2 py-0.5 text-right font-mono font-bold text-xs text-amber-300 focus:outline-none"
@@ -2622,7 +2441,7 @@ export const ColumnFractionManager = ({
                     <span className="text-base leading-none text-rose-600 font-bold flex-shrink-0 mt-0.5">⚠</span>
                     <div className="space-y-1">
                       <div className="font-bold text-rose-800">
-                        Cảnh báo Hóa Dược: Hiệu suất tinh chế ({isolatedYieldPct.toFixed(1)}%) vượt quá 100% lý thuyết ({theoMass.toFixed(4)} {massUnit})!
+                        Cảnh báo Hóa Dược: Hiệu suất tinh chế ({isolatedYieldPct.toFixed(1)}%) vượt quá 100% lý thuyết ({theoMass.toPrecision(6)} {massUnit})!
                       </div>
                       <p className="text-rose-700 leading-relaxed">
                         Vui lòng kiểm tra: <strong>(1)</strong> Cắn sản phẩm còn ngậm dung môi giải ly chưa cô quay / sấy chân không đến khối lượng không đổi; <strong>(2)</strong> Có ống Eppendorf chứa sản phẩm phụ/tạp chất đang để nhầm nhãn <strong>spc</strong> thay vì <strong>spp</strong>; hoặc <strong>(3)</strong> Kiểm tra lại Chất giới hạn và <strong>M sản phẩm (g/mol)</strong>.
@@ -2716,7 +2535,7 @@ export const ColumnFractionManager = ({
                               : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'
                           }`}
                         >
-                          F{f.number}
+                          F{f.number}{f.discarded ? " (bỏ)" : ""}
                         </button>
                       );
                     })}
@@ -2790,7 +2609,7 @@ export const ColumnFractionManager = ({
                   <span className="text-xs font-bold text-slate-700">
                     Giờ & Ngày chụp sắc ký:
                   </span>
-                  {editingFracPlateId && !fracTimestampModified && (
+                  {editingFracTlcId && !fracTimestampModified && (
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">
                       Giữ giờ gốc
                     </span>
@@ -2799,6 +2618,10 @@ export const ColumnFractionManager = ({
                 <div className="flex items-center gap-1.5">
                   <input
                     type="datetime-local"
+                    onInput={(e) => {
+                      setFracCaptureDatetime(e.currentTarget.value);
+                      setFracTimestampModified(true);
+                    }}
                     value={fracCaptureDatetime}
                     onChange={(e) => {
                       setFracCaptureDatetime(e.target.value);
@@ -3105,6 +2928,10 @@ export const ColumnFractionManager = ({
                 <div className="flex items-center gap-1.5">
                   <input
                     type="datetime-local"
+                    onInput={(e) => {
+                      setPoolCaptureDatetime(e.currentTarget.value);
+                      setPoolTimestampModified(true);
+                    }}
                     value={poolCaptureDatetime}
                     onChange={(e) => {
                       setPoolCaptureDatetime(e.target.value);

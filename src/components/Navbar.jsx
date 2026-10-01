@@ -207,7 +207,7 @@ export const Navbar = ({
             )}
 
             {/* Experiment selector: Code + optional title on Mac + Status badge */}
-            <div className="relative flex items-center gap-1.5 min-w-0">
+            <div className="relative flex items-center gap-1.5 min-w-0 flex-1 sm:flex-initial">
               <button
                 type="button"
                 onClick={() => {
@@ -217,7 +217,7 @@ export const Navbar = ({
                     setShowDropdown(!showDropdown);
                   }
                 }}
-                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-teal-400 min-h-[40px] cursor-pointer flex-shrink-0 whitespace-nowrap"
+                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-colors focus:ring-2 focus:ring-teal-400 min-h-[44px] cursor-pointer min-w-0"
                 title={
                   activeExperiment
                     ? `${activeExperiment.code}: ${activeExperiment.title}`
@@ -226,7 +226,7 @@ export const Navbar = ({
               >
                 {activeExperiment ? (
                   <>
-                    <span className="text-teal-300 font-mono tabular-nums font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap">
+                    <span className="text-teal-300 font-mono tabular-nums font-extrabold text-xs sm:text-sm tracking-wide truncate">
                       {activeExperiment.code}
                     </span>
                     {isMac && activeExperiment.title && (
@@ -250,7 +250,7 @@ export const Navbar = ({
               {/* Status badge: ALWAYS visible */}
               {activeExperiment && (
                 <div
-                  className="flex-shrink-0 cursor-pointer"
+                  className="hidden sm:block flex-shrink-0 cursor-pointer"
                   onClick={() => {
                     if (currentView === 'dashboard') {
                       onSelectExperiment?.(activeExperiment.id);
@@ -394,7 +394,7 @@ export const Navbar = ({
                 ) : (
                   <>
                     <HardDrive className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Lưu trên máy</span>
+                    <span>Database demo cục bộ</span>
                   </>
                 )}
                 {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-slate-400 ml-1" />}
