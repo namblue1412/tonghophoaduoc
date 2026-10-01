@@ -1,0 +1,192 @@
+[
+  {
+    "id": "DEMO-QA-REFERENCE",
+    "code": "QA-MW200",
+    "title": "Mẫu số học QA — không phải quy trình tổng hợp",
+    "date": "2026-10-01",
+    "researcher": "Demo",
+    "creatorId": "fixture-only",
+    "status": "paused",
+    "units": {
+      "mass": "g",
+      "mole": "mol"
+    },
+    "targetMolecule": {
+      "name": "Mẫu kiểm thử MW 200",
+      "molecularWeight": "200",
+      "stoichCoefficient": "1"
+    },
+    "stoichiometry": [
+      {
+        "id": "SM",
+        "name": "Chất A (mẫu số học)",
+        "type": "starting_material",
+        "mw": "150",
+        "purity": "100",
+        "actualMass": "1.5",
+        "actualVolume": "0",
+        "amountSource": "mass",
+        "isLimiting": true
+      },
+      {
+        "id": "B",
+        "name": "Chất B (mẫu số học)",
+        "type": "reagent",
+        "mw": "120",
+        "purity": "100",
+        "actualMass": "2.4",
+        "actualVolume": "0",
+        "amountSource": "mass",
+        "isLimiting": false
+      },
+      {
+        "id": "C",
+        "name": "Chất C (mẫu số học)",
+        "type": "reagent",
+        "mw": "100",
+        "purity": "100",
+        "actualMass": "0.5",
+        "actualVolume": "0",
+        "amountSource": "mass",
+        "isLimiting": false
+      },
+      {
+        "id": "base",
+        "name": "NaOH (chỉ kiểm tra công thức)",
+        "type": "base_acid",
+        "concUnit": "CM",
+        "concentration": "2",
+        "actualVolume": "5",
+        "mw": "40",
+        "nFactor": "1",
+        "concentrationBasis": "w/v",
+        "density": "1.05",
+        "isLimiting": false
+      }
+    ],
+    "reactionTimer": {
+      "status": "paused",
+      "lastStartTime": null,
+      "totalSeconds": 7200,
+      "intervals": [
+        {
+          "id": "session-1",
+          "startTime": "2026-09-29T03:00:00Z",
+          "endTime": "2026-09-29T05:00:00Z",
+          "durationSeconds": 7200,
+          "note": "Phiên giả lập 2 giờ"
+        }
+      ]
+    },
+    "workup": {
+      "crudeMassSource": "tubes",
+      "crudeTubes": [
+        {
+          "id": "crude",
+          "label": "Cắn QA",
+          "tareMass": "1",
+          "grossMass": "3"
+        }
+      ]
+    },
+    "tlcTimeline": [
+      {
+        "id": "tlc-old",
+        "minute": 120,
+        "timestamp": "2026-09-29T03:30:00Z",
+        "eluent": "Hệ dung môi QA",
+        "images": {},
+        "observations": "Mốc cũ để thử sửa nhận xét",
+        "solventFrontCm": "5",
+        "spots": [
+          {
+            "label": "Vết QA",
+            "distCm": "2",
+            "rf": "0.4"
+          }
+        ]
+      }
+    ],
+    "columnAndYield": {
+      "totalFractions": 10,
+      "fractions": [
+        {
+          "id": "F1",
+          "number": 1,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F2",
+          "number": 2,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F3",
+          "number": 3,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F4",
+          "number": 4,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F5",
+          "number": 5,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F6",
+          "number": 6,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F7",
+          "number": 7,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F8",
+          "number": 8,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F9",
+          "number": 9,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        },
+        {
+          "id": "F10",
+          "number": 10,
+          "spotPattern": "empty",
+          "tlcChecked": false
+        }
+      ],
+      "fractionGroups": [],
+      "fractionTlcPlates": [],
+      "eppendorfYield": {
+        "tubes": [
+          {
+            "id": "product",
+            "label": "Sản phẩm QA",
+            "tareMass": "1",
+            "grossMass": "2.6",
+            "tag": "spc"
+          }
+        ],
+        "purityHplc": "95",
+        "assayMassPercent": "90",
+        "assayBasis": "mass"
+      }
+    }
+  }
+]

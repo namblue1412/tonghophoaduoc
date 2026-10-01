@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { ExperimentDetail } from './pages/ExperimentDetail';
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { DemoControls } from './components/DemoControls';
 import { PlusCircle, X, FlaskConical, Beaker } from 'lucide-react';
 
 function AppContent() {
@@ -70,6 +71,7 @@ function AppContent() {
       return;
     }
 
+    try {
     const created = await createNewExperiment({
       code: newCode.trim() || 'SYN-EXP',
       title: newTitle.trim(),
@@ -83,6 +85,7 @@ function AppContent() {
 
     setNewModalOpen(false);
     setCurrentView('detail');
+    } catch (error) { alert(error.message); }
   };
 
   const handleSelectExperiment = (id) => {
@@ -102,11 +105,12 @@ function AppContent() {
 
   // Mandatory Authentication Gate: Must be logged in to use the app!
   if (!currentUser) {
-    return <AuthModal isPage={true} isOpen={true} />;
+    return <div className="min-h-screen bg-slate-100"><DemoControls /><div className="p-6 max-w-2xl mx-auto"><h1 className="text-2xl font-bold">Sổ tay Hóa Dược — Demo QA</h1><p className="mt-4">Chọn Nghiên cứu viên A hoặc B để bắt đầu. Hai tài khoản thử được cách ly theo UID. Không nhập tài khoản hoặc mật khẩu Firebase thật.</p></div></div>;
   }
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-800 flex flex-col font-sans">
+      <DemoControls />
       {/* Navbar with Dual-mode indicator & quick actions */}
       <Navbar
         onOpenNewModal={handleOpenNewModal}

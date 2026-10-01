@@ -1,5 +1,8 @@
 # MedChem ELN - Nhật Ký Nghiên Cứu Tổng Hợp Hóa Dược
 
+> **Nhánh demo cách ly `codex/demo-medchem-qa`:** mọi chế độ chạy/build dùng IndexedDB cục bộ, không kết nối Firebase. Xem [hướng dẫn và bộ kiểm thử demo](docs/DEMO-QA.md). Không deploy nhánh này thay production.
+
+
 > 🧪 **Hệ thống Nhật ký Điện tử (ELN - Electronic Lab Notebook)** chuyên biệt cho nghiên cứu sinh, dược sĩ và nhà khoa học trong lĩnh vực **Hóa Dược & Tổng Hợp Hữu Cơ**.
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)

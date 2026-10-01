@@ -13,14 +13,10 @@ import {
   Sliders
 } from 'lucide-react';
 import { useDevice } from '../context/DeviceContext';
+import { convertConcentration, decimal, rowAmount, displayToMol, molToDisplay } from '../domain/chemistry.js';
 
 // Unified decimal parser supporting both comma ',' and dot '.'
-export const parseDecimal = (val) => {
-  if (val === null || val === undefined || val === '') return 0;
-  const normalized = String(val).replace(',', '.');
-  const num = parseFloat(normalized);
-  return isNaN(num) ? 0 : num;
-};
+export const parseDecimal = decimal;
 
 export const StoichiometryTable = ({
   reagents = [],
@@ -35,6 +31,13 @@ export const StoichiometryTable = ({
   const moleUnit = units?.mole || 'mol'; // 'mol' | 'mmol'
   const [unitToast, setUnitToast] = useState(null);
   const [ipadTableMode, setIpadTableMode] = useState(false);
+  const convertMedium = (row, unit, basis = row.concentrationBasis) => {
+    // An initially unspecified % basis is a user declaration, not a conversion.
+    if (!row.concentrationBasis && unit === (row.concUnit || 'C%')) return handleRowPatch(row.id, { concentrationBasis: basis });
+    const converted = convertConcentration(row, unit, basis);
+    if (converted.error) { alert(converted.error); return; }
+    handleRowPatch(row.id, converted);
+  };
 
   // Partition into Active Reactants (need molar ratio) vs Medium vs Solvent
   const activeReagents = reagents.filter((r) => r.type !== 'base_acid' && r.type !== 'solvent');
@@ -47,46 +50,11 @@ export const StoichiometryTable = ({
 
   // Re-calculate row moles and molar ratio (tỉ lệ mol)
   const calculateRowValues = (row, isLimitingRow = false, currentLimitingMoles = limitingMoles, activeMassUnit = massUnit) => {
-    // For medium and solvent, do not calculate moles or molar ratio
-    if (row.type === 'base_acid' || row.type === 'solvent') {
-      return {
-        ...row,
-        moles: 0,
-        eq: 0,
-        molarRatio: 0
-      };
-    }
-
-    const mw = parseDecimal(row.mw);
-    const actualMass = parseDecimal(row.actualMass);
-    const actualVolume = parseDecimal(row.actualVolume);
-    const density = parseDecimal(row.density);
-    const purity = row.purity !== undefined && row.purity !== '' ? parseDecimal(row.purity) : 100;
-    const purityFactor = purity > 0 ? purity / 100 : 1;
-
-    let effectiveMass = actualMass;
-    if ((!actualMass || actualMass === 0) && actualVolume > 0 && density > 0) {
-      if (activeMassUnit === 'mg') {
-        effectiveMass = actualVolume * density * 1000;
-      } else {
-        effectiveMass = actualVolume * density;
-      }
-    }
-
-    let moles = 0;
-    if (mw > 0 && effectiveMass > 0) {
-      moles = (effectiveMass * purityFactor) / mw;
-    }
-
+    const result = rowAmount(row, { mass: activeMassUnit, mole: moleUnit });
+    const moles = molToDisplay(result.mol, moleUnit);
     const baseLimiting = isLimitingRow ? moles : currentLimitingMoles;
-    const ratio = baseLimiting > 0 && moles > 0 ? moles / baseLimiting : 0;
-
-    return {
-      ...row,
-      moles: parseFloat(moles.toFixed(5)),
-      eq: parseFloat(ratio.toFixed(3)),
-      molarRatio: parseFloat(ratio.toFixed(3))
-    };
+    const ratio = baseLimiting > 0 ? moles / baseLimiting : 0;
+    return { ...row, moles, eq: ratio, molarRatio: ratio, calculationError: result.error || '' };
   };
 
   // Update cell change
@@ -111,7 +79,7 @@ export const StoichiometryTable = ({
       Object.entries(patch).forEach(([field, rawValue]) => {
         nextRow[field] =
           NUMERIC_FIELDS.includes(field) && typeof rawValue === 'string'
-            ? rawValue.replace(/[^0-9.,-]/g, '')
+            ? rawValue
             : rawValue;
       });
       return nextRow;
@@ -124,7 +92,7 @@ export const StoichiometryTable = ({
     const newLimitingMoles = tempLimRow ? tempLimRow.moles : 0;
 
     const finalReagents = updated.map((r) => {
-      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.type === 'base_acid' || r.type === 'solvent') return calculateRowValues(r, false, newLimitingMoles);
       if (r.id === currentLim?.id) {
         return { ...tempLimRow, isLimiting: true };
       }
@@ -137,12 +105,14 @@ export const StoichiometryTable = ({
   const handleCellChange = (id, field, rawValue) => {
     const cleaned =
       NUMERIC_FIELDS.includes(field) && typeof rawValue === 'string'
-        ? rawValue.replace(/[^0-9.,-]/g, '')
+        ? rawValue
         : rawValue;
 
     const updated = reagents.map((r) => {
       if (r.id !== id) return r;
       const updatedRow = { ...r, [field]: cleaned };
+      if (field === 'actualMass') updatedRow.amountSource = 'mass';
+      if (field === 'actualVolume') updatedRow.amountSource = r.type === 'base_acid' ? 'solution' : 'volume';
 
       // Clear manual ratio override when user edits mass or volume directly
       if (field === 'actualMass' || field === 'actualVolume') {
@@ -158,7 +128,7 @@ export const StoichiometryTable = ({
             updatedRow.isLiquid = true;
             if (d > 0) {
               const calcMass = massUnit === 'mg' ? v * d * 1000 : v * d;
-              updatedRow.actualMass = String(parseFloat(calcMass.toFixed(massUnit === 'mg' ? 2 : 4)));
+              updatedRow.actualMass = String(calcMass);
             }
           }
         } else if (field === 'density') {
@@ -169,10 +139,10 @@ export const StoichiometryTable = ({
             updatedRow.isLiquid = true;
             if (v > 0) {
               const calcMass = massUnit === 'mg' ? v * d * 1000 : v * d;
-              updatedRow.actualMass = String(parseFloat(calcMass.toFixed(massUnit === 'mg' ? 2 : 4)));
+              updatedRow.actualMass = String(calcMass);
             } else if (m > 0) {
               const volMl = massUnit === 'mg' ? m / (d * 1000) : m / d;
-              updatedRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+              updatedRow.actualVolume = String(volMl);
             }
           }
         } else if (field === 'actualMass') {
@@ -180,7 +150,7 @@ export const StoichiometryTable = ({
           const d = parseDecimal(r.density);
           if (m > 0 && d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
             const volMl = massUnit === 'mg' ? m / (d * 1000) : m / d;
-            updatedRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+            updatedRow.actualVolume = String(volMl);
           }
         }
       }
@@ -195,7 +165,7 @@ export const StoichiometryTable = ({
     const newLimitingMoles = tempLimRow ? tempLimRow.moles : 0;
 
     const finalReagents = updated.map((r) => {
-      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.type === 'base_acid' || r.type === 'solvent') return calculateRowValues(r, false, newLimitingMoles);
       if (r.id === currentLim?.id) {
         return { ...tempLimRow, isLimiting: true };
       }
@@ -219,26 +189,28 @@ export const StoichiometryTable = ({
         eq: ratioNum
       };
 
+      if (cleaned !== '' && ratioNum === 0) return { ...nextRow, actualMass: '0', actualVolume: '0', theoMass: '0', moles: 0, amountSource: 'mass' };
+      nextRow.amountSource = 'mass';
       if (ratioNum > 0 && limitingMoles > 0) {
         const mw = parseDecimal(r.mw);
         const purity = r.purity !== undefined && r.purity !== '' ? parseDecimal(r.purity) : 100;
-        const purityFactor = purity > 0 ? purity / 100 : 1;
+        const purityFactor = purity >= 0 && purity <= 100 ? purity / 100 : 0;
         const reqMoles = ratioNum * limitingMoles;
 
         if (mw > 0 && purityFactor > 0) {
-          let reqMass = (reqMoles * mw) / purityFactor;
+          let reqMass = (displayToMol(reqMoles, moleUnit) * mw) / purityFactor * (massUnit === 'mg' ? 1000 : 1);
           // If massUnit and moleUnit are matched (g/mol or mg/mmol), reqMass is already in massUnit
           const decimals = massUnit === 'mg' ? 2 : 4;
-          const formattedMass = String(parseFloat(reqMass.toFixed(decimals)));
+          const formattedMass = String(reqMass);
           nextRow.actualMass = formattedMass;
           nextRow.theoMass = formattedMass;
-          nextRow.moles = parseFloat(reqMoles.toFixed(5));
+          nextRow.moles = reqMoles;
 
           // Also update volume if density > 0 and reagent is liquid or already uses volume
           const d = parseDecimal(r.density);
           if (d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
             const volMl = massUnit === 'mg' ? reqMass / (d * 1000) : reqMass / d;
-            nextRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+            nextRow.actualVolume = String(volMl);
           }
         }
       }
@@ -250,9 +222,11 @@ export const StoichiometryTable = ({
 
   // Set Limiting Reagent (only among active reactants)
   const setLimiting = (id) => {
+    if (reagents.find((r) => r.id === id)?.type === 'catalyst') { alert('Xúc tác không dùng làm chất giới hạn tiêu hao.'); return; }
     const updated = reagents.map((r) => ({
       ...r,
-      isLimiting: r.id === id
+      isLimiting: r.id === id,
+      molarRatioInput: undefined
     }));
 
     const curActive = updated.filter((r) => r.type !== 'base_acid' && r.type !== 'solvent');
@@ -261,7 +235,7 @@ export const StoichiometryTable = ({
     const limMoles = calculatedLim ? calculatedLim.moles : 0;
 
     const finalReagents = updated.map((r) => {
-      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.type === 'base_acid' || r.type === 'solvent') return calculateRowValues(r, false, limMoles);
       if (r.id === id) return calculatedLim;
       return calculateRowValues(r, false, limMoles);
     });
@@ -301,7 +275,9 @@ export const StoichiometryTable = ({
       concentration: defaultConc,
       concentrationPercent: defaultConc,
       concUnit: defaultConcUnit,
-      density: extra.density || '1.0',
+      concentrationBasis: extra.concentrationBasis || '',
+      nFactor: extra.nFactor || '',
+      density: extra.density ?? (type === 'base_acid' ? '' : '1.0'),
       isLiquid: Boolean(extra.isLiquid),
       isLimiting: isFirstActive,
       theoMass: '1.0',
@@ -339,7 +315,7 @@ export const StoichiometryTable = ({
     const limMoles = limRow ? limRow.moles : 0;
 
     const finalReagents = filtered.map((r) => {
-      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.type === 'base_acid' || r.type === 'solvent') return calculateRowValues(r, false, limMoles);
       if (r.id === currentLim?.id) return limRow;
       return calculateRowValues(r, false, limMoles);
     });
@@ -359,23 +335,25 @@ export const StoichiometryTable = ({
     const updated = reagents.map((r) => {
       if (r.type === 'base_acid' || r.type === 'solvent' || r.isLimiting) return r;
       const mw = parseDecimal(r.mw);
-      const purity = parseDecimal(r.purity) > 0 ? parseDecimal(r.purity) / 100 : 1;
-      const targetRatio = parseDecimal(r.molarRatioInput ?? r.molarRatio ?? r.eq) || 1.0;
+      const rawPurity = parseDecimal(r.purity, 100);
+      const purity = rawPurity >= 0 && rawPurity <= 100 ? rawPurity / 100 : 0;
+      const ratioInput = r.molarRatioInput ?? r.molarRatio ?? r.eq;
+      const targetRatio = ratioInput === '' || ratioInput == null ? 1 : parseDecimal(ratioInput);
 
       if (mw > 0 && purity > 0) {
         const requiredMoles = targetRatio * limitingMoles;
-        const requiredMass = (requiredMoles * mw) / purity;
-        const formattedMass = String(parseFloat(requiredMass.toFixed(decimals)));
+        const requiredMass = (displayToMol(requiredMoles, moleUnit) * mw) / purity * (massUnit === 'mg' ? 1000 : 1);
+        const formattedMass = String(requiredMass);
         const d = parseDecimal(r.density);
         const nextRow = {
           ...r,
           theoMass: formattedMass,
           actualMass: formattedMass,
-          moles: parseFloat(requiredMoles.toFixed(5))
+          moles: requiredMoles
         };
         if (d > 0 && (r.isLiquid || parseDecimal(r.actualVolume) > 0)) {
           const volMl = massUnit === 'mg' ? requiredMass / (d * 1000) : requiredMass / d;
-          nextRow.actualVolume = String(parseFloat(volMl.toFixed(3)));
+          nextRow.actualVolume = String(volMl);
         }
         return nextRow;
       }
@@ -404,11 +382,11 @@ export const StoichiometryTable = ({
       const nextRow = { ...r };
       if (actualM > 0) {
         const converted = actualM * factor;
-        nextRow.actualMass = String(parseFloat(converted.toFixed(newMassUnit === 'mg' ? 2 : 5)));
+        nextRow.actualMass = String(converted);
       }
       if (theoM > 0) {
         const converted = theoM * factor;
-        nextRow.theoMass = String(parseFloat(converted.toFixed(newMassUnit === 'mg' ? 2 : 5)));
+        nextRow.theoMass = String(converted);
       }
       return nextRow;
     });
@@ -420,15 +398,15 @@ export const StoichiometryTable = ({
     const newLimitingMoles = tempLimRow ? tempLimRow.moles : 0;
 
     const finalReagents = convertedReagents.map((r) => {
-      if (r.type === 'base_acid' || r.type === 'solvent') return r;
+      if (r.type === 'base_acid' || r.type === 'solvent') return calculateRowValues(r, false, newLimitingMoles, newMassUnit);
       if (r.id === currentLim?.id) {
         return { ...tempLimRow, isLimiting: true };
       }
       return calculateRowValues(r, false, newLimitingMoles, newMassUnit);
     });
 
-    onChange(finalReagents);
-    onUnitsChange?.({ mass: newMassUnit, mole: newMoleUnit }, finalReagents);
+    if (onUnitsChange) onUnitsChange({ mass: newMassUnit, mole: newMoleUnit }, finalReagents);
+    else onChange(finalReagents);
 
     setUnitToast(
       newMassUnit === 'mg'
@@ -1209,7 +1187,7 @@ export const StoichiometryTable = ({
                               <button
                                 key={u}
                                 type="button"
-                                onClick={() => handleRowPatch(mRow.id, { concUnit: u })}
+                                onClick={() => convertMedium(mRow, u)}
                                 className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                                   concUnit === u
                                     ? 'bg-purple-700 text-white shadow-2xs'
@@ -1237,8 +1215,7 @@ export const StoichiometryTable = ({
                               const val = e.target.value.replace(/[^0-9.,-]/g, '');
                               handleRowPatch(mRow.id, {
                                 concentration: val,
-                                concentrationPercent: val,
-                                purity: val
+                                concentrationPercent: val
                               });
                             }}
                             placeholder={concUnit === 'CM' ? 'VD: 1.0' : 'VD: 10'}
@@ -1270,6 +1247,13 @@ export const StoichiometryTable = ({
                         </div>
                       </div>
 
+                      <div className="sm:col-span-2 lg:col-span-12 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <label>Cơ sở C%<select value={mRow.concentrationBasis || ''} onChange={(e) => convertMedium(mRow, mRow.concUnit || 'C%', e.target.value)} className="w-full border rounded p-2"><option value="">Chọn cơ sở %</option><option value="w/w">% w/w</option><option value="w/v">% w/v</option></select></label>
+                        <label>MW (g/mol)<input inputMode="decimal" value={mRow.mw || ''} onChange={(e) => handleCellChange(mRow.id, 'mw', e.target.value)} className="w-full border rounded p-2" /></label>
+                        <label>d (g/mL)<input inputMode="decimal" value={mRow.density || ''} onChange={(e) => handleCellChange(mRow.id, 'density', e.target.value)} className="w-full border rounded p-2" /></label>
+                        <label>z cho normality<input inputMode="decimal" value={mRow.nFactor || ''} onChange={(e) => handleRowPatch(mRow.id, { nFactor: e.target.value })} className="w-full border rounded p-2" /></label>
+                        <p className="col-span-2 sm:col-span-4 font-mono">{mRow.calculationError || `${mRow.moles || 0} ${moleUnit} · ${limitingMoles > 0 ? Number(mRow.eq || 0).toPrecision(5) : '—'} Eq`}</p>
+                      </div>
                       {/* Ghi chú & Nút Xoá */}
                       <div className="sm:col-span-2 lg:col-span-3 flex items-end gap-2">
                         <div className="flex-1 min-w-0">
@@ -1423,8 +1407,7 @@ export const StoichiometryTable = ({
                               const val = e.target.value.replace(/[^0-9.,-]/g, '');
                               handleRowPatch(sRow.id, {
                                 concentration: val,
-                                concentrationPercent: val,
-                                purity: val
+                                concentrationPercent: val
                               });
                             }}
                             placeholder={sConcUnit === 'CM' ? 'VD: 4.0' : 'VD: 96'}
@@ -1487,6 +1470,7 @@ export const StoichiometryTable = ({
           </div>
         </div>
 
+        {reagents.some((r) => r.calculationError) && <div role="alert" className="bg-rose-50 text-rose-900 p-3 rounded-xl">{reagents.filter((r) => r.calculationError).map((r) => <p key={r.id}>{r.name}: {r.calculationError}</p>)}</div>}
         {/* Batch Scale, Total Mass, Total Liquid Volume & Flask Size Recommendation */}
         {(() => {
           const totalSolidMass = activeReagents.reduce((sum, r) => sum + parseDecimal(r.actualMass), 0);

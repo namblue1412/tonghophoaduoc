@@ -19,6 +19,8 @@ import {
   Download
 } from 'lucide-react';
 import { useExperiment } from '../context/ExperimentContext';
+import { downloadTlcZip } from '../services/downloads.js';
+import { rfValue } from '../domain/chemistry.js';
 import { parseDecimal } from './StoichiometryTable';
 
 const toLocalDatetimeInput = (isoStr) => {
@@ -40,7 +42,7 @@ const formatTlcTimestamp = (isoStr) => {
   const d = new Date(isoStr);
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())} • ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return d.toLocaleString('vi-VN', { timeZoneName: 'short' });
 };
 
 export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) => {
@@ -165,9 +167,9 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     setUploading(false);
     setPhotoLoadingSlot(null);
     setEditingPlateId(plate.id);
-    const existingIso = plate.timestamp || new Date().toISOString();
+    const existingIso = plate.timestamp || null;
     setOriginalTimestamp(existingIso);
-    setCaptureDatetime(toLocalDatetimeInput(existingIso));
+    setCaptureDatetime(existingIso ? toLocalDatetimeInput(existingIso) : '');
     setIsTimestampModified(false);
     setNewMinute(String(plate.minute ?? ''));
     setNewEluent(plate.eluent || 'Hexan : EtOAc (3 : 1)');
@@ -250,35 +252,21 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const handleSolventFrontChange = (rawVal) => {
     const cleaned = rawVal.replace(/[^0-9.,]/g, '');
     setSolventFrontCm(cleaned);
-    const frontNum = parseFloat(cleaned.replace(',', '.')) || 0;
-    if (frontNum > 0) {
-      setNewSpots((prev) =>
-        prev.map((s) => {
-          const dNum = parseFloat(String(s.distCm || '').replace(',', '.')) || 0;
-          if (dNum > 0) {
-            return { ...s, rf: (dNum / frontNum).toFixed(2) };
-          }
-          return s;
-        })
-      );
-    }
+    setNewSpots((prev) => prev.map((spot) => {
+      if (String(spot.distCm ?? '').trim() === '') return spot;
+      const rf = rfValue(spot.distCm, cleaned);
+      return { ...spot, rf: rf == null ? '' : String(rf) };
+    }));
   };
-
   const updateSpotRow = (idx, field, rawVal) => {
-    const updated = [...newSpots];
+    const updated = newSpots.map((s) => ({ ...s }));
+    const value = field === 'distCm' || field === 'rf' ? String(rawVal).replace(/[^0-9.,]/g, '') : rawVal;
+    updated[idx][field] = value;
     if (field === 'distCm') {
-      const cleanedDist = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,]/g, '') : rawVal;
-      updated[idx].distCm = cleanedDist;
-      const distNum = parseFloat(String(cleanedDist).replace(',', '.')) || 0;
-      const frontNum = parseFloat(String(solventFrontCm).replace(',', '.')) || 0;
-      if (distNum > 0 && frontNum > 0) {
-        updated[idx].rf = (distNum / frontNum).toFixed(2);
-      }
-    } else if (field === 'rf') {
-      updated[idx].rf = typeof rawVal === 'string' ? rawVal.replace(/[^0-9.,]/g, '') : rawVal;
-    } else {
-      updated[idx][field] = rawVal;
+      const rf = value === '' ? null : rfValue(value, solventFrontCm);
+      updated[idx].rf = rf == null ? '' : String(rf);
     }
+    if (field === 'rf') updated[idx].distCm = ''; // Explicit Rf mode, no contradictory distance.
     setNewSpots(updated);
   };
 
@@ -291,6 +279,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
 
     const frontNum = parseFloat(String(solventFrontCm || '').replace(',', '.')) || 0;
+    if (newSpots.some((spot) => String(spot.distCm ?? '').trim() !== '') && frontNum <= 0) { alert('Tuyến dung môi phải lớn hơn 0.'); return; }
     const invalidSpot = newSpots.find((s) => {
       const rfVal = parseFloat(String(s.rf || '').replace(',', '.'));
       const distVal = parseFloat(String(s.distCm || '').replace(',', '.'));
@@ -306,15 +295,17 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
 
     const targetEditingId = editingPlateId;
+    const saveSession = modalSessionRef.current;
     savingRef.current = true;
     setUploading(true);
 
+    try {
     let url254 = photo254.preview || '';
     if (photo254.file) {
       try {
         url254 = await uploadImage(photo254.file, 'tlc_uv254');
       } catch (err) {
-        console.warn('Upload 254 error:', err);
+        throw err;
       }
     }
 
@@ -323,7 +314,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       try {
         url365 = await uploadImage(photo365.file, 'tlc_uv365');
       } catch (err) {
-        console.warn('Upload 365 error:', err);
+        throw err;
       }
     }
 
@@ -332,11 +323,13 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       try {
         urlReagent = await uploadImage(photoReagent.file, 'tlc_reagent');
       } catch (err) {
-        console.warn('Upload reagent error:', err);
+        throw err;
       }
     }
 
-    const minNum = parseInt(newMinute, 10) || 0;
+    if (modalSessionRef.current !== saveSession) return;
+    const minNum = Number(String(newMinute).replace(',', '.'));
+    if (!Number.isFinite(minNum) || minNum < 0) { alert('Phút phản ứng phải là số không âm.'); setUploading(false); savingRef.current = false; return; }
     const hours = Math.floor(minNum / 60);
     const mins = minNum % 60;
     let formattedTime = `${minNum} phút`;
@@ -350,7 +343,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
     const resolvedTimestamp = isTimestampModified
       ? fromLocalDatetimeInput(captureDatetime, originalTimestamp)
-      : (originalTimestamp || new Date().toISOString());
+      : (targetEditingId ? originalTimestamp : (originalTimestamp || new Date().toISOString()));
 
     const platePayload = {
       minute: minNum,
@@ -365,7 +358,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
         reagent: urlReagent || null
       },
       imageUrl: url254 || '',
-      spots: newSpots.filter((s) => s.rf.trim() !== '' || s.label.trim() !== ''),
+      spots: newSpots.filter((s) => String(s.rf ?? '').trim() !== '' || s.label.trim() !== ''),
       observations: newObservation || 'Theo dõi tiến trình phản ứng'
     };
 
@@ -390,9 +383,14 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
     }
 
     updatedList.sort((a, b) => (a.minute || 0) - (b.minute || 0));
-    onChange(updatedList);
-
-    handleCloseModal();
+    const saved = await onChange(updatedList);
+    if (!saved?.success) { alert(saved?.error?.message || 'Chưa lưu được TLC; bản nháp được giữ.'); setUploading(false); savingRef.current = false; return; }
+    if (modalSessionRef.current === saveSession) handleCloseModal();
+    } catch (error) {
+      if (modalSessionRef.current === saveSession) alert(error.message || 'Không lưu được TLC.');
+    } finally {
+      if (modalSessionRef.current === saveSession) { savingRef.current = false; setUploading(false); }
+    }
   };
 
   // Keyboard shortcut handlers: Esc to close, Enter to save
@@ -462,77 +460,8 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Auto-download all uploaded photos (up to 3 images: UV 254, UV 365, Reagent) of a TLC plate at once
   const handleDownloadPlateImages = async (plate) => {
-    const imagesToDownload = [];
-    const img254 = plate.images ? plate.images.uv254 || null : plate.imageUrl || null;
-    if (img254) {
-      imagesToDownload.push({ url: img254, name: `TLC_${plate.minute}m_UV254.jpg` });
-    }
-    if (plate.images?.uv365) {
-      imagesToDownload.push({ url: plate.images.uv365, name: `TLC_${plate.minute}m_UV365.jpg` });
-    }
-    if (plate.images?.reagent) {
-      const stainSafe = (plate.stainName || 'Reagent').replace(/[^a-zA-Z0-9]/g, '_');
-      imagesToDownload.push({ url: plate.images.reagent, name: `TLC_${plate.minute}m_${stainSafe}.jpg` });
-    }
-
-    if (imagesToDownload.length === 0) {
-      alert('Bản mỏng này chưa có ảnh chụp nào để tải về!');
-      return;
-    }
-
-    try {
-      // 1. Convert all data: URLs synchronously BEFORE any await so user gesture stays active for all 3 files!
-      const preparedItems = [];
-      for (const item of imagesToDownload) {
-        if (item.url.startsWith('data:')) {
-          const { blob, file } = dataUrlToFileSync(item.url, item.name);
-          preparedItems.push({ blob, file, name: item.name });
-        } else {
-          const resp = await fetch(item.url, { mode: 'cors' });
-          const blob = await resp.blob();
-          const file = new File([blob], item.name, { type: blob.type || 'image/jpeg' });
-          preparedItems.push({ blob, file, name: item.name });
-        }
-      }
-
-      const filesArray = preparedItems.map((p) => p.file);
-      const isIOS =
-        /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-      // 2. On iPhone / iPad: iOS Safari blocks multiple <a download> popups (only downloading 1 image).
-      // Passing all 3 File objects to navigator.share({ files }) saves all 3 images at once ("Lưu 3 hình ảnh")!
-      if (isIOS && navigator.canShare && navigator.canShare({ files: filesArray })) {
-        try {
-          await navigator.share({
-            files: filesArray,
-            title: `TLC ${plate.timeFormatted || `${plate.minute}m`}`
-          });
-          return;
-        } catch (shareErr) {
-          if (shareErr && shareErr.name === 'AbortError') return;
-        }
-      }
-
-      // 3. On Mac / PC (or fallback): trigger Blob URL downloads for all 3 images
-      preparedItems.forEach((item, idx) => {
-        const blobUrl = URL.createObjectURL(item.blob);
-        setTimeout(() => {
-          const link = document.createElement('a');
-          link.style.display = 'none';
-          link.href = blobUrl;
-          link.download = item.name;
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            if (link.parentNode) document.body.removeChild(link);
-            URL.revokeObjectURL(blobUrl);
-          }, 2000);
-        }, idx * 120);
-      });
-    } catch (err) {
-      console.error('Lỗi khi tải ảnh:', err);
-    }
+    try { downloadTlcZip(plate.images || { uv254: plate.imageUrl }, `TLC_${plate.id}`, { timestamp: plate.timestamp, eluent: plate.eluent, spots: plate.spots }); }
+    catch (error) { alert(error.message); }
   };
 
   // Open Lightbox
@@ -932,6 +861,10 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     <input
                       type="datetime-local"
                       value={captureDatetime}
+                      onInput={(e) => {
+                        setCaptureDatetime(e.currentTarget.value);
+                        setIsTimestampModified(true);
+                      }}
                       onChange={(e) => {
                         setCaptureDatetime(e.target.value);
                         setIsTimestampModified(true);

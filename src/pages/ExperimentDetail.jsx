@@ -30,6 +30,8 @@ import { ReactionTimer } from '../components/ReactionTimer';
 import { TLCTracker } from '../components/TLCTracker';
 import { WorkupSection } from '../components/WorkupSection';
 import { ColumnFractionManager } from '../components/ColumnFractionManager';
+import { MedChemTools } from '../components/MedChemTools';
+import { ExperimentReport } from '../components/ExperimentReport';
 
 const WORKFLOW_STAGES = [
   {
@@ -104,6 +106,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   const [activeNav, setActiveNav] = useState('stoichiometry');
   // viewMode: 'all' (full scroll) | 'focus' (single step focus - great for iPad & iPhone)
   const [viewMode, setViewMode] = useState('all');
+  const [printFull, setPrintFull] = useState(false);
+  const handlePrint = (full) => { setPrintFull(full); setTimeout(() => window.print(), 100); };
 
   // Mini live timer calculation
   const [runningSeconds, setRunningSeconds] = useState(0);
@@ -116,7 +120,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         : Date.now();
 
       const updateTick = () => {
-        const diff = Math.max(0, Math.floor((Date.now() - start) / 1000));
+        const diff = Number.isFinite(start) ? Math.max(0, Math.floor((Date.now() - start) / 1000)) : 0;
         setRunningSeconds(diff);
       };
 
@@ -157,10 +161,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     (acc, it) => acc + (Number(it?.durationSeconds) || 0),
     0
   );
-  const baseTotalSeconds = Math.max(
-    Number(activeExperiment?.reactionTimer?.totalSeconds) || 0,
-    intervalsSumSeconds
-  );
+  const baseTotalSeconds = intervalsSumSeconds;
   const totalCurrentTimer =
     baseTotalSeconds +
     (activeExperiment?.reactionTimer?.status === 'running' ? runningSeconds : 0);
@@ -182,11 +183,11 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
 
   // Handlers for updating each section
   const handleMetaChange = (field, value) => {
-    updateExperiment(activeExperiment.id, { [field]: value });
+    return updateExperiment(activeExperiment.id, { [field]: value });
   };
 
   const handleTargetChange = (field, value) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       targetMolecule: {
         ...activeExperiment.targetMolecule,
         [field]: value
@@ -195,13 +196,13 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   };
 
   const handleEquipmentChange = (newEquipment) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       equipment: newEquipment
     });
   };
 
   const handleStoichiometryChange = (newReagents) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       stoichiometry: newReagents
     });
   };
@@ -213,29 +214,29 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
     if (newStatus && newStatus !== activeExperiment.status) {
       patch.status = newStatus;
     }
-    updateExperiment(activeExperiment.id, patch);
+    return updateExperiment(activeExperiment.id, patch);
   };
 
   const handleStatusChange = (newStatus) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       status: newStatus
     });
   };
 
   const handleTlcChange = (newTlcList) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       tlcTimeline: newTlcList
     });
   };
 
   const handleWorkupChange = (newWorkupData) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       workup: newWorkupData
     });
   };
 
   const handleColumnChange = (newColumnData) => {
-    updateExperiment(activeExperiment.id, {
+    return updateExperiment(activeExperiment.id, {
       columnAndYield: newColumnData
     });
   };
@@ -262,16 +263,16 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         const crude = t.crudeMass ? parseDecimal(t.crudeMass) : 0;
         return {
           ...t,
-          tareMass: tare > 0 ? String(parseFloat((tare * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.tareMass,
-          grossMass: gross > 0 ? String(parseFloat((gross * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.grossMass,
-          crudeMass: crude > 0 ? parseFloat((crude * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : 0
+          tareMass: tare > 0 ? String(tare * factor) : t.tareMass,
+          grossMass: gross > 0 ? String(gross * factor) : t.grossMass,
+          crudeMass: crude > 0 ? crude * factor : 0
         };
       });
       const oldCrude = parseDecimal(updatedWorkup.crudeMass);
       updatedWorkup = {
         ...updatedWorkup,
         crudeTubes: updatedCrudeTubes,
-        crudeMass: oldCrude > 0 ? parseFloat((oldCrude * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : updatedWorkup.crudeMass
+        crudeMass: oldCrude > 0 ? oldCrude * factor : updatedWorkup.crudeMass
       };
     }
 
@@ -283,9 +284,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         const prod = t.productMass ? parseDecimal(t.productMass) : 0;
         return {
           ...t,
-          tareMass: tare > 0 ? String(parseFloat((tare * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.tareMass,
-          grossMass: gross > 0 ? String(parseFloat((gross * factor).toFixed(newMassUnit === 'mg' ? 2 : 4))) : t.grossMass,
-          productMass: prod > 0 ? parseFloat((prod * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : 0
+          tareMass: tare > 0 ? String(tare * factor) : t.tareMass,
+          grossMass: gross > 0 ? String(gross * factor) : t.grossMass,
+          productMass: prod > 0 ? prod * factor : 0
         };
       });
       const oldProd = parseDecimal(updatedColumn.eppendorfYield.productMass);
@@ -296,9 +297,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         eppendorfYield: {
           ...updatedColumn.eppendorfYield,
           tubes: updatedTubes,
-          productMass: oldProd > 0 ? parseFloat((oldProd * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : updatedColumn.eppendorfYield.productMass,
-          byproductMass: oldByprod > 0 ? parseFloat((oldByprod * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : (updatedColumn.eppendorfYield.byproductMass || 0),
-          theoreticalYield: oldTheo > 0 ? parseFloat((oldTheo * factor).toFixed(newMassUnit === 'mg' ? 2 : 4)) : updatedColumn.eppendorfYield.theoreticalYield
+          productMass: oldProd > 0 ? oldProd * factor : updatedColumn.eppendorfYield.productMass,
+          byproductMass: oldByprod > 0 ? oldByprod * factor : (updatedColumn.eppendorfYield.byproductMass || 0),
+          theoreticalYield: oldTheo > 0 ? oldTheo * factor : updatedColumn.eppendorfYield.theoreticalYield
         }
       };
     }
@@ -354,8 +355,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   const targetMW =
     parseFloat(String(activeExperiment.targetMolecule?.molecularWeight).replace(',', '.')) || 0;
 
-  const handleManualSave = () => {
-    updateExperiment(activeExperiment.id, {});
+  const handleManualSave = async () => {
+    const result = await updateExperiment(activeExperiment.id, {});
+    if (!result?.success || result.pending) return;
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
   };
@@ -423,6 +425,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         </div>
       )}
 
+      <ExperimentReport experiment={activeExperiment} full={printFull} />
+      <div className="no-print flex flex-wrap gap-3"><button onClick={() => handlePrint(false)} className="border rounded-lg p-3">In tóm tắt A4</button><button onClick={() => handlePrint(true)} className="border rounded-lg p-3">In hồ sơ đầy đủ / PDF</button></div>
+      <MedChemTools key={activeExperiment.id} experiment={activeExperiment} onChange={(patch) => updateExperiment(activeExperiment.id, patch)} />
       {(viewMode === 'all' || activeNav === 'apparatus') && (
         <section id="section-apparatus" className="scroll-mt-28">
           <ApparatusPreparation
@@ -475,6 +480,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             moleUnit={activeExperiment.units?.mole || 'mol'}
             limitingMoles={limitingMoles}
             targetMW={targetMW}
+            limitingCoefficient={limitingReagent?.stoichCoefficient ?? 1}
+            productCoefficient={activeExperiment.targetMolecule?.stoichCoefficient ?? 1}
           />
         </section>
       )}
@@ -486,6 +493,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             onChange={handleColumnChange}
             limitingMoles={limitingMoles}
             targetMW={targetMW}
+            limitingCoefficient={limitingReagent?.stoichCoefficient ?? 1}
+            productCoefficient={activeExperiment.targetMolecule?.stoichCoefficient ?? 1}
             rawTargetMW={activeExperiment.targetMolecule?.molecularWeight ?? ''}
             onTargetMWChange={(val) => handleTargetChange('molecularWeight', val)}
             crudeMass={crudeMassVal}
@@ -636,7 +645,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             </button>
 
             <button
-              onClick={() => window.print()}
+              onClick={() => handlePrint(false)}
               className="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-1.5 cursor-pointer shadow-xs"
               title="In sổ tay"
             >
@@ -824,7 +833,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             </button>
 
             <button
-              onClick={() => window.print()}
+              onClick={() => handlePrint(false)}
               className="bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-2xl border border-slate-200 flex items-center gap-1.5 shadow-xs min-h-[42px] cursor-pointer"
             >
               <Printer className="w-4 h-4 text-slate-500" />
@@ -993,7 +1002,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={() => handlePrint(false)}
             className="bg-white text-slate-700 p-2 rounded-2xl border border-slate-200 shadow-xs min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
             title="In sổ tay"
           >

@@ -7,8 +7,12 @@ import {
   loadExperimentsData,
   isFirebaseConfigured,
   uploadImage,
+  importDemoExperiments,
+  refreshDemoData,
   isDeletedRecord
 } from '../services/firebase';
+import { changedFields, deriveExperiment, mergePatch, validateImport } from '../domain/experiment.js';
+import { localDate } from '../domain/chemistry.js';
 
 const ExperimentContext = createContext();
 
@@ -16,7 +20,25 @@ export const ExperimentProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const [allExperiments, setAllExperiments] = useState([]);
   const allExperimentsRef = useRef([]);
-  const pendingSaveIdsRef = useRef(new Set());
+  const pendingSaveIdsRef = useRef(new Map());
+  const [syncError, setSyncError] = useState('');
+  const beginSave = (id) => {
+    pendingSaveIdsRef.current.set(id, (pendingSaveIdsRef.current.get(id) || 0) + 1);
+    setIsSyncing(true);
+    setSyncError('');
+  };
+  const endSave = (id) => {
+    const count = (pendingSaveIdsRef.current.get(id) || 1) - 1;
+    if (count > 0) pendingSaveIdsRef.current.set(id, count);
+    else pendingSaveIdsRef.current.delete(id);
+    setIsSyncing(pendingSaveIdsRef.current.size > 0);
+    if (!pendingSaveIdsRef.current.size) void refreshDemoData();
+  };
+  const requireSuccess = (result) => {
+    if (!result?.success) throw result?.error || new Error('Không lưu được dữ liệu demo.');
+    if (!result.pending) setLastSaved(new Date());
+    return result;
+  };
   const [activeExperimentId, setActiveExperimentId] = useState(null);
   const [syncMode, setSyncMode] = useState('firebase');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -24,12 +46,20 @@ export const ExperimentProvider = ({ children }) => {
 
   // Initialize and subscribe directly to Firebase Cloud
   useEffect(() => {
+    allExperimentsRef.current = [];
+    setAllExperiments([]);
+    setActiveExperimentId(null);
+    setSyncError('');
+    setLastSaved(null);
+    pendingSaveIdsRef.current.clear();
+    setIsSyncing(false);
+    if (!currentUser?.uid) return;
     const isCloud = isFirebaseConfigured();
     setSyncMode(isCloud ? 'firebase' : 'local');
 
     const unsubscribe = loadExperimentsData((loadedData, mode) => {
       setSyncMode(mode);
-      const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item));
+      const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item) && item.creatorId === currentUser.uid).map(deriveExperiment);
 
       // Only preserve in-memory items that are actively being saved right now by user interaction
       const currentMem = allExperimentsRef.current || [];
@@ -39,18 +69,11 @@ export const ExperimentProvider = ({ children }) => {
         if (item && item.id) mergedMap.set(item.id, item);
       }
       for (const memItem of currentMem) {
-        if (isDeletedRecord(memItem)) continue;
+        if (isDeletedRecord(memItem) || memItem.creatorId !== currentUser.uid) continue;
         if (!pendingSaveIdsRef.current.has(memItem.id)) continue;
         const incItem = mergedMap.get(memItem.id);
-        if (!incItem) {
-          mergedMap.set(memItem.id, memItem);
-        } else {
-          const tMem = new Date(memItem.updatedAt || memItem.createdAt || 0).getTime();
-          const tInc = new Date(incItem.updatedAt || incItem.createdAt || 0).getTime();
-          if (tMem >= tInc) {
-            mergedMap.set(memItem.id, memItem);
-          }
-        }
+        if (!incItem && !memItem.revision) mergedMap.set(memItem.id, memItem);
+        else if (incItem && !incItem.inTrash && !incItem.demoConflict && (memItem.revision || 0) > (incItem.revision || 0)) mergedMap.set(memItem.id, memItem);
       }
 
       const finalData = Array.from(mergedMap.values()).sort(
@@ -58,45 +81,20 @@ export const ExperimentProvider = ({ children }) => {
       );
       allExperimentsRef.current = finalData;
       setAllExperiments(finalData);
-    });
+    }, currentUser.uid, (error) => setSyncError(error.message));
 
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [currentUser?.uid]);
 
   // Strict Per-User Data Isolation: All experiments belonging to currentUser
   const userExperiments = useMemo(() => {
     if (!currentUser) return [];
 
-    return allExperiments.filter((exp) => {
-      if (isDeletedRecord(exp)) return false;
-      // 1. Matches creatorId
-      if (exp.creatorId && currentUser.uid && exp.creatorId === currentUser.uid) {
-        return true;
-      }
-      // 2. Matches creatorEmail
-      if (exp.creatorEmail && currentUser.email && exp.creatorEmail.trim().toLowerCase() === currentUser.email.trim().toLowerCase()) {
-        return true;
-      }
-      // 3. Matches researcher display name
-      if (
-        currentUser.displayName &&
-        exp.researcher &&
-        exp.researcher.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase()
-      ) {
-        return true;
-      }
-      // 4. Matches Student ID (MSSV) in researcher or notes
-      if (
-        currentUser.studentId &&
-        ((exp.researcher && exp.researcher.includes(currentUser.studentId)) ||
-          (exp.notes && exp.notes.includes(currentUser.studentId)))
-      ) {
-        return true;
-      }
-      return false;
-    });
+    return allExperiments.filter((exp) =>
+      !isDeletedRecord(exp) && exp.creatorId === currentUser.uid
+    );
   }, [allExperiments, currentUser]);
 
   // Active experiments (not in Trash)
@@ -131,41 +129,48 @@ export const ExperimentProvider = ({ children }) => {
   const updateExperiment = async (id, updatedFields) => {
     if (!id) return;
     setIsSyncing(true);
-    pendingSaveIdsRef.current.add(id);
+    beginSave(id);
 
     const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
     const target = baseList.find((e) => e.id === id);
     if (!target) {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
       return;
     }
 
-    const merged = {
-      ...target,
-      ...updatedFields,
+    if (target.creatorId !== currentUser?.uid || target.inTrash) {
+      endSave(id);
+      setSyncError('Không được chỉnh sửa bản trong thùng rác hoặc của người khác.');
+      return { success: false };
+    }
+    const renderedBase = allExperiments.find((e) => e.id === id) || target;
+    const patch = changedFields(renderedBase, { ...renderedBase, ...updatedFields }) || {};
+    const merged = deriveExperiment({
+      ...mergePatch(target, patch),
+      revision: (target.revision || 0) + 1,
       updatedAt: new Date().toISOString()
-    };
+    });
 
     const nextList = baseList.map((e) => (e.id === id ? merged : e));
     allExperimentsRef.current = nextList;
     setAllExperiments(nextList);
 
     try {
-      await saveExperimentData(merged);
-      setLastSaved(new Date());
+      const result = requireSuccess(await saveExperimentData(merged, { base: target, patch, user: currentUser }));
+      return result;
     } catch (err) {
       console.error('Failed to save experiment:', err);
+      setSyncError(err.message);
+      return { success: false, error: err };
     } finally {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
     }
   };
 
   // Create new experiment strictly tagged to currentUser
   const createNewExperiment = async (customMeta = {}) => {
-    const newId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
-    const newExperiment = {
+    const newId = `EXP-${crypto.randomUUID()}`;
+    let newExperiment = {
       id: newId,
       code: customMeta.code || `SYN-${experiments.length + 1}`,
       title: customMeta.title || 'Thí nghiệm tổng hợp mới',
@@ -174,7 +179,7 @@ export const ExperimentProvider = ({ children }) => {
       creatorId: currentUser?.uid || null,
       creatorEmail: currentUser?.email || null,
       creatorName: currentUser?.displayName || currentUser?.email || 'Nghiên cứu viên',
-      date: new Date().toISOString().split('T')[0],
+      date: localDate(),
       status: 'draft',
       // Configurable units: 'g' / 'mol' or 'mg' / 'mmol'
       units: {
@@ -256,7 +261,10 @@ export const ExperimentProvider = ({ children }) => {
           type: 'base_acid',
           name: 'Dung dịch HCl 10%',
           formula: '',
-          mw: '0',
+          mw: '36.46',
+          concUnit: 'C%',
+          concentrationBasis: 'w/w',
+          nFactor: '1',
           purity: '10.0',
           concentrationPercent: '10',
           density: '1.05',
@@ -352,16 +360,20 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    pendingSaveIdsRef.current.add(newId);
+    newExperiment = deriveExperiment(newExperiment);
+    beginSave(newId);
     const nextCreatedList = [newExperiment, ...allExperimentsRef.current];
     allExperimentsRef.current = nextCreatedList;
     setAllExperiments(nextCreatedList);
     setActiveExperimentId(newId);
     try {
-      await saveExperimentData(newExperiment);
-      setLastSaved(new Date());
+      const result = requireSuccess(await saveExperimentData(newExperiment, { user: currentUser }));
+      return result.data;
+    } catch (error) {
+      setSyncError(error.message);
+      throw error;
     } finally {
-      pendingSaveIdsRef.current.delete(newId);
+      endSave(newId);
     }
     return newExperiment;
   };
@@ -370,13 +382,12 @@ export const ExperimentProvider = ({ children }) => {
   const moveToTrash = async (id) => {
     if (!id) return;
     setIsSyncing(true);
-    pendingSaveIdsRef.current.add(id);
+    beginSave(id);
 
     const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
     const target = baseList.find((e) => e.id === id);
     if (!target) {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
       return;
     }
 
@@ -398,11 +409,11 @@ export const ExperimentProvider = ({ children }) => {
     }
 
     try {
-      await saveExperimentData(trashedExp);
-      setLastSaved(new Date());
+      requireSuccess(await saveExperimentData(trashedExp, { base: target, patch: { inTrash: true, trashedAt: nowIso }, kind: 'trash', user: currentUser }));
+    } catch (error) {
+      setSyncError(error.message);
     } finally {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
     }
   };
 
@@ -410,13 +421,12 @@ export const ExperimentProvider = ({ children }) => {
   const restoreExperiment = async (id) => {
     if (!id) return;
     setIsSyncing(true);
-    pendingSaveIdsRef.current.add(id);
+    beginSave(id);
 
     const baseList = allExperimentsRef.current.length > 0 ? allExperimentsRef.current : allExperiments;
     const target = baseList.find((e) => e.id === id);
     if (!target) {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
       return;
     }
 
@@ -433,34 +443,25 @@ export const ExperimentProvider = ({ children }) => {
     setAllExperiments(nextList);
 
     try {
-      await saveExperimentData(restoredExp);
-      setLastSaved(new Date());
+      requireSuccess(await saveExperimentData(restoredExp, { base: target, patch: { inTrash: false, trashedAt: null }, kind: 'restore', user: currentUser }));
+    } catch (error) {
+      setSyncError(error.message);
     } finally {
-      pendingSaveIdsRef.current.delete(id);
-      setIsSyncing(false);
+      endSave(id);
     }
   };
 
   // Permanently delete a single experiment from Firebase Realtime Database
   const permanentlyDeleteExperiment = async (id) => {
     if (!id) return;
-    setIsSyncing(true);
-    pendingSaveIdsRef.current.delete(id);
-
-    const nextDeletedList = allExperimentsRef.current.filter((e) => e.id !== id);
-    allExperimentsRef.current = nextDeletedList;
-    setAllExperiments(nextDeletedList);
-
-    if (activeExperimentId === id) {
-      const remaining = experiments.filter((e) => e.id !== id);
-      setActiveExperimentId(remaining.length > 0 ? remaining[0].id : null);
-    }
+    beginSave(id);
 
     try {
-      await deleteExperimentData(id);
-      setLastSaved(new Date());
+      requireSuccess(await deleteExperimentData(id));
+    } catch (error) {
+      setSyncError(error.message);
     } finally {
-      setIsSyncing(false);
+      endSave(id);
     }
   };
 
@@ -469,25 +470,13 @@ export const ExperimentProvider = ({ children }) => {
     const trashedIds = trashedExperiments.map((e) => e.id).filter(Boolean);
     if (trashedIds.length === 0) return;
 
-    setIsSyncing(true);
-    const trashedIdSet = new Set(trashedIds);
-    for (const id of trashedIds) {
-      pendingSaveIdsRef.current.delete(id);
-    }
-
-    const nextList = allExperimentsRef.current.filter((e) => !trashedIdSet.has(e.id));
-    allExperimentsRef.current = nextList;
-    setAllExperiments(nextList);
-
-    if (activeExperimentId && trashedIdSet.has(activeExperimentId)) {
-      setActiveExperimentId(experiments.length > 0 ? experiments[0].id : null);
-    }
-
+    trashedIds.forEach(beginSave);
     try {
-      await permanentlyDeleteExperimentsBatch(trashedIds);
-      setLastSaved(new Date());
+      requireSuccess(await permanentlyDeleteExperimentsBatch(trashedIds));
+    } catch (error) {
+      setSyncError(error.message);
     } finally {
-      setIsSyncing(false);
+      trashedIds.forEach(endSave);
     }
   };
 
@@ -502,13 +491,16 @@ export const ExperimentProvider = ({ children }) => {
       allExperiments.find((e) => e.id === id);
     if (!original) return;
 
-    const dupId = `EXP-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Date.now()).slice(-4)}`;
+    const dupId = `EXP-${crypto.randomUUID()}`;
     const duplicated = {
       ...JSON.parse(JSON.stringify(original)),
       id: dupId,
       code: `${original.code}-COPY`,
-      title: `${original.title} (Bản sao)`,
-      date: new Date().toISOString().split('T')[0],
+      title: `${original.title} (Lần chạy mới)`,
+      revision: 0, auditTrail: [], tlcTimeline: [], analytics: { records: [] },
+      workup: { ...original.workup, crudeTubes: [], crudeTareMass: '0', crudeGrossMass: '0', crudeMass: 0, crudeMassSource: 'tubes' },
+      columnAndYield: { ...original.columnAndYield, fractions: (original.columnAndYield?.fractions || []).map((f) => ({ ...f, group: null, groupTag: null, groupColor: null, spotPattern: 'empty', tlcChecked: false })), fractionGroups: [], fractionTlcPlates: [], eppendorfYield: { tubes: [], productMass: 0, tubeTareMass: '0', tubeGrossMass: '0', purityHplc: '', assayMassPercent: '' } },
+      date: localDate(),
       creatorId: currentUser?.uid || null,
       creatorEmail: currentUser?.email || null,
       creatorName: currentUser?.displayName || currentUser?.email || 'Nghiên cứu viên',
@@ -527,63 +519,57 @@ export const ExperimentProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     };
 
-    pendingSaveIdsRef.current.add(dupId);
+    beginSave(dupId);
     const nextDupList = [duplicated, ...allExperimentsRef.current];
     allExperimentsRef.current = nextDupList;
     setAllExperiments(nextDupList);
     setActiveExperimentId(dupId);
     try {
-      await saveExperimentData(duplicated);
-      setLastSaved(new Date());
+      requireSuccess(await saveExperimentData(deriveExperiment(duplicated), { user: currentUser }));
+    } catch (error) {
+      setSyncError(error.message);
     } finally {
-      pendingSaveIdsRef.current.delete(dupId);
+      endSave(dupId);
     }
   };
 
   // Export all user's data to JSON
   const exportAllToJson = () => {
-    if (experiments.length === 0) {
+    if (userExperiments.length === 0) {
       alert('Chưa có dữ liệu thí nghiệm để xuất tệp JSON.');
       return;
     }
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(experiments, null, 2));
+    const dataStr = URL.createObjectURL(new Blob([JSON.stringify(userExperiments, null, 2)], { type: 'application/json' }));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `MedChem_ELN_${currentUser?.displayName || 'Student'}_${new Date().toISOString().slice(0, 10)}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    setTimeout(() => URL.revokeObjectURL(dataStr), 10000);
   };
 
   // Import from JSON
   const importFromJson = async (file) => {
+    if (!currentUser?.uid) throw new Error('Chọn tài khoản demo trước khi nhập.');
+    if (file.size > 50 * 1024 * 1024) throw new Error('Tệp JSON tối đa 50 MB.');
+    const importUser = currentUser;
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
-          const parsed = JSON.parse(e.target.result);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const tagged = parsed.map((item) => ({
-              ...item,
-              inTrash: false,
-              trashedAt: null,
-              creatorId: currentUser?.uid || item.creatorId,
-              creatorEmail: currentUser?.email || item.creatorEmail,
-              creatorName: currentUser?.displayName || item.creatorName,
-              updatedAt: new Date().toISOString()
-            }));
-            for (const item of tagged) {
-              await saveExperimentData(item);
-            }
-            const nextImportList = [...tagged, ...allExperimentsRef.current];
-            allExperimentsRef.current = nextImportList;
-            setAllExperiments(nextImportList);
-            setActiveExperimentId(tagged[0].id);
-            setLastSaved(new Date());
-            resolve({ success: true, count: tagged.length });
-          } else {
-            reject(new Error('Tệp JSON không đúng định dạng danh sách thí nghiệm'));
-          }
+          if (file.size > 50 * 1024 * 1024) throw new Error('Tệp JSON tối đa 50 MB.');
+          const parsed = validateImport(JSON.parse(e.target.result));
+          const tagged = parsed.map((item) => ({
+            ...item, id: `EXP-${crypto.randomUUID()}`, sourceId: item.id,
+            revision: 0, auditTrail: [], inTrash: false, trashedAt: null,
+            creatorId: importUser.uid, creatorEmail: importUser.email,
+            creatorName: importUser.displayName, researcher: importUser.displayName,
+            updatedAt: new Date().toISOString()
+          }));
+          const result = requireSuccess(await importDemoExperiments(tagged, importUser));
+          setActiveExperimentId(tagged[0].id);
+          resolve({ success: true, count: result.count });
         } catch (err) {
           reject(err);
         }
@@ -612,6 +598,7 @@ export const ExperimentProvider = ({ children }) => {
         duplicateExperiment,
         exportAllToJson,
         importFromJson,
+        syncError,
         syncMode,
         isSyncing,
         lastSaved,
