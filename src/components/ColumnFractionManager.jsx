@@ -257,9 +257,12 @@ export const ColumnFractionManager = ({
     }));
     const updatedGroups = (fractionGroups || [])
       .map((g) => {
-        const nextNums = (g.fractionNumbers || []).filter(
-          (n) => n !== removedNumber && n <= updated.length
-        );
+        const rawNums = Array.isArray(g.fractionNumbers)
+          ? g.fractionNumbers
+          : (g.fractionNumbers && typeof g.fractionNumbers === 'object' ? Object.values(g.fractionNumbers) : []);
+        const nextNums = rawNums
+          .map(Number)
+          .filter((n) => n !== removedNumber && n <= updated.length);
         if (nextNums.length === 0) return null;
         const minN = Math.min(...nextNums);
         const maxN = Math.max(...nextNums);
@@ -363,11 +366,59 @@ export const ColumnFractionManager = ({
     setGroupName('');
   };
 
+  // Add pooled fraction group and open TLC modal immediately
+  const handleAddGroupAndOpenTlc = () => {
+    const start = Math.min(fromFraction, toFraction);
+    const end = Math.max(fromFraction, toFraction);
+    const numbers = [];
+    for (let i = start; i <= end; i++) numbers.push(i);
+
+    const tag = groupTag || 'spc';
+    const color = groupColor || (tag === 'spc' ? '#10b981' : '#f59e0b');
+    const defaultName = tag === 'spc' ? `Sản phẩm chính F${start}-F${end}` : `Sản phẩm phụ F${start}-F${end}`;
+
+    const newGroupId = `group-${Date.now()}`;
+    const newGroup = {
+      id: newGroupId,
+      name: groupName.trim() || defaultName,
+      tag: tag,
+      range: `F${start} - F${end}`,
+      fractionNumbers: numbers,
+      color: color,
+      tlc: null
+    };
+
+    const updatedFractions = fractions.map((f) => {
+      if (numbers.includes(f.number)) {
+        return {
+          ...f,
+          group: newGroupId,
+          groupTag: tag,
+          groupColor: color,
+          spotPattern: tag === 'spc' ? 'product' : 'impurity',
+          tlcChecked: true
+        };
+      }
+      return f;
+    });
+
+    const updatedGroups = [...(fractionGroups || []), newGroup];
+
+    onChange({
+      ...columnData,
+      fractions: updatedFractions,
+      fractionGroups: updatedGroups
+    });
+
+    setGroupName('');
+    handleOpenPoolTlc(newGroup);
+  };
+
   // Remove a group
   const handleRemoveGroup = (groupId) => {
-    const updatedGroups = fractionGroups.filter((g) => g.id !== groupId);
+    const updatedGroups = fractionGroups.filter((g) => String(g.id) !== String(groupId));
     const updatedFractions = fractions.map((f) => {
-      if (f.group === groupId) {
+      if (String(f.group) === String(groupId)) {
         return {
           ...f,
           group: null,
@@ -389,7 +440,7 @@ export const ColumnFractionManager = ({
   // Rename a pooled group
   const handleUpdateGroupName = (groupId, newName) => {
     const updatedGroups = fractionGroups.map((g) =>
-      g.id === groupId ? { ...g, name: newName } : g
+      String(g.id) === String(groupId) ? { ...g, name: newName } : g
     );
     onChange({
       ...columnData,
@@ -401,10 +452,10 @@ export const ColumnFractionManager = ({
   const handleUpdateGroupTag = (groupId, newTag) => {
     const defaultColor = newTag === 'spc' ? '#10b981' : '#f59e0b';
     const updatedGroups = fractionGroups.map((g) =>
-      g.id === groupId ? { ...g, tag: newTag, color: g.color || defaultColor } : g
+      String(g.id) === String(groupId) ? { ...g, tag: newTag, color: g.color || defaultColor } : g
     );
     const updatedFractions = fractions.map((f) => {
-      if (f.group === groupId) {
+      if (String(f.group) === String(groupId)) {
         return {
           ...f,
           groupTag: newTag,
@@ -424,10 +475,10 @@ export const ColumnFractionManager = ({
   // Change color of an existing group
   const handleUpdateGroupColor = (groupId, newColor) => {
     const updatedGroups = fractionGroups.map((g) =>
-      g.id === groupId ? { ...g, color: newColor } : g
+      String(g.id) === String(groupId) ? { ...g, color: newColor } : g
     );
     const updatedFractions = fractions.map((f) => {
-      if (f.group === groupId) {
+      if (String(f.group) === String(groupId)) {
         return {
           ...f,
           groupColor: newColor
@@ -663,7 +714,11 @@ export const ColumnFractionManager = ({
     }));
     const updatedGroups = (fractionGroups || [])
       .map((g) => {
-        const nextNums = (g.fractionNumbers || [])
+        const rawNums = Array.isArray(g.fractionNumbers)
+          ? g.fractionNumbers
+          : (g.fractionNumbers && typeof g.fractionNumbers === 'object' ? Object.values(g.fractionNumbers) : []);
+        const nextNums = rawNums
+          .map(Number)
           .filter((n) => n !== tubeNumber)
           .map((n) => (n > tubeNumber ? n - 1 : n));
         if (nextNums.length === 0) return null;
@@ -789,7 +844,8 @@ export const ColumnFractionManager = ({
     setLoading(slotKey);
 
     try {
-      const processedUrl = await uploadImage(file, `fraction_tlc_${slotKey}`);
+      const uploadFolder = isFrac ? `fraction_tlc_${slotKey}` : `pool_tlc_${slotKey}`;
+      const processedUrl = await uploadImage(file, uploadFolder);
       const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
       if (currentToken !== sessionToken) return;
       if (processedUrl) {
@@ -1095,12 +1151,15 @@ export const ColumnFractionManager = ({
 
   // Open Pooled Sample TLC Modal
   const handleOpenPoolTlc = (group) => {
+    if (!group) return;
     poolModalSessionRef.current += 1;
     setPoolModalSessionKey(poolModalSessionRef.current);
     poolSavingRef.current = false;
     setPoolUploading(false);
     setPoolPhotoLoadingSlot(null);
-    setActiveGroupId(group.id);
+    const targetIdx = (fractionGroups || []).indexOf(group);
+    const gid = group.id || `group-${targetIdx >= 0 ? targetIdx : Date.now()}`;
+    setActiveGroupId(gid);
     const existingTlc = group.tlc || {};
     const existingIso = existingTlc.timestamp || existingTlc.updatedAt || new Date().toISOString();
     setPoolOriginalTimestamp(existingIso);
@@ -1189,11 +1248,12 @@ export const ColumnFractionManager = ({
         updatedAt: resolvedPoolTimestamp
       };
 
-      const updatedGroups = fractionGroups.map((g) => {
-        if (g.id === targetGroupId) {
+      const updatedGroups = (fractionGroups || []).map((g, idx) => {
+        const gid = g.id || `group-${idx}`;
+        if (String(gid) === String(targetGroupId)) {
           const prevTs = g.tlc?.timestamp || g.tlc?.updatedAt;
           const finalTs = poolTimestampModified ? resolvedPoolTimestamp : (prevTs || resolvedPoolTimestamp);
-          return { ...g, tlc: { ...tlcData, timestamp: finalTs, updatedAt: finalTs } };
+          return { ...g, id: gid, tlc: { ...tlcData, timestamp: finalTs, updatedAt: finalTs } };
         }
         return g;
       });
@@ -1286,7 +1346,9 @@ export const ColumnFractionManager = ({
   const currentNextTubeNumber =
     fractions && fractions.length > 0 ? Math.max(...fractions.map((f) => f.number)) + 1 : 1;
 
-  const activeGroup = fractionGroups.find((g) => g.id === activeGroupId);
+  const activeGroup = (fractionGroups || []).find(
+    (g, idx) => String(g.id || `group-${idx}`) === String(activeGroupId)
+  );
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden card-print space-y-6">
@@ -1607,9 +1669,12 @@ export const ColumnFractionManager = ({
           {/* Test Tube Grid with Synchronized Group Color & Quick-Tap Spot Pattern */}
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
             {fractions.map((f) => {
-              const matchingGroup = fractionGroups.find(
-                (g) => (g.fractionNumbers && g.fractionNumbers.includes(f.number)) || g.id === f.group
-              );
+              const matchingGroup = (fractionGroups || []).find((g) => {
+                const nums = Array.isArray(g.fractionNumbers)
+                  ? g.fractionNumbers
+                  : (g.fractionNumbers && typeof g.fractionNumbers === 'object' ? Object.values(g.fractionNumbers) : []);
+                return nums.map(Number).includes(Number(f.number)) || String(g.id) === String(f.group);
+              });
               const tag = matchingGroup?.tag || f.groupTag;
               const color = matchingGroup?.color || f.groupColor;
               const isGrouped = Boolean(matchingGroup || f.group);
@@ -2046,14 +2111,26 @@ export const ColumnFractionManager = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddGroup}
-                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Gộp nhóm phân đoạn</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleAddGroup}
+                  className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                  title="Gộp các ống đã chọn vào danh sách"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Gộp nhóm</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddGroupAndOpenTlc}
+                  className="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-sm flex items-center justify-center gap-1.5 min-h-[40px] cursor-pointer"
+                  title="Gộp các ống đã chọn và mở ngay màn hình chấm sắc ký TLC mẫu gộp"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>+ Gộp & Chấm TLC ngay</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2099,7 +2176,7 @@ export const ColumnFractionManager = ({
                               {g.range}
                             </span>
                             <span className="text-[11px] text-slate-400">
-                              ({g.fractionNumbers?.length || 0} ống)
+                              ({(Array.isArray(g.fractionNumbers) ? g.fractionNumbers : Object.values(g.fractionNumbers || {})).length} ống)
                             </span>
                           </div>
 
@@ -2328,9 +2405,15 @@ export const ColumnFractionManager = ({
               </div>
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic bg-white p-3 rounded-2xl border border-slate-200">
-              Chưa có nhóm phân đoạn nào được gộp. Chọn khoảng ống nghiệm (ví dụ F8 - F15) ở trên và bấm "Gộp nhóm".
-            </p>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-2">
+              <FlaskConical className="w-7 h-7 text-teal-600 mx-auto opacity-70" />
+              <p className="text-xs font-bold text-slate-800">
+                Chưa có nhóm phân đoạn nào được gộp
+              </p>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                Chọn khoảng ống nghiệm ở bảng bên trên rồi bấm <span className="font-bold text-indigo-600">"+ Gộp nhóm"</span> hoặc bấm <span className="font-bold text-teal-600">"+ Gộp & Chấm TLC ngay"</span> để mở màn hình sắc ký mẫu gộp.
+              </p>
+            </div>
           )}
         </div>
 
@@ -2704,7 +2787,10 @@ export const ColumnFractionManager = ({
                   {/* Single-row horizontal scrollable quick chips */}
                   <div className="flex items-center gap-1 overflow-x-auto pt-1.5 pb-0.5 no-scrollbar">
                     {fractions.map((f) => {
-                      const isSelected = fracSpottedInput.includes(`F${f.number}`);
+                      const isSelected = fracSpottedInput
+                        .split(/[,;\s]+/)
+                        .map((s) => s.trim())
+                        .includes(`F${f.number}`);
                       return (
                         <button
                           key={f.number}
@@ -2790,7 +2876,7 @@ export const ColumnFractionManager = ({
                   <span className="text-xs font-bold text-slate-700">
                     Giờ & Ngày chụp sắc ký:
                   </span>
-                  {editingFracPlateId && !fracTimestampModified && (
+                  {editingFracTlcId && !fracTimestampModified && (
                     <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">
                       Giữ giờ gốc
                     </span>
@@ -3010,7 +3096,7 @@ export const ColumnFractionManager = ({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-base text-slate-900 truncate">
-                    Sắc Ký TLC Mẫu Gộp: {activeGroup.name}
+                    Sắc Ký TLC Mẫu Gộp: {activeGroup.name || activeGroup.range || 'Mẫu gộp'}
                   </h3>
                 </div>
               </div>
@@ -3086,6 +3172,15 @@ export const ColumnFractionManager = ({
                       </option>
                     ))}
                   </select>
+                  {poolStain === 'Khác (Tự nhập)' && (
+                    <input
+                      type="text"
+                      value={customPoolStain}
+                      onChange={(e) => setCustomPoolStain(e.target.value)}
+                      placeholder="Nhập tên thuốc thử..."
+                      className="mt-2 w-full h-10 bg-slate-50 border border-slate-300 rounded-xl px-3 text-xs leading-normal focus:outline-none"
+                    />
+                  )}
                 </div>
               </div>
 

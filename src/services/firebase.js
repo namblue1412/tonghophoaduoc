@@ -305,7 +305,20 @@ const normalizeExperimentArrays = (exp) => {
     columnAndYield: {
       ...(exp.columnAndYield || {}),
       fractions: toArray(exp.columnAndYield?.fractions),
-      fractionGroups: toArray(exp.columnAndYield?.fractionGroups),
+      fractionGroups: toArray(exp.columnAndYield?.fractionGroups).map((g) => ({
+        ...g,
+        fractionNumbers: toArray(g?.fractionNumbers).map(Number),
+        tlc: g?.tlc
+          ? {
+              ...g.tlc,
+              images: {
+                uv254: g.tlc.images?.uv254 || null,
+                uv365: g.tlc.images?.uv365 || null,
+                reagent: g.tlc.images?.reagent || null
+              }
+            }
+          : null
+      })),
       fractionTlcPlates: toArray(exp.columnAndYield?.fractionTlcPlates).map((p) => ({
         ...p,
         images: {
