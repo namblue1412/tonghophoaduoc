@@ -87,7 +87,7 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 65/65 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 68/68 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
 
@@ -101,4 +101,8 @@ git diff main -- src vite.config.js index.html
 5. **Lấy dữ liệu từ cloud** bỏ bản nháp của thí nghiệm đó và giữ bản kho demo. **Đồng bộ bản trên máy này lên** thay toàn bộ bản kho demo bằng bản trên máy; cần xác nhận sau khi xem hai bản. Có nút xuất JSON trước khi quyết định.
 6. Nếu kho demo đổi khi hộp thoại đang mở, thao tác bị từ chối và hộp thoại nạp bản mới để chọn lại. Không thể ghi đè bản đã xóa/vào thùng rác hoặc bản của tài khoản khác. Quyết định ghi đè được ghi auditTrail.
 
-**Giới hạn:** cloud ở đây là kho mô phỏng IndexedDB/BroadcastChannel, dùng chung giữa các tab trên cùng trình duyệt/origin. Hai điện thoại thật chưa đồng bộ với nhau. Firebase thật không có thay đổi. Việc triển khai cơ chế này lên production cần adapter Firebase transaction và kiểm tra rules riêng. Tệp JSON thật của người dùng chưa được cung cấp nên hiện mới xác nhận luồng nhập bằng dữ liệu mẫu, không khẳng định đã nhập dữ liệu thật.
+**Giới hạn:** cloud ở đây là kho mô phỏng IndexedDB/BroadcastChannel, dùng chung giữa các tab trên cùng trình duyệt/origin. Hai điện thoại thật chưa đồng bộ với nhau. Firebase thật không có thay đổi. Việc triển khai cơ chế này lên production cần adapter Firebase transaction và kiểm tra rules riêng. Đã xác nhận luồng nhập bằng dữ liệu mẫu và tệp JSON người dùng cung cấp ngày 05/10/2026: 4 thí nghiệm được sao chép vào demo, 3 ống có cảnh báo cân.
+
+### Sửa nhập số cân chưa hoàn tất
+
+JSON xuất từ main được phép chứa ống chưa nhập đủ số cân hoặc cả bì nhỏ hơn bì. Demo giữ nguyên dữ liệu gốc, báo cảnh báo theo thí nghiệm/ống và không cộng ống lỗi vào khối lượng. Chuỗi số sai định dạng vẫn bị chặn với mã thí nghiệm và đường dẫn cụ thể. Đã kiểm tra tệp người dùng tại máy: 4 thí nghiệm, 3 ống có cảnh báo, không thay đổi tệp nguồn. Tệp thật không được đưa vào Git/GitHub.

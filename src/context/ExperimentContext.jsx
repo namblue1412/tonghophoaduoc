@@ -560,7 +560,7 @@ export const ExperimentProvider = ({ children }) => {
       reader.onload = async (e) => {
         try {
           if (file.size > 50 * 1024 * 1024) throw new Error('Tệp JSON tối đa 50 MB.');
-          const { items: parsed, remoteAssetCount } = prepareDemoImport(JSON.parse(e.target.result));
+          const { items: parsed, remoteAssetCount, weighingWarnings } = prepareDemoImport(JSON.parse(e.target.result));
           const tagged = parsed.map((item) => ({
             ...item, id: `EXP-${crypto.randomUUID()}`, sourceId: item.id,
             revision: 0, auditTrail: [], inTrash: false, trashedAt: null,
@@ -570,7 +570,7 @@ export const ExperimentProvider = ({ children }) => {
           }));
           const result = requireSuccess(await importDemoExperiments(tagged, importUser));
           setActiveExperimentId(tagged[0].id);
-          resolve({ success: true, count: result.count, remoteAssetCount });
+          resolve({ success: true, count: result.count, remoteAssetCount, weighingWarnings });
         } catch (err) {
           reject(err);
         }

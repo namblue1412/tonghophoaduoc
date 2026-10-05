@@ -37,5 +37,10 @@ export function prepareDemoImport(payload) {
     for (const field of ['stoichiometry', 'equipment', 'tlcTimeline']) if (item[field] != null) item[field] = asArray(item[field]);
     return item;
   });
-  return { items: validateImport(items), remoteAssetCount };
+  const validated = validateImport(items, { allowDraftWeighing: true });
+  const weighingWarnings = validated.flatMap((item) => [
+    ['Xử lý thô', item.workup.crudeTubes],
+    ['Sản phẩm', item.columnAndYield.eppendorfYield.tubes]
+  ].flatMap(([section, tubes]) => tubes.filter((tube) => tube.weighingError).map((tube, index) => `${item.code} · ${section} · ${tube.label || tube.id || index + 1}: ${tube.weighingError}`)));
+  return { items: validated, remoteAssetCount, weighingWarnings };
 }

@@ -91,7 +91,9 @@ export function weighTubes(tubes = [], kind = 'productMass') {
   return tubes.map((t) => {
     const tare = decimal(t.tareMass, NaN), gross = decimal(t.grossMass, NaN);
     const error = !Number.isFinite(tare) || !Number.isFinite(gross) || tare < 0 || gross < tare;
-    return { ...t, [kind]: error ? 0 : gross - tare, weighingError: error ? 'Cả bì phải ≥ bì; số cân không được âm.' : '' };
+    const missing = (value) => value == null || String(value).trim() === '';
+    const message = missing(t.tareMass) || missing(t.grossMass) ? 'Chưa đủ số cân bì/cả bì; ống này chưa được cộng vào khối lượng.' : 'Cả bì phải ≥ bì; số cân không được âm. Kiểm tra số cân, ống này chưa được cộng vào khối lượng.';
+    return { ...t, [kind]: error ? 0 : gross - tare, weighingError: error ? message : '' };
   });
 }
 

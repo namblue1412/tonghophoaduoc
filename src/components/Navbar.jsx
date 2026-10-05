@@ -93,7 +93,7 @@ export const Navbar = ({
     if (file) {
       try {
         const res = await importFromJson(file);
-        alert(`Đã sao chép ${res.count} thí nghiệm vào demo.${res.remoteAssetCount ? ` Có ${res.remoteAssetCount} ảnh/tệp là liên kết ngoài: chỉ giữ đường dẫn đối chiếu, không kết nối Firebase để tải ảnh.` : ''}`);
+        alert(`Đã sao chép ${res.count} thí nghiệm vào demo.${res.remoteAssetCount ? ` Có ${res.remoteAssetCount} ảnh/tệp là liên kết ngoài: chỉ giữ đường dẫn đối chiếu, không kết nối Firebase để tải ảnh.` : ''}${res.weighingWarnings?.length ? `\nCần kiểm tra số cân:\n${res.weighingWarnings.join('\n')}` : ''}`);
       } catch (err) {
         alert('Lỗi nhập file: ' + err.message);
       }

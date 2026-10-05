@@ -35,3 +35,28 @@ test('unsafe keys and invalid calculations still block the whole import', () => 
   const bad = structuredClone(example[0]); bad.units = { mass: 'kg' };
   assert.throws(() => prepareDemoImport([example[0], bad]));
 });
+test('unfinished main weighing entries import with warnings and original values', () => {
+  const source = structuredClone(example[0]);
+  source.workup = { crudeTubes: [{ id: 'crude', tareMass: '', grossMass: '' }] };
+  source.columnAndYield.eppendorfYield.tubes = [{ id: 'product', tareMass: '0,9263', grossMass: '0', productMass: 999 }];
+  const before = structuredClone(source);
+  const result = prepareDemoImport([source]);
+  assert.equal(result.weighingWarnings.length, 2);
+  assert.equal(result.items[0].workup.crudeTubes[0].tareMass, '');
+  assert.equal(result.items[0].columnAndYield.eppendorfYield.tubes[0].tareMass, '0,9263');
+  assert.equal(result.items[0].columnAndYield.eppendorfYield.productMass, 0);
+  assert.equal(result.items[0].columnAndYield.eppendorfYield.yieldPercent, 0);
+  assert.deepEqual(source, before);
+});
+test('completed comma decimal weights still calculate after correcting the draft', () => {
+  const source = structuredClone(example[0]);
+  source.columnAndYield.eppendorfYield.tubes = [{ id: 'product', tareMass: '0,9263', grossMass: '1,0263' }];
+  const result = prepareDemoImport([source]);
+  assert.equal(result.weighingWarnings.length, 0);
+  assert.ok(Math.abs(result.items[0].columnAndYield.eppendorfYield.productMass - 0.1) < 1e-12);
+});
+test('malformed numeric weights report experiment code and tube path', () => {
+  const source = structuredClone(example[0]);
+  source.columnAndYield.eppendorfYield.tubes = [{ id: 'bad', tareMass: '0.9.2', grossMass: '1' }];
+  assert.throws(() => prepareDemoImport([source]), /QA-MW200: columnAndYield.eppendorfYield.tubes\[0\]/);
+});

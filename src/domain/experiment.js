@@ -77,7 +77,7 @@ export function mergePatch(target, patch) {
   return result;
 }
 
-export function validateImport(items) {
+export function validateImport(items, { allowDraftWeighing = false } = {}) {
   if (!Array.isArray(items) || !items.length || items.length > 1000) throw new Error('JSON phải chứa 1–1000 thí nghiệm.');
   const scan = (value) => {
     if (Array.isArray(value)) return value.forEach(scan);
@@ -96,8 +96,15 @@ export function validateImport(items) {
     if (typeof item.code !== 'string' || typeof item.title !== 'string') throw new Error('Mỗi thí nghiệm cần mã và tên dạng chuỗi.');
     if (!['g', 'mg'].includes(item.units?.mass || 'g') || !['mol', 'mmol'].includes(item.units?.mole || 'mol')) throw new Error('Đơn vị không được hỗ trợ.');
     for (const path of ['stoichiometry', 'tlcTimeline', 'equipment']) if (item[path] != null && !Array.isArray(item[path])) throw new Error(`${path} phải là mảng.`);
-    for (const tube of [...asArray(item.columnAndYield?.eppendorfYield?.tubes), ...asArray(item.workup?.crudeTubes)]) {
-      if (!Number.isFinite(decimal(tube.tareMass, NaN)) || !Number.isFinite(decimal(tube.grossMass, NaN)) || decimal(tube.tareMass) < 0 || decimal(tube.grossMass) < decimal(tube.tareMass)) throw new Error('Số cân trong JSON không hợp lệ.');
+    for (const [path, tubes] of [['columnAndYield.eppendorfYield.tubes', asArray(item.columnAndYield?.eppendorfYield?.tubes)], ['workup.crudeTubes', asArray(item.workup?.crudeTubes)]]) {
+      for (const [index, tube] of tubes.entries()) {
+        const missing = (value) => value == null || String(value).trim() === '';
+        const malformed = [tube.tareMass, tube.grossMass].some((value) => !missing(value) && !Number.isFinite(decimal(value, NaN)));
+        const incompleteOrInvalid = missing(tube.tareMass) || missing(tube.grossMass) || decimal(tube.tareMass) < 0 || decimal(tube.grossMass) < decimal(tube.tareMass);
+        // A main export may contain unfinished lab notes. Preserve them as drafts;
+        // weighTubes excludes invalid weights and shows an actionable warning.
+        if (malformed || (incompleteOrInvalid && !allowDraftWeighing)) throw new Error(`${item.code}: ${path}[${index}] — số cân không hợp lệ (bì=${tube.tareMass ?? 'trống'}, cả bì=${tube.grossMass ?? 'trống'}).`);
+      }
     }
     for (const row of asArray(item.stoichiometry)) for (const field of ['mw', 'actualMass', 'actualVolume', 'purity']) {
       if (row[field] !== '' && row[field] != null && (!Number.isFinite(decimal(row[field], NaN)) || decimal(row[field]) < 0 || (field === 'purity' && decimal(row[field]) > 100))) throw new Error(`Giá trị ${field} không hợp lệ.`);
