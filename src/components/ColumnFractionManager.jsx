@@ -152,6 +152,8 @@ export const ColumnFractionManager = ({
   // Fraction TLC Modal State
   const [fracTlcModalOpen, setFracTlcModalOpen] = useState(false);
   const [editingFracTlcId, setEditingFracTlcId] = useState(null);
+  const [fracPlateName, setFracPlateName] = useState('');
+  const [fracBatchToast, setFracBatchToast] = useState(null);
   const [fracSpottedInput, setFracSpottedInput] = useState('');
   const [fracCaptureDatetime, setFracCaptureDatetime] = useState(() => toLocalDatetimeInput(new Date().toISOString()));
   const [fracOriginalTimestamp, setFracOriginalTimestamp] = useState(null);
@@ -822,52 +824,92 @@ export const ColumnFractionManager = ({
   // Guarded by modalSessionRef so stale uploads never leak into another modal session or slot
   const handlePhotoSelect = async (e, mode, slotKey) => {
     const inputEl = e.target;
-    const file = inputEl.files?.[0];
-    if (!file) return;
+    const files = Array.from(inputEl.files || []);
+    if (files.length === 0) return;
     inputEl.value = '';
 
     const isFrac = mode === 'frac';
     const sessionToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
     const setLoading = isFrac ? setFracPhotoLoadingSlot : setPoolPhotoLoadingSlot;
 
-    const setPhotoState = (val) => {
+    const setPhotoForSlot = (sKey, val) => {
       if (isFrac) {
-        if (slotKey === 'uv254') setFracPhoto254(val);
-        else if (slotKey === 'uv365') setFracPhoto365(val);
-        else if (slotKey === 'reagent') setFracPhotoReagent(val);
+        if (sKey === 'uv254') setFracPhoto254(val);
+        else if (sKey === 'uv365') setFracPhoto365(val);
+        else if (sKey === 'reagent') setFracPhotoReagent(val);
       } else {
-        if (slotKey === 'uv254') setPoolPhoto254(val);
-        else if (slotKey === 'uv365') setPoolPhoto365(val);
-        else if (slotKey === 'reagent') setPoolPhotoReagent(val);
+        if (sKey === 'uv254') setPoolPhoto254(val);
+        else if (sKey === 'uv365') setPoolPhoto365(val);
+        else if (sKey === 'reagent') setPoolPhotoReagent(val);
       }
     };
 
-    setLoading(slotKey);
+    // SINGLE FILE UPLOAD
+    if (files.length === 1) {
+      const file = files[0];
+      setLoading(slotKey);
 
-    try {
-      const uploadFolder = isFrac ? `fraction_tlc_${slotKey}` : `pool_tlc_${slotKey}`;
-      const processedUrl = await uploadImage(file, uploadFolder);
-      const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
-      if (currentToken !== sessionToken) return;
-      if (processedUrl) {
-        setPhotoState({ preview: processedUrl, file: null });
+      try {
+        const uploadFolder = isFrac ? `fraction_tlc_${slotKey}` : `pool_tlc_${slotKey}`;
+        const processedUrl = await uploadImage(file, uploadFolder);
+        const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+        if (currentToken !== sessionToken) return;
+        if (processedUrl) {
+          setPhotoForSlot(slotKey, { preview: processedUrl, file: null });
+        }
+      } catch (err) {
+        const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+        if (currentToken !== sessionToken) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const latestToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+          if (latestToken !== sessionToken) return;
+          setPhotoForSlot(slotKey, { preview: reader.result, file });
+          setLoading((prev) => (prev === slotKey ? null : prev));
+        };
+        reader.readAsDataURL(file);
+        return;
+      } finally {
+        const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+        if (currentToken === sessionToken) {
+          setLoading((prev) => (prev === slotKey ? null : prev));
+        }
       }
-    } catch (err) {
-      const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
-      if (currentToken !== sessionToken) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const latestToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
-        if (latestToken !== sessionToken) return;
-        setPhotoState({ preview: reader.result, file });
-        setLoading((prev) => (prev === slotKey ? null : prev));
-      };
-      reader.readAsDataURL(file);
       return;
+    }
+
+    // MULTIPLE FILES UPLOAD (e.g. user selected 2-3 photos at once from gallery)
+    const allSlots = ['uv254', 'uv365', 'reagent'];
+    const startIdx = allSlots.indexOf(slotKey);
+    const targetSlots = startIdx >= 0 ? allSlots.slice(startIdx).concat(allSlots.slice(0, startIdx)) : allSlots;
+
+    setLoading(slotKey);
+    try {
+      for (let i = 0; i < files.length && i < allSlots.length; i++) {
+        const file = files[i];
+        const sKey = targetSlots[i] || allSlots[i];
+        const uploadFolder = isFrac ? `fraction_tlc_${sKey}` : `pool_tlc_${sKey}`;
+        try {
+          const processedUrl = await uploadImage(file, uploadFolder);
+          const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+          if (currentToken !== sessionToken) return;
+          if (processedUrl) {
+            setPhotoForSlot(sKey, { preview: processedUrl, file: null });
+          }
+        } catch {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const latestToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
+            if (latestToken !== sessionToken) return;
+            setPhotoForSlot(sKey, { preview: reader.result, file });
+          };
+          reader.readAsDataURL(file);
+        }
+      }
     } finally {
       const currentToken = isFrac ? fracModalSessionRef.current : poolModalSessionRef.current;
       if (currentToken === sessionToken) {
-        setLoading((prev) => (prev === slotKey ? null : prev));
+        setLoading(null);
       }
     }
   };
@@ -1002,6 +1044,9 @@ export const ColumnFractionManager = ({
     setFracUploading(false);
     setFracPhotoLoadingSlot(null);
     setEditingFracTlcId(null);
+    const existingCount = (Array.isArray(fractionTlcPlates) ? fractionTlcPlates : Object.values(fractionTlcPlates || {})).length;
+    setFracPlateName(`Bản #${existingCount + 1}`);
+    setFracBatchToast(null);
     const nowIso = new Date().toISOString();
     setFracOriginalTimestamp(nowIso);
     setFracCaptureDatetime(toLocalDatetimeInput(nowIso));
@@ -1027,6 +1072,8 @@ export const ColumnFractionManager = ({
     setFracPhotoLoadingSlot(null);
     const resolvedId = plate.id || `frac-tlc-${Date.now()}`;
     setEditingFracTlcId(resolvedId);
+    setFracBatchToast(null);
+    setFracPlateName(plate.name || `Bản sắc ký`);
     const existingIso = plate.timestamp || new Date().toISOString();
     setFracOriginalTimestamp(existingIso);
     setFracCaptureDatetime(toLocalDatetimeInput(existingIso));
@@ -1052,8 +1099,8 @@ export const ColumnFractionManager = ({
     setFracTlcModalOpen(true);
   };
 
-  // Save Fraction TLC Plate
-  const handleSaveFracTlc = async () => {
+  // Save Fraction TLC Plate (supports keepOpenForNext = true for continuous shooting of multiple plates)
+  const handleSaveFracTlc = async (keepOpenForNext = false) => {
     if (fracSavingRef.current || fracUploading || fracPhotoLoadingSlot) return;
     fracSavingRef.current = true;
     setFracUploading(true);
@@ -1097,7 +1144,16 @@ export const ColumnFractionManager = ({
         ? fromLocalDatetimeInput(fracCaptureDatetime, fracOriginalTimestamp)
         : (fracOriginalTimestamp || new Date().toISOString());
 
+      const currentPlates = Array.isArray(fractionTlcPlates)
+        ? fractionTlcPlates
+        : (fractionTlcPlates && typeof fractionTlcPlates === 'object' ? Object.values(fractionTlcPlates) : []);
+
+      const fallbackName = targetFracPlateId
+        ? (currentPlates.find((p, idx) => (p.id || `frac-tlc-${idx + 1}`) === targetFracPlateId)?.name || 'Bản sắc ký')
+        : `Bản #${currentPlates.length + 1}`;
+
       const payload = {
+        name: fracPlateName.trim() || fallbackName,
         spottedFractions: fracSpottedInput.trim() || 'Chưa ghi số phân đoạn',
         eluent: fracEluent,
         stainName: finalStain,
@@ -1109,10 +1165,6 @@ export const ColumnFractionManager = ({
         },
         timestamp: resolvedTimestamp
       };
-
-      const currentPlates = Array.isArray(fractionTlcPlates)
-        ? fractionTlcPlates
-        : (fractionTlcPlates && typeof fractionTlcPlates === 'object' ? Object.values(fractionTlcPlates) : []);
 
       let updatedPlates;
       if (targetFracPlateId) {
@@ -1139,7 +1191,27 @@ export const ColumnFractionManager = ({
         fractionTlcPlates: updatedPlates
       });
 
-      handleCloseFracTlcModal();
+      if (keepOpenForNext) {
+        fracModalSessionRef.current += 1;
+        setFracModalSessionKey(fracModalSessionRef.current);
+        setEditingFracTlcId(null);
+        const nextNum = updatedPlates.length + 1;
+        setFracPlateName(`Bản #${nextNum}`);
+        setFracSpottedInput('');
+        setFracNotes('');
+        const nowIso = new Date().toISOString();
+        setFracOriginalTimestamp(nowIso);
+        setFracCaptureDatetime(toLocalDatetimeInput(nowIso));
+        setFracTimestampModified(false);
+        setFracSlot('uv254');
+        setFracPhoto254({ preview: null, file: null });
+        setFracPhoto365({ preview: null, file: null });
+        setFracPhotoReagent({ preview: null, file: null });
+        setFracBatchToast(`✓ Đã lưu ${payload.name}! Sẵn sàng chụp Bản #${nextNum}`);
+        setTimeout(() => setFracBatchToast(null), 3500);
+      } else {
+        handleCloseFracTlcModal();
+      }
     } finally {
       fracSavingRef.current = false;
       setFracUploading(false);
@@ -1801,12 +1873,19 @@ export const ColumnFractionManager = ({
         <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-indigo-600 flex-shrink-0" />
-                <span>Bản Mỏng Kiểm Tra Phân Đoạn</span>
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-indigo-600 flex-shrink-0" />
+                  <span>Bản Mỏng Kiểm Tra Phân Đoạn</span>
+                </h3>
+                {fractionTlcPlates && fractionTlcPlates.length > 0 && (
+                  <span className="bg-indigo-100 text-indigo-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                    {fractionTlcPlates.length} bản sắc ký
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Chụp 3 ảnh (UV 254, UV 365, Thuốc thử) kèm danh sách các số ống đã chấm
+                Chụp nhiều bản sắc ký (Bản #1, #2, #3...) kèm danh sách ống đã chấm để kiểm tra toàn diện cột
               </p>
             </div>
 
@@ -1816,7 +1895,7 @@ export const ColumnFractionManager = ({
               className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-2xl flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all min-h-[44px] w-full sm:w-auto no-print"
             >
               <Plus className="w-4 h-4" />
-              <span>Chấm bản TLC phân đoạn</span>
+              <span>Chấm bản sắc ký #{fractionTlcPlates && fractionTlcPlates.length > 0 ? fractionTlcPlates.length + 1 : 1}</span>
             </button>
           </div>
 
@@ -1843,16 +1922,18 @@ export const ColumnFractionManager = ({
                     className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between"
                   >
                     {/* Header */}
-                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between gap-2">
+                    <div className="p-3 bg-slate-900 text-white flex items-center justify-between gap-2">
                       <div className="flex flex-col min-w-0">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <Tag className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                          <span className="font-mono font-bold text-xs text-amber-300 truncate">
+                          <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex-shrink-0">
+                            {plate.name || `Bản #${pIdx + 1}`}
+                          </span>
+                          <span className="font-mono font-bold text-xs text-amber-100 truncate" title={`Ống đã chấm: ${plate.spottedFractions}`}>
                             {plate.spottedFractions}
                           </span>
                         </div>
                         {plate.timestamp && (
-                          <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-1">
                             <Calendar className="w-2.5 h-2.5 text-slate-400 flex-shrink-0" />
                             <span>{formatTlcTimestamp(plate.timestamp)}</span>
                           </span>
@@ -1991,20 +2072,39 @@ export const ColumnFractionManager = ({
                   </div>
                 );
               })}
+              {/* Add Next Plate Card */}
+              <button
+                type="button"
+                onClick={handleOpenAddFracTlc}
+                className="min-h-[220px] rounded-3xl border-2 border-dashed border-indigo-200 hover:border-indigo-500 bg-white/70 hover:bg-indigo-50/50 p-5 flex flex-col items-center justify-center gap-2.5 transition-all cursor-pointer group text-center no-print"
+                title="Bấm để chấm thêm bản sắc ký tiếp theo"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-indigo-100 group-hover:bg-indigo-600 text-indigo-600 group-hover:text-white flex items-center justify-center transition-all shadow-xs">
+                  <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="font-bold text-xs sm:text-sm text-slate-800 group-hover:text-indigo-700 block">
+                    + Chấm thêm bản sắc ký
+                  </span>
+                  <span className="text-[11px] text-slate-500 block">
+                    (Thêm Bản #{fractionTlcPlates.length + 1} cho các ống tiếp theo)
+                  </span>
+                </div>
+              </button>
             </div>
           ) : (
-            <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-2xl bg-white">
-              <Camera className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-              <p className="text-xs font-bold text-slate-700">Chưa có bản mỏng kiểm tra phân đoạn nào</p>
-              <p className="text-[11px] text-slate-500 mt-0.5 mb-3">
-                Chấm các phân đoạn (ví dụ: F1, F3, F5, F8...) và chụp 3 ảnh để kiểm tra chất
+            <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-2xl bg-white space-y-2">
+              <Camera className="w-10 h-10 mx-auto text-slate-300" />
+              <p className="text-xs font-bold text-slate-700">Chưa có bản sắc ký kiểm tra phân đoạn nào</p>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                Chấm các phân đoạn theo từng bản (Bản #1, #2, #3...) và chụp ảnh UV/thuốc thử để theo dõi chất
               </p>
               <button
                 type="button"
                 onClick={handleOpenAddFracTlc}
-                className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl inline-flex items-center gap-1.5 shadow-sm cursor-pointer mt-1"
               >
-                <Plus className="w-3.5 h-3.5" /> Chấm bản mỏng phân đoạn
+                <Plus className="w-4 h-4" /> Chấm bản sắc ký đầu tiên (#1)
               </button>
             </div>
           )}
@@ -2762,7 +2862,7 @@ export const ColumnFractionManager = ({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-base text-slate-900 truncate">
-                    {editingFracTlcId ? 'Chỉnh Sửa TLC Phân Đoạn' : 'Bản Mỏng Phân Đoạn'}
+                    {editingFracTlcId ? `Chỉnh Sửa ${fracPlateName || 'Bản Sắc Ký'}` : `Chấm Bản Sắc Ký Mới #${(Array.isArray(fractionTlcPlates) ? fractionTlcPlates : Object.values(fractionTlcPlates || {})).length + 1}`}
                   </h3>
                 </div>
               </div>
@@ -2777,8 +2877,38 @@ export const ColumnFractionManager = ({
               </button>
             </div>
 
+            {/* Batch Toast notification if keeping modal open for next plate */}
+            {fracBatchToast && (
+              <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 flex items-center justify-between shadow-inner">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  <span>{fracBatchToast}</span>
+                </div>
+                <span className="text-[10px] bg-emerald-700 px-2 py-0.5 rounded font-mono font-bold">Đang mở</span>
+              </div>
+            )}
+
             {/* Modal Scrollable Body */}
             <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 sm:p-4 space-y-3 touch-pan-y">
+              {/* Plate Name & Batch Badge */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-indigo-50/80 border border-indigo-200 p-2.5 rounded-2xl">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-xs font-bold text-indigo-900 whitespace-nowrap flex items-center gap-1">
+                    <Tag className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Tên bản:</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={fracPlateName}
+                    onChange={(e) => setFracPlateName(e.target.value)}
+                    placeholder="VD: Bản #1 (Ống F1-F8)..."
+                    className="flex-1 h-8 bg-white border border-indigo-200 rounded-xl px-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <span className="text-[11px] text-indigo-700 font-semibold px-2 py-0.5 bg-white/80 rounded-lg border border-indigo-100 self-start sm:self-center">
+                  Bản {(Array.isArray(fractionTlcPlates) ? fractionTlcPlates : Object.values(fractionTlcPlates || {})).length + (editingFracTlcId ? 0 : 1)} trong đợt sắc ký
+                </span>
+              </div>
               {/* Compact 3-Column Top Strip */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 {/* Col 1: Spotted Tubes */}
@@ -3039,14 +3169,16 @@ export const ColumnFractionManager = ({
                   <label
                     htmlFor={`frac-gal-input-${fracModalSessionKey}-${fracSlot}`}
                     className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm select-none touch-manipulation min-h-[44px] border border-slate-700"
+                    title="Có thể chọn 1 ảnh hoặc chọn cùng lúc 2-3 ảnh cho các bước sóng"
                   >
                     <Upload className="w-4 h-4 flex-shrink-0 pointer-events-none" />
-                    <span className="pointer-events-none">Chọn Từ Máy</span>
+                    <span className="pointer-events-none">Chọn Từ Máy (Có thể chọn nhiều ảnh)</span>
                     <input
                       id={`frac-gal-input-${fracModalSessionKey}-${fracSlot}`}
                       key={`frac-gal-${fracModalSessionKey}-${fracSlot}`}
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={(e) => handlePhotoSelect(e, 'frac', fracSlot)}
                       className="sr-only"
                     />
@@ -3072,28 +3204,47 @@ export const ColumnFractionManager = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 px-4 pb-safe border-t border-slate-100 flex items-center justify-end gap-2 bg-white flex-shrink-0">
+            <div className="p-3 px-4 pb-safe border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-white flex-shrink-0">
               <button
                 type="button"
                 onClick={handleCloseFracTlcModal}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[40px] cursor-pointer"
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-100 font-semibold min-h-[40px] cursor-pointer"
               >
                 Hủy (Esc)
               </button>
-              <button
-                type="button"
-                onClick={handleSaveFracTlc}
-                disabled={fracUploading || Boolean(fracPhotoLoadingSlot)}
-                className="px-5 py-2 rounded-xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md min-h-[40px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {fracPhotoLoadingSlot
-                  ? 'Đang nạp ảnh...'
-                  : fracUploading
-                    ? 'Đang lưu...'
-                    : editingFracTlcId
-                      ? 'Cập Nhật (Enter)'
-                      : 'Lưu Bản Mỏng (Enter)'}
-              </button>
+
+              <div className="flex items-center gap-2">
+                {!editingFracTlcId && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveFracTlc(true)}
+                    disabled={fracUploading || Boolean(fracPhotoLoadingSlot)}
+                    className="px-4 py-2 rounded-xl text-xs sm:text-sm bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold shadow-md min-h-[40px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Lưu bản hiện tại và tiếp tục chụp bản sắc ký tiếp theo mà không cần đóng modal"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Lưu & Chấm Bản Tiếp</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveFracTlc(false)}
+                  disabled={fracUploading || Boolean(fracPhotoLoadingSlot)}
+                  className="px-5 py-2 rounded-xl text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold shadow-md min-h-[40px] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {fracPhotoLoadingSlot
+                      ? 'Đang nạp ảnh...'
+                      : fracUploading
+                        ? 'Đang lưu...'
+                        : editingFracTlcId
+                          ? 'Cập Nhật (Enter)'
+                          : 'Lưu & Đóng (Enter)'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

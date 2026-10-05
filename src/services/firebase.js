@@ -319,8 +319,10 @@ const normalizeExperimentArrays = (exp) => {
             }
           : null
       })),
-      fractionTlcPlates: toArray(exp.columnAndYield?.fractionTlcPlates).map((p) => ({
+      fractionTlcPlates: toArray(exp.columnAndYield?.fractionTlcPlates).map((p, idx) => ({
         ...p,
+        id: p.id || `frac-tlc-${idx + 1}-${Date.now()}`,
+        name: p.name || `Bản #${idx + 1}`,
         images: {
           uv254: p.images?.uv254 || null,
           uv365: p.images?.uv365 || null,
