@@ -16,19 +16,20 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState(isAuthAvailable() ? 'firebase' : 'local');
+  const [authMode, setAuthMode] = useState(isAuthAvailable() ? 'demo-local' : 'local');
 
   // Load initial user state - Require explicit authentication
   useEffect(() => {
     if (isAuthAvailable()) {
-      setAuthMode('firebase');
+      setAuthMode('demo-local');
       const unsubscribe = subscribeFirebaseAuthState((user) => {
         if (user) {
           setCurrentUser({
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || user.email?.split('@')[0] || 'Sinh viên',
-            isLocal: false
+            studentId: user.studentId || '',
+            isLocal: true
           });
         } else {
           setCurrentUser(null);
@@ -73,18 +74,18 @@ export const AuthProvider = ({ children }) => {
     if (!cleanName) {
       throw new Error('Vui lòng nhập Họ và tên sinh viên!');
     }
-    if (!password || password.length < 4) {
-      throw new Error('Mật khẩu phải có ít nhất 4 ký tự!');
+    if (!password || password.length < 6) {
+      throw new Error('Mật khẩu phải có ít nhất 6 ký tự!');
     }
 
     if (isAuthAvailable()) {
-      const user = await firebaseSignUp(cleanEmail, password, cleanName);
+      const user = await firebaseSignUp(cleanEmail, password, cleanName, cleanStudentId);
       const studentProfile = {
         uid: user.uid,
         email: user.email,
         displayName: cleanName || user.email?.split('@')[0],
         studentId: cleanStudentId,
-        isLocal: false
+        isLocal: true
       };
       setCurrentUser(studentProfile);
       localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));
@@ -149,7 +150,8 @@ export const AuthProvider = ({ children }) => {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || user.email?.split('@')[0],
-        isLocal: false
+        studentId: user.studentId || '',
+        isLocal: true
       };
       setCurrentUser(studentProfile);
       localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));

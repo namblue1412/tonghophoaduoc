@@ -56,8 +56,8 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
         if (!email.trim()) {
           throw new Error('Vui lòng nhập Email hoặc tên tài khoản!');
         }
-        if (password.length < 4) {
-          throw new Error('Mật khẩu tối thiểu 4 ký tự!');
+        if (password.length < 6) {
+          throw new Error('Mật khẩu tối thiểu 6 ký tự!');
         }
         await register({
           email: email.trim(),
@@ -161,6 +161,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
       )}
 
       {/* Form */}
+      {authMode === 'demo-local' && <p className="text-xs text-slate-500">Tài khoản ở bản thử nghiệm được lưu trên trình duyệt này, riêng với tài khoản web chính. Dùng mật khẩu thử nghiệm riêng.</p>}
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {tab === 'register' && (
           <>
@@ -229,7 +230,7 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Nhập mật khẩu..."
+              placeholder={tab === 'register' ? 'Tối thiểu 6 ký tự...' : 'Nhập mật khẩu...'}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[44px]"
             />
           </div>

@@ -9,10 +9,10 @@ npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-Mở `http://127.0.0.1:5173`, mở **Điều khiển kiểm thử**, chọn Nghiên cứu viên A hoặc B. Không nhập tài khoản/mật khẩu Firebase thật. Trong menu ứng dụng, nhập `fixtures/demo-experiments.json` để có mẫu số học với dữ liệu kỳ vọng rõ ràng. Các hóa chất giả định trong mẫu chỉ dùng kiểm tra phần mềm.
+Mở `http://127.0.0.1:5173`, đăng nhập bằng `researcher.a@demo.invalid` hoặc `researcher.b@demo.invalid`, mật khẩu chung `DemoLab123!`; hoặc chọn **Đăng Ký** để tạo tài khoản cục bộ riêng. Không nhập tài khoản/mật khẩu Firebase thật. Trong menu ứng dụng, nhập `fixtures/demo-experiments.json` để có mẫu số học với dữ liệu kỳ vọng rõ ràng. Các hóa chất giả định trong mẫu chỉ dùng kiểm tra phần mềm.
 
 - Plugin `medchem-demo-isolation` trong `vite.config.js` thay mọi import `services/firebase` bằng `demoBackend.js`, ở cả dev, build và preview, kể cả máy có `.env.production` thật.
-- Adapter không import SDK Firebase, không có endpoint và không gửi yêu cầu mạng. Database riêng `medchem-demo-v2` gồm records, drafts, purged; ảnh và phổ nhúng trong bản ghi cục bộ. Tài khoản A/B là hồ sơ thử, không phải xác thực bảo mật trên máy chia sẻ.
+- Adapter không import SDK Firebase, không có endpoint và không gửi yêu cầu mạng. Database riêng `medchem-demo-v2` gồm records, drafts, purged; ảnh và phổ nhúng trong bản ghi cục bộ. Tài khoản thử dùng kho `medchem-demo-auth-v1`, mật khẩu băm PBKDF2 với salt và phiên có thời hạn, thu hồi khi thoát. Xác thực cục bộ không thay xác thực server trên máy chia sẻ.
 - CSP chỉ cho kết nối cùng origin và WebSocket localhost phục vụ Vite; ảnh chỉ được tải cùng origin/data/blob. Không tự tải ảnh Storage từ file JSON thật. Có các liên kết tham chiếu PubChem/Biotage/SDS: chỉ mở khi người dùng bấm.
 - `src/services/firebase.js`, Database Rules và Storage Rules production được giữ nguyên; không deploy hay sửa dữ liệu Firebase. Các vấn đề rules của production chưa được sửa trên dịch vụ thật. Trước khi đưa các thay đổi này lên production cần adapter theo UID, giao dịch/revision, rules tương ứng, migration và kiểm thử Firebase Emulator riêng.
 - Nhánh này đã push lên GitHub `demo`, chưa deploy website. IndexedDB tồn tại trên cùng trình duyệt/origin; xóa dữ liệu trình duyệt sẽ xóa demo. Xuất JSON trước khi đổi môi trường. Không có service worker, vì vậy tắt mạng thật rồi tải lại trang chưa cache có thể không tải được ứng dụng; nút giả lập mất mạng và chế độ tối đã được bỏ theo yêu cầu ngày 05/10/2026; kiểm thử hàng đợi vẫn có trong bộ test tự động.
@@ -87,7 +87,7 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 74/74 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 81/81 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
 
@@ -95,9 +95,9 @@ git diff main -- src vite.config.js index.html
 ## Cập nhật 05/10/2026: nhập JSON thật và xử lý xung đột
 
 1. Trên web main đang dùng, đăng nhập như bình thường, chọn menu **Xuất JSON**. Tệp xuất là danh sách các thí nghiệm đang hiển thị của tài khoản đó (không gồm thùng rác).
-2. Mở demo, chọn tài khoản A, mở **Điều khiển kiểm thử**, bấm **Nhập JSON xuất từ web main**, chọn tệp vừa tải. Không nhập tài khoản/mật khẩu Firebase ở demo.
+2. Mở demo, đăng nhập tài khoản thử A, chọn menu **Khôi phục** trên điện thoại hoặc **Nhập JSON** trên desktop, chọn tệp vừa tải. Không nhập tài khoản/mật khẩu Firebase ở demo.
 3. Bản nhập được tạo ID mới, giữ sourceId, sourceOwner, sourceUpdatedAt, giữ ngày TLC và tên nghiên cứu viên. Không sửa tệp nguồn. Ảnh nhúng tiếp tục hiển thị; ảnh liên kết ngoài chỉ giữ đường dẫn trong sourceRemoteAssets và hiển thị thông báo số ảnh chưa có. Demo không tải ảnh từ Firebase.
-4. Mở một thí nghiệm mẫu, bấm **Thử xung đột thiết bị A/B**. Nút này mô phỏng hai thiết bị sửa tên khác nhau để mở hộp thoại; nó thực sự sửa tên trong kho demo, nên chọn thí nghiệm mẫu hoặc bản sao.
+4. Kiểm tra xung đột bằng hai tab cùng tài khoản chỉnh cùng trường của một thí nghiệm mẫu. Nút giả lập A/B đã được bỏ khỏi giao diện.
 5. **Lấy dữ liệu từ cloud** bỏ bản nháp của thí nghiệm đó và giữ bản kho demo. **Đồng bộ bản trên máy này lên** thay toàn bộ bản kho demo bằng bản trên máy; cần xác nhận sau khi xem hai bản. Có nút xuất JSON trước khi quyết định.
 6. Nếu kho demo đổi khi hộp thoại đang mở, thao tác bị từ chối và hộp thoại nạp bản mới để chọn lại. Không thể ghi đè bản đã xóa/vào thùng rác hoặc bản của tài khoản khác. Quyết định ghi đè được ghi auditTrail.
 
@@ -109,7 +109,7 @@ JSON xuất từ main được phép chứa ống chưa nhập đủ số cân h
 
 ### Giao diện sử dụng thường ngày và định dạng số
 
-Đã bỏ khung vàng, nút thử A/B, trạng thái đồng bộ mô phỏng thường trực và nhãn DEMO trên tiêu đề/báo cáo. Dùng menu **Sao lưu/Khôi phục** trên điện thoại để xuất/nhập JSON. Khi đổi hồ sơ, màn hình chọn hồ sơ cục bộ xuất hiện; không có đăng nhập Firebase. Cảnh báo lỗi lưu/xung đột chỉ hiện khi cần xử lý. Backend vẫn cách ly, Navbar ghi **Lưu trên máy**, chưa đồng bộ giữa hai điện thoại thật.
+Đã bỏ khung vàng, nút thử A/B, trạng thái đồng bộ mô phỏng thường trực và nhãn DEMO trên tiêu đề/báo cáo. Dùng menu **Sao lưu/Khôi phục** trên điện thoại để xuất/nhập JSON. Khi thoát hoặc đổi tài khoản, màn hình đăng nhập/đăng ký xuất hiện; dùng tài khoản cục bộ. Cảnh báo lỗi lưu/xung đột chỉ hiện khi cần xử lý. Backend vẫn cách ly, Navbar ghi **Lưu trên máy**, chưa đồng bộ giữa hai điện thoại thật.
 
 Các giá trị cân, mol, Eq, MW, nồng độ, Rf, hiệu suất và kết quả tính toán hiển thị đúng 5 chữ số thập phân với dấu phẩy. Ô nhập để trống vẫn trống; khi gõ giữ chuỗi đang nhập, khi rời ô mới định dạng hiển thị. Không làm tròn dữ liệu lưu để tránh sai số khi đổi đơn vị. Số ống, ID và thời gian đồng hồ HH:MM:SS không phải số đo thập phân.
 

@@ -1,4 +1,5 @@
 import { changedFields, deriveExperiment, mergePatch } from '../domain/experiment.js';
+import { initializeDemoAccounts, signInDemoAccount, signUpDemoAccount, readDemoSession, signOutDemoAccount } from './demoAuth.js';
 
 // Intentionally no Firebase import, URL, credential, or network operation.
 const DATABASE = 'medchem-demo-v2';
@@ -8,6 +9,7 @@ export const DEMO_USERS = [
   { uid: 'demo-researcher-b', email: 'researcher.b@demo.invalid', displayName: 'Nghiên cứu viên B', isDemo: true }
 ];
 let currentUser = null;
+let authGeneration = 0;
 let databasePromise;
 let simulatedOffline = false; // Test harness only; removed from the user interface.
 const listeners = new Set(), authListeners = new Set();
@@ -299,24 +301,39 @@ export async function uploadImage(file) {
 }
 export const subscribeFirebaseAuthState = (callback) => {
   authListeners.add(callback);
-  try { currentUser = DEMO_USERS.find((u) => u.uid === localStorage.getItem(PROFILE_KEY)) || null; } catch { currentUser = null; }
-  callback(currentUser);
+  const generation = authGeneration;
+  void initializeDemoAccounts(DEMO_USERS).then(readDemoSession).then((user) => {
+    if (!authListeners.has(callback) || generation !== authGeneration) return;
+    currentUser = user; callback(currentUser);
+  }).catch(() => { if (authListeners.has(callback) && generation === authGeneration) callback(null); });
   return () => authListeners.delete(callback);
 };
 export function selectDemoUser(uid) {
+  authGeneration++;
   currentUser = DEMO_USERS.find((u) => u.uid === uid) || null;
   if (currentUser) localStorage.setItem(PROFILE_KEY, currentUser.uid); else localStorage.removeItem(PROFILE_KEY);
   authListeners.forEach((callback) => callback(currentUser));
   if (currentUser) void retryDemoDrafts();
   return currentUser;
 }
-export const firebaseSignIn = async (email) => {
-  const user = DEMO_USERS.find((u) => u.email === email);
-  if (!user) throw new Error('Dùng nút tài khoản demo A/B; không nhập tài khoản thật.');
-  return selectDemoUser(user.uid);
+function setAuthenticatedUser(user) {
+  authGeneration++; currentUser = user;
+  authListeners.forEach((callback) => callback(user));
+  if (user) void retryDemoDrafts();
+  return user;
+}
+export const firebaseSignIn = async (email, password) => {
+  await initializeDemoAccounts(DEMO_USERS);
+  return setAuthenticatedUser(await signInDemoAccount(email, password));
 };
-export const firebaseSignUp = async () => { throw new Error('Demo không đăng ký tài khoản thật.'); };
-export const firebaseSignOut = async () => selectDemoUser(null);
+export const firebaseSignUp = async (email, password, displayName, studentId) => {
+  await initializeDemoAccounts(DEMO_USERS);
+  return setAuthenticatedUser(await signUpDemoAccount(email, password, displayName, studentId));
+};
+export const firebaseSignOut = async () => {
+  await signOutDemoAccount(); localStorage.removeItem(PROFILE_KEY);
+  return setAuthenticatedUser(null);
+};
 export const hashPassword = async () => { throw new Error('Không sử dụng mật khẩu trong demo.'); };
 export const saveLabAccount = async () => { throw new Error('Demo không lưu tài khoản thật.'); };
 export const findLabAccount = async () => null;
