@@ -9,7 +9,7 @@ export const DEMO_USERS = [
 ];
 let currentUser = null;
 let databasePromise;
-let simulatedOffline = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('medchem_demo_offline') === 'true';
+let simulatedOffline = false; // Test harness only; removed from the user interface.
 const listeners = new Set(), authListeners = new Set();
 let operationSequence = 0;
 let retryPromise;
@@ -168,6 +168,78 @@ export async function discardDemoDrafts(experimentId) {
     tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
   });
   changed();
+}
+
+export async function getDemoConflict(experimentId) {
+  const user = currentUser;
+  if (!user) throw new Error('Chọn tài khoản demo trước.');
+  const db = await openDatabase();
+  // Read both versions in one snapshot, so the dialog has a consistent revision.
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['records', 'drafts', 'purged']);
+    let cloud, drafts, purged;
+    const a = tx.objectStore('records').get(experimentId);
+    a.onsuccess = () => { cloud = a.result; };
+    const b = tx.objectStore('drafts').getAll();
+    b.onsuccess = () => { drafts = b.result; };
+    const c = tx.objectStore('purged').get(experimentId);
+    c.onsuccess = () => { purged = c.result; };
+    tx.oncomplete = () => {
+      if (cloud && cloud.creatorId !== user.uid) return reject(new Error('Không có quyền đọc bản này.'));
+      const own = drafts.filter((d) => d.creatorId === user.uid && d.experimentId === experimentId).sort((x, y) => x.sequence - y.sequence);
+      const local = own.at(-1);
+      if (!local) return reject(new Error('Xung đột đã được giải quyết.'));
+      resolve({ experimentId, uid: user.uid, cloud: cloud || null, local: local.experiment, revision: cloud?.revision ?? null, draftIds: own.map((d) => d.id), purged: Boolean(purged) });
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function resolveDemoConflict(snapshot, choice) {
+  if (!['cloud', 'local'].includes(choice)) throw new Error('Lựa chọn không hợp lệ.');
+  const user = currentUser;
+  if (!user || snapshot.uid !== user.uid) throw new Error('Tài khoản đã đổi; mở lại thông báo.');
+  const db = await openDatabase();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(['records', 'drafts', 'purged'], 'readwrite');
+    let cloud, drafts, purged, failure, completed = 0;
+    const fail = (message) => { failure = new Error(message); tx.abort(); };
+    const finish = () => {
+      if (++completed !== 3) return;
+      const own = drafts.filter((d) => d.creatorId === user.uid && d.experimentId === snapshot.experimentId).sort((a, b) => a.sequence - b.sequence);
+      if (cloud && cloud.creatorId !== user.uid) return fail('Không có quyền sửa bản này.');
+      if ((cloud?.revision ?? null) !== snapshot.revision || JSON.stringify(own.map((d) => d.id)) !== JSON.stringify(snapshot.draftIds)) return fail('Dữ liệu đã thay đổi trong lúc chọn. Mở lại thông báo để xem bản mới.');
+      if (!own.length) return fail('Xung đột đã được giải quyết.');
+      if (choice === 'local') {
+        if (!cloud || purged || cloud.inTrash) return fail('Không ghi đè bản đã xóa hoặc trong thùng rác. Chọn lấy bản cloud.');
+        const latest = own.at(-1).experiment;
+        const result = deriveExperiment({ ...latest, id: cloud.id, creatorId: user.uid, creatorEmail: user.email, inTrash: cloud.inTrash || false, revision: cloud.revision + 1, updatedAt: new Date().toISOString() });
+        delete result.demoPending; delete result.demoConflict;
+        result.auditTrail = [...(cloud.auditTrail || []), { id: crypto.randomUUID(), at: result.updatedAt, actorId: user.uid, action: 'resolve-local', replacedRevision: cloud.revision }];
+        tx.objectStore('records').put(result);
+      }
+      for (const draft of own) tx.objectStore('drafts').delete(draft.id);
+    };
+    const a = tx.objectStore('records').get(snapshot.experimentId);
+    a.onsuccess = () => { cloud = a.result; finish(); };
+    const b = tx.objectStore('drafts').getAll();
+    b.onsuccess = () => { drafts = b.result; finish(); };
+    const c = tx.objectStore('purged').get(snapshot.experimentId);
+    c.onsuccess = () => { purged = c.result; finish(); };
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(failure || tx.error);
+    tx.onabort = () => reject(failure || tx.error);
+  });
+  changed();
+}
+
+export async function simulateDemoConflict(experimentId) {
+  const cloud = (await readStore('records')).find((e) => e.id === experimentId && e.creatorId === currentUser?.uid);
+  if (!cloud || cloud.inTrash) throw new Error('Chọn một thí nghiệm đã lưu để thử.');
+  const remote = await saveExperimentData({ ...cloud, title: `${cloud.title} · thiết bị B` }, { base: cloud, patch: { title: `${cloud.title} · thiết bị B` } });
+  if (!remote.success) throw remote.error;
+  const local = await saveExperimentData({ ...cloud, title: `${cloud.title} · thiết bị A` }, { base: cloud, patch: { title: `${cloud.title} · thiết bị A` } });
+  if (local.success) throw new Error('Chưa tạo được xung đột.');
 }
 if (typeof window !== 'undefined') window.addEventListener('online', () => void retryDemoDrafts());
 

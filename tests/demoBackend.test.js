@@ -22,4 +22,52 @@ test('local backend transactional lifecycle and isolation', async (t) => {
   await t.test('concurrent retry commits a durable draft only once', async () => { const e = (await backend.saveExperimentData(make())).data; backend.setDemoOffline(true); await save(e, { notes: 'only once' }); backend.setDemoOffline(false); await Promise.all([backend.retryDemoDrafts(), backend.retryDemoDrafts()]); const list = await new Promise((resolve) => { const unsub = backend.loadExperimentsData((items) => { unsub(); resolve(items); }, user.uid); }); const record = list.find((item) => item.id === e.id); assert.equal(record.revision, 2); assert.equal(record.auditTrail.length, 2); assert.ok(!record.demoPending); });
   await t.test('stale draft cannot visually resurrect trash or tombstone', async () => { const e = (await backend.saveExperimentData(make())).data; await backend.saveExperimentData({ ...e, inTrash: true }, { base: e, patch: { inTrash: true }, kind: 'trash' }); await save(e, { notes: 'stale tab' }); const snapshot = () => new Promise((resolve) => { const unsub = backend.loadExperimentsData((items) => { unsub(); resolve(items); }, user.uid); }); assert.equal((await snapshot()).find((item) => item.id === e.id).inTrash, true); await backend.deleteExperimentData(e.id); await save(e, { notes: 'stale tab after purge' }); assert.ok(!(await snapshot()).some((item) => item.id === e.id)); await backend.discardDemoDrafts(e.id); });
   await t.test('user B cannot read user A records', async () => { backend.selectDemoUser('demo-researcher-b'); const list = await new Promise((resolve) => { const unsubscribe = backend.loadExperimentsData((items) => { unsubscribe(); resolve(items); }, 'demo-researcher-b'); }); assert.equal(list.length, 0); assert.equal((await backend.deleteExperimentData(original.id)).success, false); backend.selectDemoUser(user.uid); });
+  await t.test('cloud choice discards only the conflict draft and keeps cloud unchanged', async () => {
+    const e = (await backend.saveExperimentData(make())).data;
+    await backend.simulateDemoConflict(e.id);
+    const snapshot = await backend.getDemoConflict(e.id);
+    assert.match(snapshot.cloud.title, /thiết bị B/);
+    assert.match(snapshot.local.title, /thiết bị A/);
+    await backend.resolveDemoConflict(snapshot, 'cloud');
+    const list = await new Promise((resolve) => { const unsub = backend.loadExperimentsData((items) => { unsub(); resolve(items); }, user.uid); });
+    const record = list.find((x) => x.id === e.id);
+    assert.equal(record.title, snapshot.cloud.title);
+    assert.equal(record.revision, snapshot.revision);
+    assert.ok(!record.demoPending);
+  });
+  await t.test('local choice explicitly replaces current cloud and records the decision', async () => {
+    const e = (await backend.saveExperimentData(make())).data;
+    await backend.simulateDemoConflict(e.id);
+    const snapshot = await backend.getDemoConflict(e.id);
+    await backend.resolveDemoConflict(snapshot, 'local');
+    const list = await new Promise((resolve) => { const unsub = backend.loadExperimentsData((items) => { unsub(); resolve(items); }, user.uid); });
+    const record = list.find((x) => x.id === e.id);
+    assert.equal(record.title, snapshot.local.title);
+    assert.equal(record.revision, snapshot.revision + 1);
+    assert.equal(record.auditTrail.at(-1).action, 'resolve-local');
+    assert.ok(!record.demoPending);
+  });
+  await t.test('cloud moving while dialog is open refuses a stale overwrite', async () => {
+    const e = (await backend.saveExperimentData(make())).data;
+    await backend.simulateDemoConflict(e.id);
+    const snapshot = await backend.getDemoConflict(e.id);
+    assert.equal((await save(snapshot.cloud, { notes: 'device C changed again' })).success, true);
+    await assert.rejects(backend.resolveDemoConflict(snapshot, 'local'), /đã thay đổi/);
+    const newer = await backend.getDemoConflict(e.id);
+    assert.equal(newer.cloud.notes, 'device C changed again');
+    await backend.resolveDemoConflict(newer, 'cloud');
+  });
+  await t.test('resolution rejects a switched owner or deleted cloud record', async () => {
+    const e = (await backend.saveExperimentData(make())).data;
+    await backend.simulateDemoConflict(e.id);
+    const snapshot = await backend.getDemoConflict(e.id);
+    backend.selectDemoUser('demo-researcher-b');
+    await assert.rejects(backend.resolveDemoConflict(snapshot, 'local'), /Tài khoản/);
+    backend.selectDemoUser(user.uid); await backend.retryDemoDrafts();
+    const current = await backend.getDemoConflict(e.id);
+    await backend.saveExperimentData({ ...current.cloud, inTrash: true }, { base: current.cloud, patch: { inTrash: true }, kind: 'trash' });
+    const trashed = await backend.getDemoConflict(e.id);
+    await assert.rejects(backend.resolveDemoConflict(trashed, 'local'), /thùng rác/);
+    await backend.resolveDemoConflict(trashed, 'cloud');
+  });
 });

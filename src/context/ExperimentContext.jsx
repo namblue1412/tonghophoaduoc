@@ -11,7 +11,8 @@ import {
   refreshDemoData,
   isDeletedRecord
 } from '../services/firebase';
-import { changedFields, deriveExperiment, mergePatch, validateImport } from '../domain/experiment.js';
+import { changedFields, deriveExperiment, mergePatch } from '../domain/experiment.js';
+import { prepareDemoImport } from '../domain/demoImport.js';
 import { localDate } from '../domain/chemistry.js';
 
 const ExperimentContext = createContext();
@@ -559,17 +560,17 @@ export const ExperimentProvider = ({ children }) => {
       reader.onload = async (e) => {
         try {
           if (file.size > 50 * 1024 * 1024) throw new Error('Tệp JSON tối đa 50 MB.');
-          const parsed = validateImport(JSON.parse(e.target.result));
+          const { items: parsed, remoteAssetCount } = prepareDemoImport(JSON.parse(e.target.result));
           const tagged = parsed.map((item) => ({
             ...item, id: `EXP-${crypto.randomUUID()}`, sourceId: item.id,
             revision: 0, auditTrail: [], inTrash: false, trashedAt: null,
             creatorId: importUser.uid, creatorEmail: importUser.email,
-            creatorName: importUser.displayName, researcher: importUser.displayName,
+            creatorName: importUser.displayName, researcher: item.researcher || importUser.displayName,
             updatedAt: new Date().toISOString()
           }));
           const result = requireSuccess(await importDemoExperiments(tagged, importUser));
           setActiveExperimentId(tagged[0].id);
-          resolve({ success: true, count: result.count });
+          resolve({ success: true, count: result.count, remoteAssetCount });
         } catch (err) {
           reject(err);
         }
@@ -599,6 +600,7 @@ export const ExperimentProvider = ({ children }) => {
         exportAllToJson,
         importFromJson,
         syncError,
+        clearSyncError: () => setSyncError(''),
         syncMode,
         isSyncing,
         lastSaved,

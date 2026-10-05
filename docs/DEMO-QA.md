@@ -15,7 +15,7 @@ Mở `http://127.0.0.1:5173`, mở **Điều khiển kiểm thử**, chọn Nghi
 - Adapter không import SDK Firebase, không có endpoint và không gửi yêu cầu mạng. Database riêng `medchem-demo-v2` gồm records, drafts, purged; ảnh và phổ nhúng trong bản ghi cục bộ. Tài khoản A/B là hồ sơ thử, không phải xác thực bảo mật trên máy chia sẻ.
 - CSP chỉ cho kết nối cùng origin và WebSocket localhost phục vụ Vite; ảnh chỉ được tải cùng origin/data/blob. Không tự tải ảnh Storage từ file JSON thật. Có các liên kết tham chiếu PubChem/Biotage/SDS: chỉ mở khi người dùng bấm.
 - `src/services/firebase.js`, Database Rules và Storage Rules production được giữ nguyên; không deploy hay sửa dữ liệu Firebase. Các vấn đề rules của production chưa được sửa trên dịch vụ thật. Trước khi đưa các thay đổi này lên production cần adapter theo UID, giao dịch/revision, rules tương ứng, migration và kiểm thử Firebase Emulator riêng.
-- Nhánh này chạy cục bộ, chưa push hoặc deploy. IndexedDB tồn tại trên cùng trình duyệt/origin; xóa dữ liệu trình duyệt sẽ xóa demo. Xuất JSON trước khi đổi môi trường. Không có service worker, vì vậy tắt mạng thật rồi tải lại trang chưa cache có thể không tải được ứng dụng; công tắc mất mạng giả lập dùng để kiểm tra hàng đợi mà vẫn tải được UI.
+- Nhánh này đã push lên GitHub `demo`, chưa deploy website. IndexedDB tồn tại trên cùng trình duyệt/origin; xóa dữ liệu trình duyệt sẽ xóa demo. Xuất JSON trước khi đổi môi trường. Không có service worker, vì vậy tắt mạng thật rồi tải lại trang chưa cache có thể không tải được ứng dụng; nút giả lập mất mạng và chế độ tối đã được bỏ theo yêu cầu ngày 05/10/2026; kiểm thử hàng đợi vẫn có trong bộ test tự động.
 
 ## Những lỗi đã xử lý và nguyên nhân
 
@@ -32,7 +32,7 @@ Mở `http://127.0.0.1:5173`, mở **Điều khiển kiểm thử**, chọn Nghi
 | `ExperimentContext.jsx`, `demoBackend.js` | Fallback owner theo tên/email, Set pending, full-object stale write, lỗi save bị bỏ qua | UID chính xác; pending counter; patch field có base; kiểm tra xung đột; draft bền trước acknowledgement; trạng thái lỗi rõ |
 | Thùng rác | Ghi cũ làm hồi sinh; purge không có tombstone | Trash ưu tiên khi đọc; edit vào trash bị từ chối; purge transaction với tombstone; ghi cũ không xuất hiện lại |
 | Ảnh và duplicate | Chia sẻ URL Storage gây orphan/xóa ảnh dùng chung | File nằm trong bản ghi demo; duplicate là lần chạy mới, xóa kết quả/timer/TLC cũ; giữ điều kiện làm mẫu |
-| JSON | Chấp nhận cấu trúc/numeric/ID/nhóm sai; ghi đè ID cũ | Validate trước nhập; ID mới + sourceId; nhập transaction all-or-none; từ chối URL ảnh ngoài và prototype keys |
+| JSON | Chấp nhận cấu trúc/numeric/ID/nhóm sai; ghi đè ID cũ | Validate trước nhập; ID mới + sourceId; nhập transaction all-or-none; URL ảnh ngoài được tách thành sourceRemoteAssets để đối chiếu (không tải ảnh); từ chối prototype keys |
 | Giao diện/in | Tràn navbar mobile, nút nhỏ, trang in còn bố cục nền | Safe area/dvh, nút mobile ≥48px; phòng tối; report portal độc lập focus view; A4 tóm tắt hoặc hồ sơ đầy đủ |
 
 Không có cơ chế khóa đa người dùng thật hoặc chứng nhận GLP: audit trail demo chỉ ghi actor, action, fields và thời gian, có thể bị sửa bởi người có quyền trên máy.
@@ -87,6 +87,18 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 57/57 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 65/65 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
+
+
+## Cập nhật 05/10/2026: nhập JSON thật và xử lý xung đột
+
+1. Trên web main đang dùng, đăng nhập như bình thường, chọn menu **Xuất JSON**. Tệp xuất là danh sách các thí nghiệm đang hiển thị của tài khoản đó (không gồm thùng rác).
+2. Mở demo, chọn tài khoản A, mở **Điều khiển kiểm thử**, bấm **Nhập JSON xuất từ web main**, chọn tệp vừa tải. Không nhập tài khoản/mật khẩu Firebase ở demo.
+3. Bản nhập được tạo ID mới, giữ sourceId, sourceOwner, sourceUpdatedAt, giữ ngày TLC và tên nghiên cứu viên. Không sửa tệp nguồn. Ảnh nhúng tiếp tục hiển thị; ảnh liên kết ngoài chỉ giữ đường dẫn trong sourceRemoteAssets và hiển thị thông báo số ảnh chưa có. Demo không tải ảnh từ Firebase.
+4. Mở một thí nghiệm mẫu, bấm **Thử xung đột thiết bị A/B**. Nút này mô phỏng hai thiết bị sửa tên khác nhau để mở hộp thoại; nó thực sự sửa tên trong kho demo, nên chọn thí nghiệm mẫu hoặc bản sao.
+5. **Lấy dữ liệu từ cloud** bỏ bản nháp của thí nghiệm đó và giữ bản kho demo. **Đồng bộ bản trên máy này lên** thay toàn bộ bản kho demo bằng bản trên máy; cần xác nhận sau khi xem hai bản. Có nút xuất JSON trước khi quyết định.
+6. Nếu kho demo đổi khi hộp thoại đang mở, thao tác bị từ chối và hộp thoại nạp bản mới để chọn lại. Không thể ghi đè bản đã xóa/vào thùng rác hoặc bản của tài khoản khác. Quyết định ghi đè được ghi auditTrail.
+
+**Giới hạn:** cloud ở đây là kho mô phỏng IndexedDB/BroadcastChannel, dùng chung giữa các tab trên cùng trình duyệt/origin. Hai điện thoại thật chưa đồng bộ với nhau. Firebase thật không có thay đổi. Việc triển khai cơ chế này lên production cần adapter Firebase transaction và kiểm tra rules riêng. Tệp JSON thật của người dùng chưa được cung cấp nên hiện mới xác nhận luồng nhập bằng dữ liệu mẫu, không khẳng định đã nhập dữ liệu thật.

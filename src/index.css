@@ -116,20 +116,6 @@ html[data-device="ipad"] button { min-height: 48px !important; min-width: 44px !
 .ghs-diamond > span { transform: rotate(-45deg); font-weight: 800; font-size: 11px; }
 .structure-image svg { max-width: 100%; height: auto; }
 
-html[data-lab-dark="true"] { color-scheme: dark; background: #111827; }
-html[data-lab-dark="true"] body { background: #111827 !important; color: #e5e7eb !important; }
-html[data-lab-dark="true"] .bg-white:not(.structure-image),
-html[data-lab-dark="true"] [class*="bg-slate-50"],
-html[data-lab-dark="true"] [class*="bg-slate-100"] { background-color: #1f2937 !important; }
-html[data-lab-dark="true"] [class*="text-slate-"],
-html[data-lab-dark="true"] .medchem-tools { color: #e5e7eb !important; }
-html[data-lab-dark="true"] input,
-html[data-lab-dark="true"] textarea,
-html[data-lab-dark="true"] select { color: #f3f4f6 !important; background: #111827 !important; border-color: #64748b !important; }
-html[data-lab-dark="true"] .medchem-tools button:not(.bg-teal-700) { color: #e5e7eb !important; background: #374151 !important; }
-html[data-lab-dark="true"] .demo-controls { background: #422006 !important; color: #fef3c7 !important; }
-html[data-lab-dark="true"] .demo-controls button { color: #fef3c7 !important; background: #713f12 !important; }
-
 /* Hide scrollbar for horizontal chip carousels on mobile */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -161,7 +147,7 @@ html[data-lab-dark="true"] .demo-controls button { color: #fef3c7 !important; ba
 /* Print Styles for Laboratory Notebook Dossier */
 @page { size: A4 portrait; margin: 12mm; }
 @media print {
-  html, html[data-lab-dark="true"] body { background: white !important; color: black !important; }
+  html, body { background: white !important; color: black !important; }
   body:has(> .experiment-report) > :not(.experiment-report) { display: none !important; }
   .experiment-report { position: static; width: 100%; color: black !important; background: white !important; font: 10pt/1.35 Arial, sans-serif; }
   .experiment-report h1 { font-size: 15pt; font-weight: bold; }
