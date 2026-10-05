@@ -306,14 +306,15 @@ export const ColumnFractionManager = ({
   // Quick toggle tube in spottedFractions string for Fraction TLC
   const toggleSpottedTube = (tubeNum) => {
     const label = `F${tubeNum}`;
+    const numStr = String(tubeNum);
     const currentParts = fracSpottedInput
       .split(/[,;\s]+/)
       .map((s) => s.trim())
       .filter(Boolean);
 
     let nextParts;
-    if (currentParts.includes(label)) {
-      nextParts = currentParts.filter((p) => p !== label);
+    if (currentParts.some((p) => p.toUpperCase() === label.toUpperCase() || p === numStr)) {
+      nextParts = currentParts.filter((p) => p.toUpperCase() !== label.toUpperCase() && p !== numStr);
     } else {
       nextParts = [...currentParts, label];
     }
@@ -1024,7 +1025,8 @@ export const ColumnFractionManager = ({
     fracSavingRef.current = false;
     setFracUploading(false);
     setFracPhotoLoadingSlot(null);
-    setEditingFracTlcId(plate.id);
+    const resolvedId = plate.id || `frac-tlc-${Date.now()}`;
+    setEditingFracTlcId(resolvedId);
     const existingIso = plate.timestamp || new Date().toISOString();
     setFracOriginalTimestamp(existingIso);
     setFracCaptureDatetime(toLocalDatetimeInput(existingIso));
@@ -1108,18 +1110,23 @@ export const ColumnFractionManager = ({
         timestamp: resolvedTimestamp
       };
 
-      const currentPlates = fractionTlcPlates || [];
+      const currentPlates = Array.isArray(fractionTlcPlates)
+        ? fractionTlcPlates
+        : (fractionTlcPlates && typeof fractionTlcPlates === 'object' ? Object.values(fractionTlcPlates) : []);
+
       let updatedPlates;
       if (targetFracPlateId) {
-        updatedPlates = currentPlates.map((p) =>
-          p.id === targetFracPlateId
+        updatedPlates = currentPlates.map((p, idx) => {
+          const pId = p.id || `frac-tlc-${idx + 1}`;
+          return pId === targetFracPlateId
             ? {
                 ...p,
+                id: pId,
                 ...payload,
                 timestamp: fracTimestampModified ? resolvedTimestamp : (p.timestamp || resolvedTimestamp)
               }
-            : p
-        );
+            : { ...p, id: pId };
+        });
       } else {
         updatedPlates = [
           ...currentPlates,
@@ -1141,7 +1148,10 @@ export const ColumnFractionManager = ({
 
   const handleDeleteFracTlc = (id) => {
     if (window.confirm('Xóa bản mỏng kiểm tra phân đoạn này?')) {
-      const updatedPlates = (fractionTlcPlates || []).filter((p) => p.id !== id);
+      const currentPlates = Array.isArray(fractionTlcPlates)
+        ? fractionTlcPlates
+        : (fractionTlcPlates && typeof fractionTlcPlates === 'object' ? Object.values(fractionTlcPlates) : []);
+      const updatedPlates = currentPlates.filter((p, idx) => (p.id || `frac-tlc-${idx + 1}`) !== id);
       onChange({
         ...columnData,
         fractionTlcPlates: updatedPlates
@@ -1813,12 +1823,14 @@ export const ColumnFractionManager = ({
           {/* List of Fraction TLC Cards */}
           {fractionTlcPlates && fractionTlcPlates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {fractionTlcPlates.map((plate) => {
+              {fractionTlcPlates.map((plate, pIdx) => {
+                const plateId = plate.id || `frac-plate-${pIdx + 1}`;
+                const safePlate = { ...plate, id: plateId };
                 const img254 = plate.images?.uv254 || null;
                 const img365 = plate.images?.uv365 || null;
                 const imgReagent = plate.images?.reagent || null;
                 const defaultTab = img254 ? 'uv254' : img365 ? 'uv365' : imgReagent ? 'reagent' : 'uv254';
-                const currentTab = activeTabPerFracTlc[plate.id] || defaultTab;
+                const currentTab = activeTabPerFracTlc[plateId] || defaultTab;
 
                 let activeImg = null;
                 if (currentTab === 'uv254') activeImg = img254;
@@ -1827,7 +1839,7 @@ export const ColumnFractionManager = ({
 
                 return (
                   <div
-                    key={plate.id}
+                    key={plateId}
                     className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between"
                   >
                     {/* Header */}
@@ -1864,7 +1876,7 @@ export const ColumnFractionManager = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleOpenEditFracTlc(plate)}
+                          onClick={() => handleOpenEditFracTlc(safePlate)}
                           className="text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                           title="Sửa bản mỏng này"
                         >
@@ -1872,7 +1884,7 @@ export const ColumnFractionManager = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteFracTlc(plate.id)}
+                          onClick={() => handleDeleteFracTlc(plateId)}
                           className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                           title="Xóa bản mỏng này"
                         >
@@ -1885,7 +1897,7 @@ export const ColumnFractionManager = ({
                     <div className="bg-slate-950 p-1 flex items-center gap-1 border-b border-slate-800">
                       <button
                         type="button"
-                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plate.id]: 'uv254' })}
+                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plateId]: 'uv254' })}
                         className={`flex-1 py-1.5 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] ${
                           currentTab === 'uv254' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'
                         }`}
@@ -1897,7 +1909,7 @@ export const ColumnFractionManager = ({
 
                       <button
                         type="button"
-                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plate.id]: 'uv365' })}
+                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plateId]: 'uv365' })}
                         className={`flex-1 py-1.5 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] ${
                           currentTab === 'uv365' ? 'bg-violet-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'
                         }`}
@@ -1909,7 +1921,7 @@ export const ColumnFractionManager = ({
 
                       <button
                         type="button"
-                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plate.id]: 'reagent' })}
+                        onClick={() => setActiveTabPerFracTlc({ ...activeTabPerFracTlc, [plateId]: 'reagent' })}
                         className={`flex-1 py-1.5 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 min-h-[38px] truncate ${
                           currentTab === 'reagent' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'
                         }`}
@@ -2789,8 +2801,8 @@ export const ColumnFractionManager = ({
                     {fractions.map((f) => {
                       const isSelected = fracSpottedInput
                         .split(/[,;\s]+/)
-                        .map((s) => s.trim())
-                        .includes(`F${f.number}`);
+                        .map((s) => s.trim().toUpperCase())
+                        .some((token) => token === `F${f.number}` || token === String(f.number));
                       return (
                         <button
                           key={f.number}
@@ -3007,10 +3019,14 @@ export const ColumnFractionManager = ({
 
                 {/* Camera and Upload Buttons - VISIBLE WITHOUT SCROLL */}
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <label className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md select-none touch-manipulation min-h-[44px]">
-                    <Camera className="w-4 h-4 flex-shrink-0" />
-                    <span>Mở Camera</span>
+                  <label
+                    htmlFor={`frac-cam-input-${fracModalSessionKey}-${fracSlot}`}
+                    className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md select-none touch-manipulation min-h-[44px]"
+                  >
+                    <Camera className="w-4 h-4 flex-shrink-0 pointer-events-none" />
+                    <span className="pointer-events-none">Mở Camera</span>
                     <input
+                      id={`frac-cam-input-${fracModalSessionKey}-${fracSlot}`}
                       key={`frac-cam-${fracModalSessionKey}-${fracSlot}`}
                       type="file"
                       accept="image/*"
@@ -3020,10 +3036,14 @@ export const ColumnFractionManager = ({
                     />
                   </label>
 
-                  <label className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm select-none touch-manipulation min-h-[44px] border border-slate-700">
-                    <Upload className="w-4 h-4 flex-shrink-0" />
-                    <span>Chọn Từ Máy</span>
+                  <label
+                    htmlFor={`frac-gal-input-${fracModalSessionKey}-${fracSlot}`}
+                    className="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm select-none touch-manipulation min-h-[44px] border border-slate-700"
+                  >
+                    <Upload className="w-4 h-4 flex-shrink-0 pointer-events-none" />
+                    <span className="pointer-events-none">Chọn Từ Máy</span>
                     <input
+                      id={`frac-gal-input-${fracModalSessionKey}-${fracSlot}`}
                       key={`frac-gal-${fracModalSessionKey}-${fracSlot}`}
                       type="file"
                       accept="image/*"
