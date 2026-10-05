@@ -1,3 +1,5 @@
+import { DecimalInput } from './DecimalInput.jsx';
+import { formatDecimal } from '../domain/display.js';
 import React from 'react';
 import {
   TestTube,
@@ -46,7 +48,7 @@ export const WorkupSection = ({
   const crudeMassNum = parseDecimal(crudeMass);
   const crudeYieldPct =
     theoreticalMass > 0 && crudeMassNum > 0
-      ? parseFloat(((crudeMassNum / theoreticalMass) * 100).toFixed(1))
+      ? (crudeMassNum / theoreticalMass) * 100
       : 0;
 
   // Normalize crude tubes (backward-compatible)
@@ -361,7 +363,7 @@ export const WorkupSection = ({
                     <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                       m(vỏ) ({massUnit}):
                     </label>
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
                       value={tube.tareMass ?? ''}
@@ -375,7 +377,7 @@ export const WorkupSection = ({
                     <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                       m(vỏ+cắn) ({massUnit}):
                     </label>
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
                       value={tube.grossMass ?? ''}
@@ -390,7 +392,7 @@ export const WorkupSection = ({
                       m(cắn thô):
                     </span>
                     <span className="font-mono font-extrabold text-amber-950 text-xs sm:text-sm text-right mt-1 truncate">
-                      {Number(tube.crudeMass || 0).toPrecision(6)} <span className="font-normal text-[10px]">{massUnit}</span>
+                      {formatDecimal(tube.crudeMass || 0)} <span className="font-normal text-[10px]">{massUnit}</span>
                     </span>
                   </div>
                 </div>
@@ -423,9 +425,9 @@ export const WorkupSection = ({
                   </span>
                   {theoreticalMass > 0 && (
                     <span className="text-[11px] font-medium text-amber-800 block mt-0.5">
-                      Lý thuyết (100%): <strong>{theoreticalMass.toPrecision(6)} {massUnit}</strong> • Hiệu suất thô:{' '}
+                      Lý thuyết (100%): <strong>{formatDecimal(theoreticalMass)} {massUnit}</strong> • Hiệu suất thô:{' '}
                       <strong className={crudeYieldPct > 100 ? 'text-rose-700 underline' : 'text-amber-950'}>
-                        {crudeYieldPct}%
+                        {formatDecimal(crudeYieldPct)}%
                       </strong>
                     </span>
                   )}
@@ -434,7 +436,7 @@ export const WorkupSection = ({
 
               <div className="flex items-center gap-2 self-end sm:self-center">
                 <label className="text-xs"><input type="checkbox" checked={workupData?.crudeMassSource === 'manual'} onChange={(e) => handleFieldChange('crudeMassSource', e.target.checked ? 'manual' : 'tubes')} /> Nhập tổng thủ công</label>
-                <input
+                <DecimalInput
                   type="text"
                   inputMode="decimal"
                   value={crudeMass ?? ''}
@@ -452,7 +454,7 @@ export const WorkupSection = ({
               <div className="bg-rose-50 border border-rose-300 text-rose-800 rounded-xl px-3 py-2 text-xs font-medium flex items-start gap-2">
                 <span className="font-bold text-rose-600 flex-shrink-0">⚠</span>
                 <span>
-                  <strong>Hiệu suất cắn thô ({crudeYieldPct}%) &gt; 100% lý thuyết:</strong> Cắn thô có khả năng còn ngậm dung môi chiết (EtOAc/DCM/nước) hoặc muối vô cơ. Nên cô quay kiệt / sấy chân không trước khi nạp cột sắc ký.
+                  <strong>Hiệu suất cắn thô ({formatDecimal(crudeYieldPct)}%) &gt; 100% lý thuyết:</strong> Cắn thô có khả năng còn ngậm dung môi chiết (EtOAc/DCM/nước) hoặc muối vô cơ. Nên cô quay kiệt / sấy chân không trước khi nạp cột sắc ký.
                 </span>
               </div>
             )}

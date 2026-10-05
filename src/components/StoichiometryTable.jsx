@@ -1,3 +1,5 @@
+import { DecimalInput } from './DecimalInput.jsx';
+import { formatDecimal, emptyReagentInputs } from '../domain/display.js';
 import React, { useState } from 'react';
 import {
   Scale,
@@ -270,7 +272,7 @@ export const StoichiometryTable = ({
       type,
       name: defaultName,
       formula: extra.formula || '',
-      mw: extra.mw || (type === 'base_acid' || type === 'solvent' ? '0' : '100.0'),
+      mw: extra.mw || '',
       purity: extra.purity || (type === 'base_acid' ? defaultConc : '99.0'),
       concentration: defaultConc,
       concentrationPercent: defaultConc,
@@ -289,7 +291,7 @@ export const StoichiometryTable = ({
       notes: defaultNotes
     };
 
-    const calculated = calculateRowValues(newRow, newRow.isLimiting);
+    const calculated = calculateRowValues(emptyReagentInputs(newRow), newRow.isLimiting);
     onChange([...reagents, calculated]);
   };
 
@@ -576,7 +578,7 @@ export const StoichiometryTable = ({
             </div>
             <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
               <span className="text-slate-600 font-medium">M (g/mol):</span>
-              <input
+              <DecimalInput
                 type="text"
                 inputMode="decimal"
                 value={targetMolecule.molecularWeight ?? ''}
@@ -596,7 +598,7 @@ export const StoichiometryTable = ({
           <span>
             Chất giới hạn (Tỉ lệ mốc 1.00):{' '}
             <strong className="font-bold underline text-emerald-950">{limitingReagent?.name || 'Chưa chọn'}</strong>{' '}
-            ({limitingMoles > 0 ? `${limitingMoles} ${moleUnit}` : `0 ${moleUnit}`} = <strong>Tỉ lệ 1.00</strong>)
+            ({limitingMoles > 0 ? `${formatDecimal(limitingMoles)} ${moleUnit}` : `${formatDecimal(0)} ${moleUnit}`} = <strong>Tỉ lệ 1,00000</strong>)
           </span>
         </div>
       </div>
@@ -645,7 +647,7 @@ export const StoichiometryTable = ({
           <div className="flex items-center justify-between text-[11px] font-bold text-teal-900">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
-              <span>Chèn nhanh hóa chất phổ biến (tự điền M, d, độ sạch):</span>
+              <span>Chèn nhanh hóa chất (tên, công thức, M; tự nhập số cân và tỷ trọng):</span>
             </span>
             <span className="text-[10px] font-normal text-teal-700 sm:hidden">Vuốt ngang &rarr;</span>
           </div>
@@ -668,7 +670,7 @@ export const StoichiometryTable = ({
               >
                 <Plus className="w-3 h-3 text-teal-600" />
                 <span className="font-semibold">{chem.name}</span>
-                <span className="text-[10px] font-mono text-slate-500">({chem.mw})</span>
+                <span className="text-[10px] font-mono text-slate-500">({formatDecimal(chem.mw)})</span>
               </button>
             ))}
           </div>
@@ -752,7 +754,7 @@ export const StoichiometryTable = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 block mb-0.5">M (g/mol):</span>
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
                       value={row.mw ?? ''}
@@ -764,12 +766,12 @@ export const StoichiometryTable = ({
 
                   <div>
                     <span className="text-slate-500 block mb-0.5">Độ sạch (%):</span>
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
-                      value={row.purity ?? '99'}
+                      value={row.purity ?? '100'}
                       onChange={(e) => handleCellChange(row.id, 'purity', e.target.value)}
-                      placeholder="99"
+                      placeholder="100,00000"
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-mono focus:outline-none min-h-[44px]"
                     />
                   </div>
@@ -778,7 +780,7 @@ export const StoichiometryTable = ({
                     <span className="text-amber-800 font-bold block mb-0.5">
                       m thực tế ({massUnit}):
                     </span>
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
                       value={row.actualMass ?? ''}
@@ -791,7 +793,7 @@ export const StoichiometryTable = ({
                   <div>
                     <span className="text-slate-500 block mb-0.5">V (mL) / d (g/mL):</span>
                     <div className="flex gap-1">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.actualVolume ?? ''}
@@ -799,7 +801,7 @@ export const StoichiometryTable = ({
                         placeholder="mL"
                         className="w-1/2 bg-slate-50 border border-slate-300 rounded-xl px-2 py-2 font-mono focus:outline-none min-h-[44px]"
                       />
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.density ?? ''}
@@ -816,7 +818,7 @@ export const StoichiometryTable = ({
                   <div className="text-xs">
                     <span className="text-slate-500 block text-[11px]">Số mol (n):</span>
                     <span className="font-mono font-bold text-indigo-700 text-sm">
-                      {row.moles > 0 ? `${row.moles < 0.001 ? row.moles.toExponential(3) : row.moles} ${moleUnit}` : '--'}
+                      {row.moles > 0 ? `${formatDecimal(row.moles)} ${moleUnit}` : '--'}
                     </span>
                   </div>
 
@@ -826,10 +828,10 @@ export const StoichiometryTable = ({
                     </span>
                     {isLim ? (
                       <span className="font-mono font-extrabold text-sm px-2.5 py-1 rounded-lg bg-emerald-200 text-emerald-950 inline-block mt-0.5">
-                        1.00 (mốc)
+                        1,00000 (mốc)
                       </span>
                     ) : (
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={ratioVal}
@@ -938,7 +940,7 @@ export const StoichiometryTable = ({
                     </td>
 
                     <td className="py-2.5 px-2 text-right">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.mw ?? ''}
@@ -948,17 +950,17 @@ export const StoichiometryTable = ({
                     </td>
 
                     <td className="py-2.5 px-2 text-right">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
-                        value={row.purity ?? '99'}
+                        value={row.purity ?? '100'}
                         onChange={(e) => handleCellChange(row.id, 'purity', e.target.value)}
                         className="w-full text-right font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:outline-none min-h-[38px]"
                       />
                     </td>
 
                     <td className="py-2.5 px-2 text-right">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.actualMass ?? ''}
@@ -969,7 +971,7 @@ export const StoichiometryTable = ({
                     </td>
 
                     <td className="py-2.5 px-2 text-right">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.actualVolume ?? ''}
@@ -980,7 +982,7 @@ export const StoichiometryTable = ({
                     </td>
 
                     <td className="py-2.5 px-2 text-right">
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={row.density ?? ''}
@@ -993,7 +995,7 @@ export const StoichiometryTable = ({
                     <td className="py-2.5 px-2 text-right bg-indigo-50/40 font-mono font-bold text-indigo-950 text-xs sm:text-sm">
                       {row.moles > 0 ? (
                         <span>
-                          {row.moles < 0.001 ? row.moles.toExponential(3) : row.moles}
+                          {formatDecimal(row.moles)}
                           <span className="text-[10px] text-indigo-500 font-normal ml-0.5">{moleUnit}</span>
                         </span>
                       ) : (
@@ -1007,7 +1009,7 @@ export const StoichiometryTable = ({
                           1.00
                         </span>
                       ) : (
-                        <input
+                        <DecimalInput
                           type="text"
                           inputMode="decimal"
                           value={ratioVal}
@@ -1207,7 +1209,7 @@ export const StoichiometryTable = ({
                           </div>
                         </div>
                         <div className="relative flex items-center">
-                          <input
+                          <DecimalInput
                             type="text"
                             inputMode="decimal"
                             value={concVal}
@@ -1233,7 +1235,7 @@ export const StoichiometryTable = ({
                           Thể tích (mL):
                         </span>
                         <div className="relative flex items-center">
-                          <input
+                          <DecimalInput
                             type="text"
                             inputMode="decimal"
                             value={mRow.actualVolume ?? ''}
@@ -1249,10 +1251,10 @@ export const StoichiometryTable = ({
 
                       <div className="sm:col-span-2 lg:col-span-12 grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <label>Cơ sở C%<select value={mRow.concentrationBasis || ''} onChange={(e) => convertMedium(mRow, mRow.concUnit || 'C%', e.target.value)} className="w-full border rounded p-2"><option value="">Chọn cơ sở %</option><option value="w/w">% w/w</option><option value="w/v">% w/v</option></select></label>
-                        <label>MW (g/mol)<input inputMode="decimal" value={mRow.mw || ''} onChange={(e) => handleCellChange(mRow.id, 'mw', e.target.value)} className="w-full border rounded p-2" /></label>
-                        <label>d (g/mL)<input inputMode="decimal" value={mRow.density || ''} onChange={(e) => handleCellChange(mRow.id, 'density', e.target.value)} className="w-full border rounded p-2" /></label>
-                        <label>z cho normality<input inputMode="decimal" value={mRow.nFactor || ''} onChange={(e) => handleRowPatch(mRow.id, { nFactor: e.target.value })} className="w-full border rounded p-2" /></label>
-                        <p className="col-span-2 sm:col-span-4 font-mono">{mRow.calculationError || `${mRow.moles || 0} ${moleUnit} · ${limitingMoles > 0 ? Number(mRow.eq || 0).toPrecision(5) : '—'} Eq`}</p>
+                        <label>MW (g/mol)<DecimalInput inputMode="decimal" value={mRow.mw || ''} onChange={(e) => handleCellChange(mRow.id, 'mw', e.target.value)} className="w-full border rounded p-2" /></label>
+                        <label>d (g/mL)<DecimalInput inputMode="decimal" value={mRow.density || ''} onChange={(e) => handleCellChange(mRow.id, 'density', e.target.value)} className="w-full border rounded p-2" /></label>
+                        <label>z cho normality<DecimalInput inputMode="decimal" value={mRow.nFactor || ''} onChange={(e) => handleRowPatch(mRow.id, { nFactor: e.target.value })} className="w-full border rounded p-2" /></label>
+                        <p className="col-span-2 sm:col-span-4 font-mono">{mRow.calculationError || `${formatDecimal(mRow.moles || 0)} ${moleUnit} · ${limitingMoles > 0 ? formatDecimal(mRow.eq || 0) : '—'} Eq`}</p>
                       </div>
                       {/* Ghi chú & Nút Xoá */}
                       <div className="sm:col-span-2 lg:col-span-3 flex items-end gap-2">
@@ -1399,7 +1401,7 @@ export const StoichiometryTable = ({
                           </div>
                         </div>
                         <div className="relative flex items-center">
-                          <input
+                          <DecimalInput
                             type="text"
                             inputMode="decimal"
                             value={sConcVal}
@@ -1425,7 +1427,7 @@ export const StoichiometryTable = ({
                           Thể tích (mL):
                         </span>
                         <div className="relative flex items-center">
-                          <input
+                          <DecimalInput
                             type="text"
                             inputMode="decimal"
                             value={sRow.actualVolume ?? ''}
@@ -1487,20 +1489,20 @@ export const StoichiometryTable = ({
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-sans font-bold">Quy mô nạp liệu:</span>
                 <strong className="text-indigo-900 font-bold text-sm">
-                  {limitingMoles > 0 ? `${limitingMoles} ${moleUnit}` : `0 ${moleUnit}`}
+                  {limitingMoles > 0 ? `${formatDecimal(limitingMoles)} ${moleUnit}` : `${formatDecimal(0)} ${moleUnit}`}
                 </strong>{' '}
                 <span className="text-[11px] text-slate-500">({limitingReagent?.name || 'Chưa chọn'})</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-sans font-bold">Tổng khối lượng chất tham gia:</span>
                 <strong className="text-slate-900 font-bold text-sm">
-                  {totalSolidMass.toFixed(massUnit === 'mg' ? 1 : 3)} {massUnit}
+                  {formatDecimal(totalSolidMass)} {massUnit}
                 </strong>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-sans font-bold">Tổng thể tích dịch & Gợi ý bình cầu:</span>
                 <strong className="text-teal-800 font-bold text-sm">
-                  {totalLiquidVol.toFixed(1)} mL
+                  {formatDecimal(totalLiquidVol)} mL
                 </strong>{' '}
                 {totalLiquidVol > 0 && (
                   <span className="text-[11px] bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded font-sans font-semibold">

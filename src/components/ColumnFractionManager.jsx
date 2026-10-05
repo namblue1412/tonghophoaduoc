@@ -1,3 +1,6 @@
+import { cycleFraction, deleteAccidentalFraction, resizeFractions } from '../domain/fractions.js';
+import { DecimalInput } from './DecimalInput.jsx';
+import { formatDecimal } from '../domain/display.js';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Grid,
@@ -203,31 +206,7 @@ export const ColumnFractionManager = ({
   // Resize fraction grid if user changes total count N
   const handleFractionCountChange = (newCount) => {
     const count = Math.max(1, Math.min(200, parseInt(newCount, 10) || 1));
-    const currentFractions = [...(fractions || [])];
-    if (count < totalFractions && currentFractions.some((f) => f.number > count && (f.tlcChecked || f.group || f.note || f.discarded))) { alert('Không thể cắt ống đã có lịch sử. Đánh dấu bỏ ống để giữ nhãn vật lý.'); return; }
-    let newFractionsList = [];
-
-    for (let i = 1; i <= count; i++) {
-      const existing = currentFractions.find((f) => f.number === i);
-      if (existing) {
-        newFractionsList.push(existing);
-      } else {
-        newFractionsList.push({
-          number: i,
-          tlcChecked: false,
-          spotPattern: 'empty',
-          group: null,
-          note: ''
-        });
-      }
-    }
-
-    onChange({
-      ...columnData,
-      totalFractions: count,
-      fractions: newFractionsList,
-      fractionGroups: fractionGroups.map((g) => ({ ...g, fractionNumbers: g.fractionNumbers.filter((n) => n <= count) })).filter((g) => g.fractionNumbers.length)
-    });
+    try { onChange(resizeFractions(columnData, count)); } catch (error) { alert(error.message); }
   };
 
   // Add single next fraction tube (F_N+1)
@@ -252,30 +231,13 @@ export const ColumnFractionManager = ({
 
   // Remove last fraction tube (minimum 1 tube) and keep groups synced
   const handleRemoveLastTube = () => {
-    const last = [...fractions].reverse().find((f) => !f.discarded);
+    const last = fractions.at(-1);
     if (last) handleDeleteSpecificTube(last.number);
   };
 
   // Toggle fraction status when user clicks an individual tube
   const toggleFractionState = (fractionNumber) => {
-    const patterns = ['empty', 'product', 'impurity', 'mixed'];
-    const updated = fractions.map((f) => {
-      if (f.number === fractionNumber && !f.discarded) {
-        const nextIndex = (patterns.indexOf(f.spotPattern || 'empty') + 1) % patterns.length;
-        const nextPattern = patterns[nextIndex];
-        return {
-          ...f,
-          spotPattern: nextPattern,
-          tlcChecked: nextPattern !== 'empty'
-        };
-      }
-      return f;
-    });
-
-    onChange({
-      ...columnData,
-      fractions: updated
-    });
+    onChange(cycleFraction(columnData, fractionNumber));
   };
 
   // Quick toggle tube in spottedFractions string for Fraction TLC
@@ -636,13 +598,10 @@ export const ColumnFractionManager = ({
     });
   };
 
-  // Delete a specific fraction tube by number and renumber remaining tubes 1..N without gaps
+  // X removes an unused tube added by mistake; physical disposal is a state.
   const handleDeleteSpecificTube = (tubeNumber) => {
-    if (!window.confirm(`Đánh dấu F${tubeNumber} là ống bỏ? Nhãn các ống khác và TLC cũ được giữ nguyên.`)) return;
-    onChange({ ...columnData,
-      fractions: fractions.map((f) => f.number === tubeNumber ? { ...f, discarded: true, group: null, groupTag: null, groupColor: null, spotPattern: 'empty' } : f),
-      fractionGroups: fractionGroups.map((g) => ({ ...g, fractionNumbers: (g.fractionNumbers || []).filter((n) => n !== tubeNumber) })).filter((g) => g.fractionNumbers.length)
-    });
+    try { onChange(deleteAccidentalFraction(columnData, tubeNumber)); }
+    catch (error) { alert(error.message); }
   };
 
   // Derived yields are recalculated centrally; mounting this component does not write data.
@@ -1218,11 +1177,11 @@ export const ColumnFractionManager = ({
                 <span className="font-semibold text-slate-700">Khối lượng Silicagel (g):</span>
                 {crudeMass > 0 && (
                   <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                    Cắn: {crudeMass}{massUnit}
+                    Cắn: {formatDecimal(crudeMass)}{massUnit}
                   </span>
                 )}
               </div>
-              <input
+              <DecimalInput
                 type="text"
                 inputMode="decimal"
                 value={columnParams.silicaMass ?? ''}
@@ -1247,7 +1206,7 @@ export const ColumnFractionManager = ({
                     type="button"
                     onClick={() => {
                       const baseG = crudeMass > 0 ? (massUnit === 'mg' ? crudeMass / 1000 : crudeMass) : 1.0;
-                      const calcSilica = parseFloat((baseG * opt.mult).toFixed(1));
+                      const calcSilica = baseG * opt.mult;
                       let recCol = '2.0 cm x 30 cm';
                       if (calcSilica <= 15) recCol = '1.5 cm x 25 cm';
                       else if (calcSilica <= 35) recCol = '2.0 cm x 30 cm';
@@ -1405,7 +1364,7 @@ export const ColumnFractionManager = ({
                 Giá Ống Nghiệm Hứng Phân Đoạn:
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5 no-print">
-                Chạm trực tiếp vào từng ống để đánh dấu nhanh: <strong>Trống (-) ➔ SPC ➔ TẠP ➔ LẪN</strong>
+                Chạm trực tiếp vào từng ống để đánh dấu nhanh: <strong>Trống (-) ➔ SPC ➔ TẠP ➔ LẪN ➔ Bỏ (đỏ)</strong>
               </p>
             </div>
 
@@ -1423,6 +1382,7 @@ export const ColumnFractionManager = ({
               <span className="flex items-center gap-1.5 text-violet-700 font-semibold">
                 <span className="w-3 h-3 rounded-full bg-violet-500"></span> LẪN
               </span>
+              <span className="flex items-center gap-1.5 text-rose-700 font-semibold"><span className="w-3 h-3 rounded-full bg-rose-600"></span> Bỏ (giữ số ống)</span>
             </div>
           </div>
 
@@ -1434,7 +1394,7 @@ export const ColumnFractionManager = ({
               );
               const tag = matchingGroup?.tag || f.groupTag;
               const color = matchingGroup?.color || f.groupColor;
-              const isGrouped = Boolean(matchingGroup || f.group);
+              const isGrouped = !f.discarded && Boolean(matchingGroup || f.group);
               const discardedLabel = f.discarded ? ' (bỏ)' : '';
               const pattern = f.spotPattern || 'empty';
 
@@ -1442,7 +1402,10 @@ export const ColumnFractionManager = ({
               let ungroupedBadge = <span className="text-[10px] text-slate-400 leading-none mt-1">-</span>;
 
               if (!isGrouped) {
-                if (pattern === 'product') {
+                if (f.discarded || pattern === 'discarded') {
+                  ungroupedCardStyle = 'bg-rose-100 border-rose-500 text-rose-900 font-bold';
+                  ungroupedBadge = <span className="text-[10px] font-extrabold uppercase rounded-full px-2 py-1 bg-rose-600 text-white mt-1">Bỏ</span>;
+                } else if (pattern === 'product') {
                   ungroupedCardStyle = 'bg-emerald-50/90 border-emerald-400 text-emerald-900 font-bold';
                   ungroupedBadge = (
                     <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-600 text-white mt-1 shadow-xs">
@@ -1493,7 +1456,7 @@ export const ColumnFractionManager = ({
                     title={
                       isGrouped
                         ? `Ống F${f.number}: Thuộc nhóm "${matchingGroup?.name || 'Đã gộp'}" (${tag === 'spc' ? 'Sản phẩm chính' : 'Sản phẩm phụ'})`
-                        : `Ống F${f.number}: Chạm để đổi trạng thái (Trống ➔ SPC ➔ TẠP ➔ LẪN)`
+                        : `Ống F${f.number}: Chạm để đổi trạng thái (Trống ➔ SPC ➔ TẠP ➔ LẪN ➔ Bỏ ➔ Trống)`
                     }
                   >
                     <span
@@ -1522,10 +1485,11 @@ export const ColumnFractionManager = ({
                         e.stopPropagation();
                         handleDeleteSpecificTube(f.number);
                       }}
-                      className="absolute -top-1.5 -right-1.5 bg-slate-800 hover:bg-rose-600 text-white rounded-full p-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity no-print cursor-pointer shadow"
-                      title={`Đánh dấu bỏ F${f.number}`}
+                      className="mt-1 w-full flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-700 py-2 no-print cursor-pointer"
+                      title={`Xóa F${f.number} thêm nhầm`}
                     >
                       <X className="w-3 h-3" />
+                      <span className="text-[10px]">Xóa</span>
                     </button>
                   )}
                 </div>
@@ -2240,7 +2204,7 @@ export const ColumnFractionManager = ({
                       <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                         m(vỏ) ({massUnit}):
                       </label>
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={tube.tareMass ?? ''}
@@ -2254,7 +2218,7 @@ export const ColumnFractionManager = ({
                       <label className="text-[11px] font-semibold text-slate-600 block mb-0.5 whitespace-nowrap truncate">
                         m(vỏ+cắn) ({massUnit}):
                       </label>
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={tube.grossMass ?? ''}
@@ -2283,7 +2247,7 @@ export const ColumnFractionManager = ({
                           isSpp ? 'text-amber-950' : 'text-emerald-950'
                         }`}
                       >
-                        {Number(tube.productMass || 0).toPrecision(6)} <span className="font-normal text-[10px]">{massUnit}</span>
+                        {formatDecimal(Number(tube.productMass || 0))} <span className="font-normal text-[10px]">{massUnit}</span>
                       </span>
                     </div>
                   </div>
@@ -2315,11 +2279,11 @@ export const ColumnFractionManager = ({
             const crudeMassNum = parseDecimal(crudeMass);
             const crudeYieldPct =
               theoMass > 0 && crudeMassNum > 0
-                ? parseFloat(((crudeMassNum / theoMass) * 100).toFixed(1))
+                ? (crudeMassNum / theoMass) * 100
                 : 0;
             const columnRecoveryPct =
               crudeMassNum > 0 && spcMass + sppMass > 0
-                ? parseFloat((((spcMass + sppMass) / crudeMassNum) * 100).toFixed(1))
+                ? ((spcMass + sppMass) / crudeMassNum) * 100
                 : 0;
             const displayedMW =
               rawTargetMW !== ''
@@ -2339,14 +2303,14 @@ export const ColumnFractionManager = ({
                       <span>Tổng m(sản phẩm chính - spc):</span>
                     </div>
                     <div className="font-mono text-2xl font-extrabold text-emerald-900 text-right">
-                      {spcMass.toPrecision(6)}{' '}
+                      {formatDecimal(spcMass)}{' '}
                       <span className="text-sm font-normal text-emerald-700">{massUnit}</span>
                     </div>
                     <div className="text-[11px] text-emerald-900 font-medium space-y-0.5 pt-1 border-t border-emerald-200/80">
                       {sppMass > 0 ? (
                         <div className="flex items-center justify-between text-amber-900">
                           <span>Tổng m(phụ/tạp - spp):</span>
-                          <strong className="font-mono">{sppMass.toPrecision(6)} {massUnit}</strong>
+                          <strong className="font-mono">{formatDecimal(sppMass)} {massUnit}</strong>
                         </div>
                       ) : (
                         <div>= Tổng khối lượng các ống spc</div>
@@ -2354,7 +2318,7 @@ export const ColumnFractionManager = ({
                       {columnRecoveryPct > 0 && (
                         <div className="flex items-center justify-between text-teal-900">
                           <span>Thu hồi qua cột:</span>
-                          <strong className="font-mono">{columnRecoveryPct}% cắn thô</strong>
+                          <strong className="font-mono">{formatDecimal(columnRecoveryPct)}% cắn thô</strong>
                         </div>
                       )}
                     </div>
@@ -2371,22 +2335,22 @@ export const ColumnFractionManager = ({
                         isolatedYieldPct > 100 ? 'text-rose-400' : 'text-amber-400'
                       }`}
                     >
-                      {isolatedYieldPct ? `${isolatedYieldPct.toFixed(1)}%` : '0.0%'}
+                      {`${formatDecimal(isolatedYieldPct)}%`}
                     </div>
                     <div className="text-[11px] text-slate-300 font-mono space-y-1 pt-1 border-t border-slate-700/80">
                       <div className="flex items-center justify-between">
                         <span>Lý thuyết (100%):</span>
-                        <strong className="text-white">{theoMass.toPrecision(6)} {massUnit}</strong>
+                        <strong className="text-white">{formatDecimal(theoMass)} {massUnit}</strong>
                       </div>
                       {crudeYieldPct > 0 && (
                         <div className="flex items-center justify-between text-amber-200">
                           <span>Hiệu suất cắn thô:</span>
-                          <strong>{crudeYieldPct}%</strong>
+                          <strong>{formatDecimal(crudeYieldPct)}%</strong>
                         </div>
                       )}
                       <div className="flex items-center justify-between gap-2 pt-0.5 no-print">
                         <span className="text-indigo-200 font-sans">M sản phẩm (g/mol):</span>
-                        <input
+                        <DecimalInput
                           type="text"
                           inputMode="decimal"
                           value={displayedMW}
@@ -2410,7 +2374,7 @@ export const ColumnFractionManager = ({
                       <label className="text-[11px] font-semibold text-slate-600 block mb-0.5">
                         Độ tinh khiết HPLC / NMR (%):
                       </label>
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={eppendorfYield.purityHplc ?? ''}
@@ -2441,7 +2405,7 @@ export const ColumnFractionManager = ({
                     <span className="text-base leading-none text-rose-600 font-bold flex-shrink-0 mt-0.5">⚠</span>
                     <div className="space-y-1">
                       <div className="font-bold text-rose-800">
-                        Cảnh báo Hóa Dược: Hiệu suất tinh chế ({isolatedYieldPct.toFixed(1)}%) vượt quá 100% lý thuyết ({theoMass.toPrecision(6)} {massUnit})!
+                        Cảnh báo Hóa Dược: Hiệu suất tinh chế ({formatDecimal(isolatedYieldPct)}%) vượt quá 100% lý thuyết ({formatDecimal(theoMass)} {massUnit})!
                       </div>
                       <p className="text-rose-700 leading-relaxed">
                         Vui lòng kiểm tra: <strong>(1)</strong> Cắn sản phẩm còn ngậm dung môi giải ly chưa cô quay / sấy chân không đến khối lượng không đổi; <strong>(2)</strong> Có ống Eppendorf chứa sản phẩm phụ/tạp chất đang để nhầm nhãn <strong>spc</strong> thay vì <strong>spp</strong>; hoặc <strong>(3)</strong> Kiểm tra lại Chất giới hạn và <strong>M sản phẩm (g/mol)</strong>.

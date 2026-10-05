@@ -87,7 +87,7 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 68/68 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 74/74 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
 
@@ -106,3 +106,13 @@ git diff main -- src vite.config.js index.html
 ### Sửa nhập số cân chưa hoàn tất
 
 JSON xuất từ main được phép chứa ống chưa nhập đủ số cân hoặc cả bì nhỏ hơn bì. Demo giữ nguyên dữ liệu gốc, báo cảnh báo theo thí nghiệm/ống và không cộng ống lỗi vào khối lượng. Chuỗi số sai định dạng vẫn bị chặn với mã thí nghiệm và đường dẫn cụ thể. Đã kiểm tra tệp người dùng tại máy: 4 thí nghiệm, 3 ống có cảnh báo, không thay đổi tệp nguồn. Tệp thật không được đưa vào Git/GitHub.
+
+### Giao diện sử dụng thường ngày và định dạng số
+
+Đã bỏ khung vàng, nút thử A/B, trạng thái đồng bộ mô phỏng thường trực và nhãn DEMO trên tiêu đề/báo cáo. Dùng menu **Sao lưu/Khôi phục** trên điện thoại để xuất/nhập JSON. Khi đổi hồ sơ, màn hình chọn hồ sơ cục bộ xuất hiện; không có đăng nhập Firebase. Cảnh báo lỗi lưu/xung đột chỉ hiện khi cần xử lý. Backend vẫn cách ly, Navbar ghi **Lưu trên máy**, chưa đồng bộ giữa hai điện thoại thật.
+
+Các giá trị cân, mol, Eq, MW, nồng độ, Rf, hiệu suất và kết quả tính toán hiển thị đúng 5 chữ số thập phân với dấu phẩy. Ô nhập để trống vẫn trống; khi gõ giữ chuỗi đang nhập, khi rời ô mới định dạng hiển thị. Không làm tròn dữ liệu lưu để tránh sai số khi đổi đơn vị. Số ống, ID và thời gian đồng hồ HH:MM:SS không phải số đo thập phân.
+
+Phản ứng/chất mới có độ sạch 100%, m thực/V/d/ghi chú trống; MW các chất chưa xác định không tự gán 150/120/98. Dữ liệu nhập cũ giữ nguyên. Trong dữ liệu cân của ảnh gửi, 0,9747−0,9185=0,05620 g; 0,9238−0,9199=0,00390 g; tổng 0,06010 g. Lý thuyết 0,04338 g và hiệu suất cắn thô 138,53858% theo dữ liệu hiện có.
+
+Giá ống: chạm để chuyển **Trống → SPC → Tạp → Lẫn → Bỏ (đỏ) → Trống**. Bỏ giữ nhãn vật lý; nút **Xóa** riêng chỉ xóa ống thêm nhầm chưa có ghi chú, TLC hoặc nhóm gộp. Không đánh lại số các ống khác. Khi tăng số lượng sau khi xóa giữa dãy, thêm nhãn tiếp theo thay vì lấp lại số ống cũ.

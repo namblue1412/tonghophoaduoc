@@ -1,3 +1,4 @@
+import { formatDecimal } from '../domain/display.js';
 import React, { useState } from 'react';
 import {
   FlaskConical,
@@ -64,11 +65,11 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
     .map((e) => e.columnAndYield?.eppendorfYield?.yieldPercent)
     .filter((y) => typeof y === 'number' && y > 0);
   const avgYield =
-    yields.length > 0 ? (yields.reduce((a, b) => a + b, 0) / yields.length).toFixed(1) : '--';
+    yields.length > 0 ? formatDecimal(yields.reduce((a, b) => a + b, 0) / yields.length) : '--';
 
   const formatSecondsToHours = (seconds) => {
     if (!seconds) return '0h';
-    const hrs = (seconds / 3600).toFixed(1);
+    const hrs = formatDecimal(seconds / 3600);
     return `${hrs}h`;
   };
 
@@ -466,7 +467,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                       <span className="text-slate-400 text-[11px] block">Quy mô:</span>
                       <span className="font-mono tabular-nums font-bold text-teal-700">
                         {scaleMmol > 0
-                          ? `${scaleMmol < 1 ? scaleMmol.toFixed(2) : scaleMmol.toFixed(1)} mmol`
+                          ? `${formatDecimal(scaleMmol)} mmol`
                           : '--'}
                       </span>
                     </div>
@@ -490,7 +491,7 @@ export const Dashboard = ({ onSelectExperiment, onOpenNewModal }) => {
                         title="Hiệu suất"
                       >
                         <Award className="w-3.5 h-3.5" />
-                        {yieldPct.toFixed(1)}%
+                        {formatDecimal(yieldPct)}%
                       </span>
                     ) : null}
                   </div>

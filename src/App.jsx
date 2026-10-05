@@ -8,6 +8,7 @@ import { ExperimentDetail } from './pages/ExperimentDetail';
 import { AuthModal } from './components/AuthModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DemoControls } from './components/DemoControls';
+import { DEMO_USERS, selectDemoUser } from './services/demoBackend.js';
 import { PlusCircle, X, FlaskConical, Beaker } from 'lucide-react';
 
 function AppContent() {
@@ -105,7 +106,7 @@ function AppContent() {
 
   // Mandatory Authentication Gate: Must be logged in to use the app!
   if (!currentUser) {
-    return <div className="min-h-screen bg-slate-100"><DemoControls /><div className="p-6 max-w-2xl mx-auto"><h1 className="text-2xl font-bold">Sổ tay Hóa Dược — Demo QA</h1><p className="mt-4">Chọn Nghiên cứu viên A hoặc B để bắt đầu. Hai tài khoản thử được cách ly theo UID. Không nhập tài khoản hoặc mật khẩu Firebase thật.</p></div></div>;
+    return <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6"><div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 w-full max-w-md space-y-5"><FlaskConical className="w-10 h-10 text-teal-700" /><h1 className="text-2xl font-bold">Sổ tay Hóa Dược</h1><p>Chọn hồ sơ để mở sổ tay của bạn.</p><div className="space-y-3">{DEMO_USERS.map((user) => <button className="w-full text-left border border-slate-200 rounded-xl px-4 py-3 hover:bg-teal-50 text-slate-800" key={user.uid} onClick={() => selectDemoUser(user.uid)}>{user.displayName}</button>)}</div><p className="text-sm text-slate-500">Dữ liệu được lưu trên trình duyệt này.</p></div></div>;
   }
 
   return (

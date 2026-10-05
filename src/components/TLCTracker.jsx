@@ -1,3 +1,5 @@
+import { formatDecimal } from '../domain/display.js';
+import { DecimalInput } from './DecimalInput.jsx';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   FileImage,
@@ -475,7 +477,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
       images,
       activeType: type,
       plateId: plate.id,
-      title: plate.timeFormatted || `${plate.minute} phút`,
+      title: plate.timeFormatted || `${formatDecimal(plate.minute)} phút`,
       timestampLabel: formatTlcTimestamp(plate.timestamp),
       stainName: plate.stainName || 'Thuốc thử',
       eluent: plate.eluent
@@ -542,7 +544,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                   <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-xl font-mono flex items-center gap-1 shadow-sm flex-shrink-0">
-                        <Clock className="w-3.5 h-3.5" /> {plate.timeFormatted || `${plate.minute}m`}
+                        <Clock className="w-3.5 h-3.5" /> {plate.timeFormatted || `${formatDecimal(plate.minute)}m`}
                       </span>
                       {plate.timestamp && (
                         <span
@@ -746,7 +748,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                           <div key={spIdx} className="flex items-center justify-between text-xs">
                             <span className="text-slate-600 font-medium truncate pr-2">{spot.label}:</span>
                             <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                              Rf = {spot.rf || '--'}
+                              Rf = {formatDecimal(spot.rf)}
                             </span>
                           </div>
                         ))}
@@ -825,7 +827,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                     Thời điểm phản ứng (phút):
                   </label>
                   <div className="flex items-center gap-1.5">
-                    <input
+                    <DecimalInput
                       type="text"
                       inputMode="decimal"
                       value={newMinute}
@@ -1124,7 +1126,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-slate-300">
                       <span className="text-[11px] font-semibold text-slate-600">d(dm):</span>
-                      <input
+                      <DecimalInput
                         type="text"
                         inputMode="decimal"
                         value={solventFrontCm}
@@ -1175,7 +1177,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                           <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                             <div className="flex items-center gap-1">
                               <span className="text-[11px] font-mono text-slate-500">d(vết):</span>
-                              <input
+                              <DecimalInput
                                 type="text"
                                 inputMode="decimal"
                                 value={spot.distCm || ''}
@@ -1193,7 +1195,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="text-[11px] font-mono font-bold text-indigo-700">Rf:</span>
-                              <input
+                              <DecimalInput
                                 type="text"
                                 inputMode="decimal"
                                 value={spot.rf}
@@ -1221,7 +1223,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
                         </div>
                         {isInvalidRf && (
                           <p className="text-[11px] font-bold text-rose-600 px-2">
-                            ⚠ Rf = {spot.rf || '> 1.00'} vượt giới hạn vật lý (0.00 ≤ Rf ≤ 1.00): Khoảng cách vết chạy không thể lớn hơn tuyến dung môi!
+                            ⚠ Rf = {formatDecimal(spot.rf, '> 1,00000')} vượt giới hạn vật lý (0.00 ≤ Rf ≤ 1.00): Khoảng cách vết chạy không thể lớn hơn tuyến dung môi!
                           </p>
                         )}
                       </div>

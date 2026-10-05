@@ -1,3 +1,4 @@
+import { formatDecimal } from '../domain/display.js';
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
@@ -334,9 +335,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
       case 'tlc':
         return `${tlcCount} bản`;
       case 'workup':
-        return crudeMassVal > 0 ? `${crudeMassVal}${massUnit}` : '--';
+        return crudeMassVal > 0 ? `${formatDecimal(crudeMassVal)}${massUnit}` : '--';
       case 'column':
-        return yieldPctVal > 0 ? `${yieldPctVal.toFixed(1)}%` : '--';
+        return yieldPctVal > 0 ? `${formatDecimal(yieldPctVal)}%` : '--';
       default:
         return '';
     }

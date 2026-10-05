@@ -44,7 +44,7 @@ export const Navbar = ({
     isSyncing
   } = useExperiment();
 
-  const { currentUser, setIsAuthModalOpen, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   const {
     deviceType,
     detectedType,
@@ -93,7 +93,7 @@ export const Navbar = ({
     if (file) {
       try {
         const res = await importFromJson(file);
-        alert(`Đã sao chép ${res.count} thí nghiệm vào demo.${res.remoteAssetCount ? ` Có ${res.remoteAssetCount} ảnh/tệp là liên kết ngoài: chỉ giữ đường dẫn đối chiếu, không kết nối Firebase để tải ảnh.` : ''}${res.weighingWarnings?.length ? `\nCần kiểm tra số cân:\n${res.weighingWarnings.join('\n')}` : ''}`);
+        alert(`Đã nhập ${res.count} thí nghiệm.${res.remoteAssetCount ? ` Có ${res.remoteAssetCount} ảnh/tệp là liên kết ngoài: chỉ giữ đường dẫn đối chiếu, không kết nối Firebase để tải ảnh.` : ''}${res.weighingWarnings?.length ? `\nCần kiểm tra số cân:\n${res.weighingWarnings.join('\n')}` : ''}`);
       } catch (err) {
         alert('Lỗi nhập file: ' + err.message);
       }
@@ -394,7 +394,7 @@ export const Navbar = ({
                 ) : (
                   <>
                     <HardDrive className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Database demo cục bộ</span>
+                    <span>Lưu trên máy</span>
                   </>
                 )}
                 {isSyncing && <RefreshCw className="w-3 h-3 animate-spin text-slate-400 ml-1" />}
@@ -450,7 +450,7 @@ export const Navbar = ({
                         type="button"
                         onClick={() => {
                           setShowUserMenu(false);
-                          setIsAuthModalOpen(true);
+                          void logout();
                         }}
                         className="w-full text-left px-3 py-2 text-xs font-medium text-slate-800 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
                       >
@@ -641,7 +641,7 @@ export const Navbar = ({
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        setIsAuthModalOpen(true);
+                        void logout();
                       }}
                       className="text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg font-medium cursor-pointer"
                     >
@@ -663,7 +663,7 @@ export const Navbar = ({
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    setIsAuthModalOpen(true);
+                    void logout();
                   }}
                   className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                 >
