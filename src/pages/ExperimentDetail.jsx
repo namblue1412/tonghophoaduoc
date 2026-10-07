@@ -108,6 +108,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   // viewMode: 'all' (full scroll) | 'focus' (single step focus - great for iPad & iPhone)
   const [viewMode, setViewMode] = useState('all');
   const [printFull, setPrintFull] = useState(false);
+  const [reportPreview, setReportPreview] = useState(false);
   const handlePrint = (full) => { setPrintFull(full); setTimeout(() => window.print(), 100); };
 
   // Mini live timer calculation
@@ -426,8 +427,8 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         </div>
       )}
 
-      <ExperimentReport experiment={activeExperiment} full={printFull} />
-      <div className="no-print flex flex-wrap gap-3"><button onClick={() => handlePrint(false)} className="border rounded-lg p-3">In tóm tắt A4</button><button onClick={() => handlePrint(true)} className="border rounded-lg p-3">In hồ sơ đầy đủ / PDF</button></div>
+      <ExperimentReport experiment={activeExperiment} full={printFull} preview={reportPreview} onClose={() => setReportPreview(false)} />
+      <div className="no-print flex flex-wrap gap-3"><button onClick={() => { setPrintFull(true); setReportPreview(true); }} className="border rounded-lg p-3">Xem trước báo cáo</button><button onClick={() => handlePrint(false)} className="border rounded-lg p-3">In tóm tắt A4</button><button onClick={() => handlePrint(true)} className="border rounded-lg p-3">In hồ sơ đầy đủ / PDF</button></div>
       <MedChemTools key={activeExperiment.id} experiment={activeExperiment} onChange={(patch) => updateExperiment(activeExperiment.id, patch)} />
       {(viewMode === 'all' || activeNav === 'apparatus') && (
         <section id="section-apparatus" className="scroll-mt-28">

@@ -145,11 +145,38 @@ html[data-device="ipad"] button { min-height: 48px !important; min-width: 44px !
 }
 
 /* Print Styles for Laboratory Notebook Dossier */
+.report-preview { display: block; position: fixed; inset: 0; z-index: 100; overflow-y: auto; padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)); background: white; color: #1e293b; font: 14px/1.5 Arial, sans-serif; }
+.experiment-report > :not(.report-preview-controls) { max-width: 186mm; margin-left: auto; margin-right: auto; }
+.report-preview-controls { position: sticky; top: 0; display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 24px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; }
+.report-preview-controls span { flex: 1; font-weight: bold; }
+.report-preview-controls button { min-height: 44px; padding: 8px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; }
+.experiment-report header { border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 16px; }
+.experiment-report .report-eyebrow { font-size: 10px; letter-spacing: 1px; color: #475569; }
+.experiment-report h1 { font-size: 24px; font-weight: bold; margin: 4px 0; }
+.experiment-report h2 { font-size: 20px; font-weight: bold; margin-top: 14px; margin-bottom: 12px; }
+.experiment-report h3 { font-size: 15px; font-weight: bold; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; break-after: avoid; }
+.experiment-report h4 { font-weight: bold; margin-top: 12px; margin-bottom: 6px; break-after: avoid; }
+.experiment-report .report-section-number { margin-right: 10px; color: #64748b; font-size: .9em; }
+.report-metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-top: 8px; margin-bottom: 12px; }
+.report-metadata dt { font-size: .85em; color: #475569; }
+.report-metadata dd { font-weight: 600; overflow-wrap: anywhere; }
+.experiment-report table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 8px; table-layout: fixed; }
+.experiment-report th, .experiment-report td { padding: 7px; border: 1px solid #cbd5e1; text-align: left; overflow-wrap: anywhere; vertical-align: top; }
+.experiment-report th { background: #f1f5f9; font-size: .9em; }
+.experiment-report td:not(:first-child) { font-variant-numeric: tabular-nums; }
+.experiment-report figure { border: 1px solid #cbd5e1; padding: 10px; margin-top: 10px; margin-bottom: 10px; }
+.experiment-report figcaption { margin-bottom: 8px; }
+.experiment-report .report-images { display: flex; flex-wrap: wrap; gap: 10px; }
+.experiment-report .report-images img { max-height: 45mm; max-width: 50mm; object-fit: contain; }
+.experiment-report .report-structure img { max-height: 32mm; width: auto; }
+.experiment-report .report-note { color: #475569; font-size: .9em; }
+.experiment-report footer { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; border-top: 1px solid #334155; padding-top: 16px; margin-top: 24px; break-inside: avoid; }
+.experiment-report footer p { margin: 20px 0 4px; }
 @page { size: A4 portrait; margin: 12mm; }
 @media print {
   html, body { background: white !important; color: black !important; }
   body:has(> .experiment-report) > :not(.experiment-report) { display: none !important; }
-  .experiment-report { position: static; width: 100%; color: black !important; background: white !important; font: 10pt/1.35 Arial, sans-serif; }
+  .experiment-report { position: static; width: 100%; padding: 0; overflow: visible; color: black !important; background: white !important; font: 10pt/1.35 Arial, sans-serif; }
   .experiment-report h1 { font-size: 15pt; font-weight: bold; }
   .experiment-report h2 { font-size: 13pt; font-weight: bold; }
   .experiment-report h3 { margin: 8px 0 3px; font-size: 11pt; font-weight: bold; }

@@ -116,3 +116,12 @@ Các giá trị cân, mol, Eq, MW, nồng độ, Rf, hiệu suất và kết qu�
 Phản ứng/chất mới có độ sạch 100%, m thực/V/d/ghi chú trống; MW các chất chưa xác định không tự gán 150/120/98. Dữ liệu nhập cũ giữ nguyên. Trong dữ liệu cân của ảnh gửi, 0,9747−0,9185=0,05620 g; 0,9238−0,9199=0,00390 g; tổng 0,06010 g. Lý thuyết 0,04338 g và hiệu suất cắn thô 138,53858% theo dữ liệu hiện có.
 
 Giá ống: chạm để chuyển **Trống → SPC → Tạp → Lẫn → Bỏ (đỏ) → Trống**. Bỏ giữ nhãn vật lý; nút **Xóa** riêng chỉ xóa ống thêm nhầm chưa có ghi chú, TLC hoặc nhóm gộp. Không đánh lại số các ống khác. Khi tăng số lượng sau khi xóa giữa dãy, thêm nhãn tiếp theo thay vì lấp lại số ống cũ.
+
+
+## Cập nhật 07/10/2026: báo cáo và công cụ tùy chọn
+
+Báo cáo có bố cục thông tin thí nghiệm, các mục đánh số, bảng số liệu ghi đơn vị, ảnh TLC có chú thích và vùng ký tên; thêm Xem trước báo cáo trước khi in/PDF. Bỏ lịch sử chỉnh sửa khỏi báo cáo, giữ dữ liệu lưu để không xóa lịch sử cũ. Bản đầy đủ vẫn phân trang khi hồ sơ dài.
+
+Công cụ chuyên môn thu gọn mặc định; bỏ mọi giá trị mẫu về dung dịch, pha loãng, cột, CAS và phép đo. Các hệ số chưa khai báo hiển thị trống; phép tính tỷ lượng hiện có giữ quy ước hệ số 1 khi chưa khai báo để không đổi kết quả cũ. Dữ liệu người dùng từng lưu vẫn được hiển thị. Hệ số và assay nhập trong công cụ chỉ là bản nháp, phải bấm Áp dụng mới cập nhật thí nghiệm. Mở công cụ hoặc xem báo cáo không ghi dữ liệu.
+
+Đã kiểm tra trên giao diện: các ô tính dung dịch và cột chưa dùng đều trống; nhập thử nu=2, assay=50 trong mẫu QA nhưng chưa áp dụng giữ nguyên yield80 và assay-yield72; báo cáo không chứa lịch sử chỉnh sửa. Không kết nối Firebase.
