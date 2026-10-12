@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import { formatDecimal } from '../domain/display.js';
 import { DecimalInput } from './DecimalInput.jsx';
 import React, { useState, useRef, useEffect } from 'react';
@@ -399,33 +400,12 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
   const handleSaveTLCRef = useRef();
   handleSaveTLCRef.current = handleSaveTLC;
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (lightboxData) {
-          setLightboxData(null);
-          return;
-        }
-        if (modalOpen) {
-          handleCloseModal();
-          return;
-        }
-      }
-
-      if (e.key === 'Enter') {
-        if (e.target && e.target.tagName === 'TEXTAREA') return;
-        if (modalOpen && !uploading && !photoLoadingSlot) {
-          e.preventDefault();
-          handleSaveTLCRef.current?.();
-        }
-      }
-    };
-
-    if (modalOpen || lightboxData) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [modalOpen, lightboxData, uploading, photoLoadingSlot]);
+  useDialogKeys({
+    active: modalOpen || !!lightboxData,
+    onClose: () => lightboxData ? setLightboxData(null) : handleCloseModal(),
+    onConfirm: lightboxData ? undefined : () => handleSaveTLCRef.current?.(),
+    busy: uploading || !!photoLoadingSlot
+  });
 
   // Lock background document scroll when modal is open so iOS virtual keyboard never shifts caret outside input boxes
   useEffect(() => {

@@ -29,7 +29,7 @@ function AppContent() {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !e.isComposing && !e.defaultPrevented) {
         setNewModalOpen(false);
       }
     };

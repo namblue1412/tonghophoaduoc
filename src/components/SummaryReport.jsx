@@ -31,7 +31,7 @@ export function SummaryReport({ experiment: exp, preview, onClose }) {
   const reagents = exp.stoichiometry.filter((r) => !['solvent', 'base_acid'].includes(r.type));
   const batches = Array.from({ length: Math.ceil(reagents.length / 4) }, (_, i) => reagents.slice(i * 4, i * 4 + 4));
   return <article aria-label="Báo cáo thí nghiệm" className={`experiment-report report-summary report-template ${preview ? 'report-preview' : 'print-only'}`}>
-    {preview && <div className="report-preview-controls no-print"><span>Báo cáo tóm tắt</span><button onClick={() => window.print()}>In / Lưu PDF</button><button onClick={onClose} aria-label="Đóng xem trước báo cáo">Đóng</button></div>}
+    {preview && <div className="report-preview-controls no-print"><span>Báo cáo tóm tắt · Esc để đóng</span><button onClick={() => window.print()}>In / Lưu PDF</button><button onClick={onClose} aria-label="Đóng xem trước báo cáo">Đóng</button></div>}
     <h1>{exp.title || 'BÁO CÁO TỔNG HỢP HÓA DƯỢC'}</h1>
     <p>{exp.code} · {exp.date} · {exp.researcher}</p>
     <h2>1. TIẾN HÀNH PHẢN ỨNG</h2>

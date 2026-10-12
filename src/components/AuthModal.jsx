@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, LogIn, UserPlus, X, Lock, Mail, GraduationCap, ShieldCheck, FlaskConical, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -15,17 +16,12 @@ export const AuthModal = ({ isOpen = true, onClose, isPage = false }) => {
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useDialogKeys({ active: isOpen && !isPage, onClose, busy: isSubmitting });
   useEffect(() => {
     if (!isOpen && !isPage) return;
     setErrorMsg('');
     setSuccessMsg('');
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !isPage && onClose) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
   }, [isOpen, onClose, isPage]);
 
   if (!isOpen && !isPage) return null;

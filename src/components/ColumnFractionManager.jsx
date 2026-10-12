@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import { cycleFraction, deleteAccidentalFraction, resizeFractions } from '../domain/fractions.js';
 import { DecimalInput } from './DecimalInput.jsx';
 import { formatDecimal } from '../domain/display.js';
@@ -997,43 +998,12 @@ export const ColumnFractionManager = ({
   const handleSavePoolTlcRef = useRef();
   handleSavePoolTlcRef.current = handleSavePoolTlc;
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (lightboxData) {
-          setLightboxData(null);
-          return;
-        }
-        if (fracTlcModalOpen) {
-          handleCloseFracTlcModal();
-          return;
-        }
-        if (poolTlcModalOpen) {
-          handleClosePoolTlcModal();
-          return;
-        }
-      }
-
-      if (e.key === 'Enter') {
-        if (e.target && e.target.tagName === 'TEXTAREA') return;
-        if (fracTlcModalOpen && !fracUploading && !fracPhotoLoadingSlot) {
-          e.preventDefault();
-          handleSaveFracTlcRef.current?.();
-          return;
-        }
-        if (poolTlcModalOpen && !poolUploading && !poolPhotoLoadingSlot) {
-          e.preventDefault();
-          handleSavePoolTlcRef.current?.();
-          return;
-        }
-      }
-    };
-
-    if (fracTlcModalOpen || poolTlcModalOpen || lightboxData) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [fracTlcModalOpen, poolTlcModalOpen, lightboxData, fracUploading, poolUploading, fracPhotoLoadingSlot, poolPhotoLoadingSlot]);
+  useDialogKeys({
+    active: fracTlcModalOpen || poolTlcModalOpen || !!lightboxData,
+    onClose: () => { if (lightboxData) setLightboxData(null); else if (fracTlcModalOpen) handleCloseFracTlcModal(); else handleClosePoolTlcModal(); },
+    onConfirm: lightboxData ? undefined : () => { if (fracTlcModalOpen) handleSaveFracTlcRef.current?.(); else handleSavePoolTlcRef.current?.(); },
+    busy: fracUploading || poolUploading || !!fracPhotoLoadingSlot || !!poolPhotoLoadingSlot
+  });
 
   // Lightbox Zoom Handler
   const openLightbox = (images, title, subtitle, stainName) => {

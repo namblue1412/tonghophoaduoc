@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import React, { useEffect, useState } from 'react';
 import { getDemoConflict, resolveDemoConflict } from '../services/demoBackend.js';
 
@@ -19,6 +20,7 @@ export function SyncConflictDialog({ experiment, onResolved, onClose }) {
       try { setSnapshot(await getDemoConflict(experiment.id)); } catch { setSnapshot(null); }
     } finally { setBusy(false); }
   };
+  useDialogKeys({ active: true, onClose, busy });
   return <div className="fixed inset-0 z-[100] bg-slate-950/60 overflow-y-auto p-4 flex items-start justify-center" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
     <section role="dialog" aria-modal="true" aria-labelledby="sync-conflict-heading" className="bg-white rounded-xl p-5 w-full max-w-2xl my-auto space-y-4">
       <h2 id="sync-conflict-heading" className="text-xl font-bold">Xung đột đồng bộ · {experiment.code}</h2>

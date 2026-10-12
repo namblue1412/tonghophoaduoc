@@ -1,3 +1,4 @@
+import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Timer,
@@ -380,32 +381,16 @@ export const ReactionTimer = ({ timerData, onChange, experimentStatus, onStatusC
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const handleKeyDown = (e) => {
-      if (editingSession) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          setEditingSession(null);
-        } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.target.tagName !== 'TEXTAREA')) {
-          e.preventDefault();
-          handleSaveEditRef.current();
-        }
-      } else if (isAddModalOpen) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          setIsAddModalOpen(false);
-        } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.target.tagName !== 'TEXTAREA')) {
-          e.preventDefault();
-          handleSaveManualAddRef.current();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [editingSession, isAddModalOpen]);
+
+  useDialogKeys({
+    active: !!editingSession || isAddModalOpen,
+    onClose: () => editingSession ? setEditingSession(null) : setIsAddModalOpen(false),
+    onConfirm: () => editingSession ? handleSaveEditRef.current() : handleSaveManualAddRef.current()
+  });
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden card-print">

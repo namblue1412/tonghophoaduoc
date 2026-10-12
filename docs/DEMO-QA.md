@@ -87,7 +87,7 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 85/85 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 88/88 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
 
@@ -134,3 +134,8 @@ Mẫu Word người dùng cung cấp được đọc và xem đủ 6 trang; khô
 Khối lượng sản phẩm báo cáo có đơn vị lưu riêng; hiệu suất tính theo chất giới hạn hiện có, MW và hệ số sản phẩm, không thay đổi cân/yield của thí nghiệm. Dữ liệu mới chỉ lưu khi bấm Lưu dữ liệu báo cáo sau cột; xóa trong editor là bản nháp cho đến khi lưu. Clone lần chạy mới bỏ kết quả báo cáo cũ. Export/import JSON giữ 3 bản TLC; kiểm tra Rf và ảnh remote vẫn cách ly.
 
 In hồ sơ đầy đủ/PDF mở hộp checkbox chọn từng phần, xem trước rồi mới in. Không có lịch sử chỉnh sửa trong lựa chọn. Đã kiểm tra UI nhập 3 hệ/Rf trên fixture QA và chỉ in phần hiệu suất. Demo chạy cổng 5174 khi 5173 đã bị ứng dụng khác chiếm; kho dữ liệu khác origin không bị di chuyển/xóa. Không kết nối Firebase.
+
+
+### Phím Enter và Esc
+
+Enter xác nhận trong ô một dòng của modal TLC/phiên khuấy và hộp chọn phần báo cáo; Esc đóng overlay trên cùng hoặc xem trước báo cáo. Enter trên nút giữ hành vi của chính nút (Hủy không thành Lưu), textarea/contenteditable giữ xuống dòng, select/checkbox/file giữ thao tác gốc. Không xử lý Enter đang gõ IME, phím giữ lặp hay sự kiện đã xử lý. Callback dùng bản nháp mới nhất; đang upload/lưu không phát lệnh lưu lần hai. Xung đột đồng bộ chỉ thêm Esc, không tự xác nhận ghi đè bằng Enter. Đăng nhập và tạo thí nghiệm tiếp tục dùng submit native. Đã kiểm tra UI Enter→xem trước, Esc→đóng, Enter trên Hủy chỉ đóng.

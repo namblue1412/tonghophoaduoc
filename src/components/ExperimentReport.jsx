@@ -18,7 +18,7 @@ export function ExperimentReport({ experiment, full, preview = false, onClose, s
   if (!full) return createPortal(<SummaryReport experiment={exp} preview={preview} onClose={onClose} />, document.body);
   const plates = full ? exp.tlcTimeline : exp.tlcTimeline.slice(-1);
   return createPortal(<article aria-label="Báo cáo thí nghiệm" className={`experiment-report ${preview ? 'report-preview' : 'print-only'} ${full ? 'report-full' : 'report-summary'}`}>
-    {preview && <div className="report-preview-controls no-print"><span>Xem trước báo cáo</span><button onClick={() => window.print()}>In / Lưu PDF</button><button onClick={onClose} aria-label="Đóng xem trước báo cáo">Đóng</button></div>}
+    {preview && <div className="report-preview-controls no-print"><span>Xem trước báo cáo · Esc để đóng</span><button onClick={() => window.print()}>In / Lưu PDF</button><button onClick={onClose} aria-label="Đóng xem trước báo cáo">Đóng</button></div>}
     <header><p className="report-eyebrow">SỔ TAY NGHIÊN CỨU · TỔNG HỢP HÓA DƯỢC</p><h1>BÁO CÁO THÍ NGHIỆM</h1><p>{full ? 'Hồ sơ thực nghiệm đầy đủ' : 'Bản tóm tắt thực nghiệm'}</p></header>
     <h2>{text(exp.title)}</h2>
     <dl className="report-metadata"><div><dt>Mã thí nghiệm</dt><dd>{text(exp.code)}</dd></div><div><dt>Ngày thực hiện</dt><dd>{text(exp.date)}</dd></div><div><dt>Người thực hiện</dt><dd>{text(exp.researcher)}</dd></div><div><dt>Phòng thí nghiệm</dt><dd>{text(exp.labRoom)}</dd></div></dl>
