@@ -499,7 +499,7 @@ export const ExperimentProvider = ({ children }) => {
       id: dupId,
       code: `${original.code}-COPY`,
       title: `${original.title} (Lần chạy mới)`,
-      revision: 0, auditTrail: [], tlcTimeline: [], analytics: { records: [] },
+      revision: 0, auditTrail: [], tlcTimeline: [], analytics: { records: [] }, reportProducts: [],
       workup: { ...original.workup, crudeTubes: [], crudeTareMass: '0', crudeGrossMass: '0', crudeMass: 0, crudeMassSource: 'tubes' },
       columnAndYield: { ...original.columnAndYield, fractions: (original.columnAndYield?.fractions || []).map((f) => ({ ...f, group: null, groupTag: null, groupColor: null, spotPattern: 'empty', tlcChecked: false })), fractionGroups: [], fractionTlcPlates: [], eppendorfYield: { tubes: [], productMass: 0, tubeTareMass: '0', tubeGrossMass: '0', purityHplc: '', assayMassPercent: '' } },
       date: localDate(),

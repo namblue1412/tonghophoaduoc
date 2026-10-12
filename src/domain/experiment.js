@@ -1,4 +1,5 @@
 import { decimal, recalculateReagents, theoreticalMass, weighTubes } from './chemistry.js';
+import { validateReportProducts } from './report.js';
 
 export const asArray = (value) => Array.isArray(value) ? value.filter(Boolean) : value && typeof value === 'object' ? Object.values(value).filter(Boolean) : [];
 export const duration = (interval) => {
@@ -84,7 +85,7 @@ export function validateImport(items, { allowDraftWeighing = false } = {}) {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
       if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('Khóa dữ liệu không hợp lệ.');
-      if (['uv254', 'uv365', 'reagent', 'imageUrl'].includes(key) && typeof child === 'string' && child && !child.startsWith('data:image/')) throw new Error('Demo chỉ nhập ảnh nhúng cục bộ; không tải ảnh Firebase thật.');
+      if (['uv254', 'uv365', 'reagent', 'imageUrl', 'reportSchemeImageUrl'].includes(key) && typeof child === 'string' && child && !child.startsWith('data:image/')) throw new Error('Demo chỉ nhập ảnh nhúng cục bộ; không tải ảnh Firebase thật.');
       scan(child);
     }
   };
@@ -93,6 +94,7 @@ export function validateImport(items, { allowDraftWeighing = false } = {}) {
   for (const item of items) {
     if (!item || typeof item !== 'object' || typeof item.id !== 'string' || !item.id || /[.#$\[\]/]/.test(item.id) || ids.has(item.id)) throw new Error('ID thiếu, không hợp lệ hoặc trùng trong tệp.');
     ids.add(item.id);
+    if (item.reportProducts != null) validateReportProducts(item.reportProducts);
     if (typeof item.code !== 'string' || typeof item.title !== 'string') throw new Error('Mỗi thí nghiệm cần mã và tên dạng chuỗi.');
     if (!['g', 'mg'].includes(item.units?.mass || 'g') || !['mol', 'mmol'].includes(item.units?.mole || 'mol')) throw new Error('Đơn vị không được hỗ trợ.');
     for (const path of ['stoichiometry', 'tlcTimeline', 'equipment']) if (item[path] != null && !Array.isArray(item[path])) throw new Error(`${path} phải là mảng.`);

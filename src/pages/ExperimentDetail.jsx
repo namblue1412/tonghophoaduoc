@@ -32,6 +32,8 @@ import { TLCTracker } from '../components/TLCTracker';
 import { WorkupSection } from '../components/WorkupSection';
 import { ColumnFractionManager } from '../components/ColumnFractionManager';
 import { MedChemTools } from '../components/MedChemTools';
+import { ProductPuritySection } from '../components/ProductPuritySection.jsx';
+import { REPORT_SECTIONS } from '../domain/report.js';
 import { ExperimentReport } from '../components/ExperimentReport';
 
 const WORKFLOW_STAGES = [
@@ -109,7 +111,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
   const [viewMode, setViewMode] = useState('all');
   const [printFull, setPrintFull] = useState(false);
   const [reportPreview, setReportPreview] = useState(false);
-  const handlePrint = (full) => { setPrintFull(full); setTimeout(() => window.print(), 100); };
+  const [reportOptions, setReportOptions] = useState(false);
+  const [reportSections, setReportSections] = useState(['chemicals', 'results', 'purity']);
+  const handlePrint = (full) => { if (full) { setReportOptions(true); return; } setPrintFull(full); setTimeout(() => window.print(), 100); };
 
   // Mini live timer calculation
   const [runningSeconds, setRunningSeconds] = useState(0);
@@ -427,8 +431,9 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
         </div>
       )}
 
-      <ExperimentReport experiment={activeExperiment} full={printFull} preview={reportPreview} onClose={() => setReportPreview(false)} />
-      <div className="no-print flex flex-wrap gap-3"><button onClick={() => { setPrintFull(true); setReportPreview(true); }} className="border rounded-lg p-3">Xem trước báo cáo</button><button onClick={() => handlePrint(false)} className="border rounded-lg p-3">In tóm tắt A4</button><button onClick={() => handlePrint(true)} className="border rounded-lg p-3">In hồ sơ đầy đủ / PDF</button></div>
+      <ExperimentReport experiment={activeExperiment} full={printFull} sections={reportSections} preview={reportPreview} onClose={() => setReportPreview(false)} />
+      <div className="no-print flex flex-wrap gap-3"><button onClick={() => { setPrintFull(false); setReportPreview(true); }} className="border rounded-lg p-3">Xem trước báo cáo</button><button onClick={() => handlePrint(false)} className="border rounded-lg p-3">In tóm tắt A4</button><button onClick={() => handlePrint(true)} className="border rounded-lg p-3">In hồ sơ đầy đủ / PDF</button></div>
+      {reportOptions && <div className="fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4 no-print"><section role="dialog" aria-modal="true" aria-label="Chọn phần báo cáo" className="bg-white rounded-2xl p-6 max-w-xl w-full max-h-[85dvh] overflow-y-auto space-y-3"><h2 className="text-xl font-bold">Chọn phần đưa vào báo cáo</h2><div className="grid sm:grid-cols-2 gap-2">{REPORT_SECTIONS.map(([key, label]) => <label className="flex gap-3 p-2" key={key}><input type="checkbox" checked={reportSections.includes(key)} onChange={(e) => setReportSections((prev) => e.target.checked ? [...prev, key] : prev.filter((item) => item !== key))} />{label}</label>)}</div><button onClick={() => setReportSections(REPORT_SECTIONS.map(([key]) => key))}>Chọn tất cả</button><button className="ml-4" onClick={() => setReportSections([])}>Bỏ chọn tất cả</button><div className="flex gap-3"><button className="border rounded-lg p-3" onClick={() => setReportOptions(false)}>Hủy</button><button disabled={!reportSections.length} className="bg-teal-700 text-white rounded-lg p-3" onClick={() => { setPrintFull(true); setReportOptions(false); setReportPreview(true); }}>Xem trước các phần đã chọn</button></div></section></div>}
       <MedChemTools key={activeExperiment.id} experiment={activeExperiment} onChange={(patch) => updateExperiment(activeExperiment.id, patch)} />
       {(viewMode === 'all' || activeNav === 'apparatus') && (
         <section id="section-apparatus" className="scroll-mt-28">
@@ -503,6 +508,7 @@ export const ExperimentDetail = ({ onBackToDashboard }) => {
             massUnit={activeExperiment.units?.mass || 'g'}
             moleUnit={activeExperiment.units?.mole || 'mol'}
           />
+          <ProductPuritySection key={`purity-${activeExperiment.id}`} experiment={activeExperiment} onChange={(patch) => updateExperiment(activeExperiment.id, patch)} />
         </section>
       )}
 

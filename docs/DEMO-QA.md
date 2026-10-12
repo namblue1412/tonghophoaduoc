@@ -87,7 +87,7 @@ npm run check
 git diff main -- src vite.config.js index.html
 ```
 
-**Kết quả cuối: build thành công, 81/81 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
+**Kết quả cuối: build thành công, 85/85 kiểm thử đạt.** `check` build trước khi test, vì có test đọc bundle kiểm tra không chứa endpoint/SDK Firebase. Test dùng `fake-indexeddb`, không dùng Firebase Emulator hay dữ liệu thật. Các phép kiểm tra gồm công thức, precision, zero/negative cases, derivation khi focus, patch merge, conflict, durability, idempotent replay, trash/purge transaction và cách ly tài khoản.
 
 Đã thử UI trên trình duyệt desktop và viewport 390px: tạo, RDKit, áp MW, dung dịch, thiết kế cột, GHS, lưu NMR, reload offline draft, đổi A/B, TLC phản ứng và phân đoạn với giờ cũ, sửa nhận xét giữ mốc gốc. Chưa xác nhận Safari/iOS/Android trên thiết bị thật, không chạy phản ứng qua đêm thật trong lượt kiểm tra này. Timer phụ thuộc wall clock của máy; thay đổi đồng hồ hệ thống khi chạy có thể làm thời lượng sai, cần kiểm tra/correct phiên. Không ép mọi hồ sơ dài vào đúng một trang A4: bản tóm tắt ngắn phù hợp một trang, bản dài phân trang để đọc và giữ dữ liệu.
 
@@ -125,3 +125,12 @@ Báo cáo có bố cục thông tin thí nghiệm, các mục đánh số, bản
 Công cụ chuyên môn thu gọn mặc định; bỏ mọi giá trị mẫu về dung dịch, pha loãng, cột, CAS và phép đo. Các hệ số chưa khai báo hiển thị trống; phép tính tỷ lượng hiện có giữ quy ước hệ số 1 khi chưa khai báo để không đổi kết quả cũ. Dữ liệu người dùng từng lưu vẫn được hiển thị. Hệ số và assay nhập trong công cụ chỉ là bản nháp, phải bấm Áp dụng mới cập nhật thí nghiệm. Mở công cụ hoặc xem báo cáo không ghi dữ liệu.
 
 Đã kiểm tra trên giao diện: các ô tính dung dịch và cột chưa dùng đều trống; nhập thử nu=2, assay=50 trong mẫu QA nhưng chưa áp dụng giữ nguyên yield80 và assay-yield72; báo cáo không chứa lịch sử chỉnh sửa. Không kết nối Firebase.
+
+
+## Cập nhật 12/10/2026: mẫu tóm tắt và TLC sau cột
+
+Mẫu Word người dùng cung cấp được đọc và xem đủ 6 trang; không sao chép dữ liệu hoặc ảnh thật vào Git. Báo cáo tóm tắt gồm Tiến hành phản ứng và Các chất thu được, bảng hóa chất xoay theo mẫu, phương trình khi người dùng thêm ảnh, CTPT/MW/cột/khối lượng/hiệu suất/tính chất. Sau mục sắc ký cột có phần nhập nhiều chất thu được; mỗi chất có 3 bản TLC độc lập, mỗi bản có 3 ảnh UV254/UV365/hiện màu và hệ dung môi/Rf/nhận xét. Không lấy TLC phản ứng hoặc ảnh mẫu gộp để giả làm 3 hệ kiểm tra độ sạch. Chưa nhập thì hiển thị chưa ghi nhận, không gán kết luận tinh khiết.
+
+Khối lượng sản phẩm báo cáo có đơn vị lưu riêng; hiệu suất tính theo chất giới hạn hiện có, MW và hệ số sản phẩm, không thay đổi cân/yield của thí nghiệm. Dữ liệu mới chỉ lưu khi bấm Lưu dữ liệu báo cáo sau cột; xóa trong editor là bản nháp cho đến khi lưu. Clone lần chạy mới bỏ kết quả báo cáo cũ. Export/import JSON giữ 3 bản TLC; kiểm tra Rf và ảnh remote vẫn cách ly.
+
+In hồ sơ đầy đủ/PDF mở hộp checkbox chọn từng phần, xem trước rồi mới in. Không có lịch sử chỉnh sửa trong lựa chọn. Đã kiểm tra UI nhập 3 hệ/Rf trên fixture QA và chỉ in phần hiệu suất. Demo chạy cổng 5174 khi 5173 đã bị ứng dụng khác chiếm; kho dữ liệu khác origin không bị di chuyển/xóa. Không kết nối Firebase.

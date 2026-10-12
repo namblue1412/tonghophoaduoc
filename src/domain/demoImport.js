@@ -25,7 +25,7 @@ export function prepareDemoImport(payload) {
       if (!value || typeof value !== 'object') return;
       for (const [field, child] of Object.entries(value)) {
         const childPath = path ? `${path}.${field}` : field;
-        if (['uv254', 'uv365', 'reagent', 'imageUrl', 'dataUrl'].includes(field) && typeof child === 'string' && /^https?:\/\//i.test(child)) {
+        if (['uv254', 'uv365', 'reagent', 'imageUrl', 'reportSchemeImageUrl', 'dataUrl'].includes(field) && typeof child === 'string' && /^https?:\/\//i.test(child)) {
           assets.push({ path: childPath, sourceUrl: child });
           value[field] = ''; // Explicitly recorded below; no automatic Firebase connection.
         } else detach(child, childPath);
