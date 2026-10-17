@@ -161,3 +161,9 @@ Kết quả tích hợp cuối: 99/99 kiểm thử đạt; build production và 
 Bộ lọc UID trước đó chỉ đối chiếu email cho ID stu_ hoặc thiếu ID, hẹp hơn main cũ và có thể ẩn bản ghi có UID cũ khác nhưng cùng email. Sửa để đối chiếu creatorEmail đã trim/lowercase với email tài khoản Firebase đăng nhập cho mọi dạng UID. Chỉ chuẩn hóa bản hiển thị, không ghi lại chủ sở hữu vào Firebase khi tải trang. Email trống và trùng tên nghiên cứu viên không dùng để nhận quyền.
 
 Bổ sung trường hợp IndexedDB lỗi: vẫn trả danh sách cloud kèm thông báo không đọc được bản nháp, thay vì để dashboard trống. Bỏ qua node rỗng/không phải thí nghiệm. Có kiểm thử hồi quy cho email cùng chủ nhưng UID khác, bảo toàn dữ liệu nguồn khi đọc, tài khoản khác, IndexedDB bị chặn và node rỗng. Chưa đối chiếu dữ liệu Firebase thực tế của người dùng; không thực hiện đọc/ghi vào Firebase thật.
+
+### Tài khoản phòng lab cũ và hồ sơ khác email
+
+Đối chiếu chỉ đọc trên web và Firebase Console xác nhận dữ liệu còn tồn tại. Web dùng tài khoản phòng lab cũ khi Firebase Auth chưa cấu hình; adapter trước đó chỉ nhận auth.currentUser nên bỏ qua phiên đăng nhập này. Bổ sung cầu nối danh tính phiên lab vào bộ đồng bộ, đăng xuất xóa cầu nối; Firebase Auth đã cấu hình luôn có ưu tiên và không nhận phiên lab thay thế.
+
+Với hồ sơ khác email, chỉ hiện gợi ý khi UID thuộc định dạng lab cũ và tên nghiên cứu viên khớp. Người dùng phải xác nhận hồ sơ của mình; liên kết chỉ lưu trong profile trên trình duyệt, không migration/ghi lại bản ghi Firebase khi đọc. Cache giữ dữ liệu nguồn để không giữ quyền hiển thị sau khi bỏ liên kết. Không đưa email, UID thật hoặc dữ liệu nghiên cứu vào fixture/Git. Các kiểm thử giả lập xác nhận không có transaction khi đọc/liên kết, bản gốc nguyên vẹn, tên khác không nhận hồ sơ. Build production/demo và 107 kiểm thử đạt.

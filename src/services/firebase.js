@@ -1,5 +1,6 @@
 import { createCloudSync, normalizeCloudRecord } from './cloudSync.js';
 import { cloudDrafts } from './cloudDrafts.js';
+import { createSessionIdentity } from './sessionIdentity.js';
 import { initializeApp, getApps } from 'firebase/app';
 import { getDatabase, ref, set, get, onValue, runTransaction } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -318,7 +319,9 @@ const driver = {
     return result.snapshot.val();
   }
 };
-const cloudSync = createCloudSync({ driver, drafts: cloudDrafts, getUser: () => auth?.currentUser });
+const identity = createSessionIdentity({ authConfigured: isAuthAvailable, authUser: () => auth?.currentUser });
+export const setBackendSessionUser = (user) => identity.setLabUser(user);
+const cloudSync = createCloudSync({ driver, drafts: cloudDrafts, getUser: () => identity.current() });
 export const saveExperimentData = (experiment, options) => cloudSync.save(experiment, options);
 export const loadExperimentsData = (callback, uid, onError) => cloudSync.subscribe(callback, uid, onError);
 export const deleteExperimentData = (id) => cloudSync.purge([id]);
@@ -329,11 +332,11 @@ export const getDemoConflict = (id) => cloudSync.conflict(id);
 export const resolveDemoConflict = (snapshot, choice) => cloudSync.resolve(snapshot, choice);
 export async function importDemoExperiments(items, user) {
   try {
-    if (!auth?.currentUser || auth.currentUser.uid !== user.uid || items.some((item) => item.creatorId !== user.uid)) throw new Error('Tài khoản đã đổi hoặc không có quyền nhập.');
+    if (identity.current()?.uid !== user.uid || items.some((item) => item.creatorId !== user.uid)) throw new Error('Tài khoản đã đổi hoặc không có quyền nhập.');
     const location = ref(requireDatabase(), 'experiments');
     await get(location); let failure;
     const result = await runTransaction(location, (current) => {
-      if (auth?.currentUser?.uid !== user.uid) { failure = new Error('Tài khoản đã đổi.'); return undefined; }
+      if (identity.current()?.uid !== user.uid) { failure = new Error('Tài khoản đã đổi.'); return undefined; }
       const next = { ...(current || {}) };
       for (const item of items) {
         if (next[item.id]) { failure = new Error('ID đã tồn tại; không ghi đè dữ liệu cũ.'); return undefined; }

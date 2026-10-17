@@ -19,6 +19,7 @@ let retryRequested = false;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('medchem-demo-v2') : null;
 bus?.unref?.();
 export const isDemoBackend = true;
+export const setBackendSessionUser = () => {};
 export const isFirebaseConfigured = () => false;
 export const isAuthAvailable = () => true;
 export const isDeletedRecord = (item) => !item?.id || item._deleted === true;

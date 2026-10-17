@@ -46,6 +46,7 @@ export const ExperimentProvider = ({ children }) => {
   const [syncMode, setSyncMode] = useState('firebase');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [legacyOwners, setLegacyOwners] = useState([]);
 
   // Initialize and subscribe directly to Firebase Cloud
   useEffect(() => {
@@ -54,13 +55,15 @@ export const ExperimentProvider = ({ children }) => {
     setActiveExperimentId(null);
     setSyncError('');
     setLastSaved(null);
+    setLegacyOwners([]);
     pendingSaveIdsRef.current.clear();
     setIsSyncing(false);
     if (!currentUser?.uid) return;
     const isCloud = isFirebaseConfigured();
     setSyncMode(isCloud ? 'firebase' : 'local');
 
-    const unsubscribe = loadExperimentsData((loadedData, mode) => {
+    const unsubscribe = loadExperimentsData((loadedData, mode, details) => {
+      setLegacyOwners(details?.legacyOwners || []);
       setSyncMode(mode);
       const incoming = (loadedData || []).filter((item) => !isDeletedRecord(item) && item.creatorId === currentUser.uid).map(deriveExperiment);
 
@@ -89,7 +92,7 @@ export const ExperimentProvider = ({ children }) => {
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, JSON.stringify(currentUser?.legacyOwnerIds || [])]);
 
   // Strict Per-User Data Isolation: All experiments belonging to currentUser
   const userExperiments = useMemo(() => {
@@ -588,6 +591,7 @@ export const ExperimentProvider = ({ children }) => {
         experiments, // Active experiments strictly filtered to currentUser
         trashedExperiments, // Trashed experiments strictly filtered to currentUser
         allExperiments,
+        legacyOwners,
         activeExperiment,
         activeExperimentId,
         setActiveExperimentId,

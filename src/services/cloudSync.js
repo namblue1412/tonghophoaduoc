@@ -13,11 +13,12 @@ export function normalizeCloudRecord(raw, user) {
   const group = raw.columnAndYield || {};
   const ownerEmail = typeof raw.creatorEmail === 'string' ? raw.creatorEmail.trim().toLowerCase() : '';
   const accountEmail = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : '';
+  const linkedLegacyOwner = user?.isLocal && user.legacyOwnerIds?.includes(raw.creatorId) && String(raw.researcher || '').trim().toLowerCase() === String(user.displayName || '').trim().toLowerCase();
   const normalized = {
     ...raw,
     // Main historically matched either UID or owner email. A changed UID must not
     // hide older records of the same signed-in email. This only normalizes the view.
-    creatorId: user?.uid && ownerEmail && accountEmail && ownerEmail === accountEmail ? user.uid : raw.creatorId,
+    creatorId: user?.uid && ((ownerEmail && accountEmail && ownerEmail === accountEmail) || linkedLegacyOwner) ? user.uid : raw.creatorId,
     tlcTimeline: list(raw.tlcTimeline).map((p) => ({ ...p, spots: list(p.spots), images: p.images || { uv254: p.imageUrl || null } })),
     reportProducts: list(raw.reportProducts).map((p) => ({ ...p, plates: list(p.plates).map((t) => ({ ...t, images: t.images || {} })) })),
     columnAndYield: { ...group, fractionGroups: list(group.fractionGroups).map((g, i) => ({ ...g, id: g.id || `group-${i}`, fractionNumbers: list(g.fractionNumbers).map(Number) })) }
@@ -37,13 +38,22 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
     catch (error) { draftError = error; }
     for (const entry of listeners) {
       if (getUser()?.uid !== entry.uid) continue;
-      const map = new Map(cloud.filter((e) => e.creatorId === entry.uid && !e._deleted).map((e) => [e.id, e]));
+      const currentUser = getUser();
+      const visible = cloud.map((e) => normalizeCloudRecord(e, currentUser));
+      const map = new Map(visible.filter((e) => e.creatorId === entry.uid && !e._deleted).map((e) => [e.id, e]));
       for (const d of pending.filter((d) => d.creatorId === entry.uid).sort((a, b) => a.sequence - b.sequence)) {
         const server = cloud.find((e) => e.id === d.experimentId);
         if (server?._deleted) continue;
         map.set(d.experimentId, { ...d.experiment, ...(server?.inTrash && d.kind !== 'restore' ? { inTrash: true, trashedAt: server.trashedAt } : {}), demoPending: true, demoConflict: d.conflict || '' });
       }
-      entry.callback([...map.values()], pending.some((d) => d.creatorId === entry.uid) ? 'firebase-pending' : 'firebase');
+      const legacyOwners = [];
+      if (currentUser.isLocal && currentUser.displayName?.trim()) for (const item of visible) {
+        if (item.creatorId === entry.uid || item._deleted || !/^(student-|stu_)/.test(item.creatorId || '') || String(item.researcher || '').trim().toLowerCase() !== currentUser.displayName.trim().toLowerCase()) continue;
+        let owner = legacyOwners.find((o) => o.id === item.creatorId);
+        if (!owner) { owner = { id: item.creatorId, email: item.creatorEmail || '', codes: [] }; legacyOwners.push(owner); }
+        owner.codes.push(item.code);
+      }
+      entry.callback([...map.values()], pending.some((d) => d.creatorId === entry.uid) ? 'firebase-pending' : 'firebase', { legacyOwners });
       if (draftError) entry.onError?.(new Error('Không đọc được bản nháp trên trình duyệt; dữ liệu cloud vẫn được hiển thị. ' + draftError.message));
     }
   };
@@ -101,7 +111,7 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
   function subscribe(callback, userId, onError) {
     const entry = { callback, uid: userId, onError }; listeners.add(entry);
     const stop = driver.subscribe((records) => {
-      cloud = records.filter((r) => r && typeof r === 'object' && r.id).map((r) => normalizeCloudRecord(r, getUser()));
+      cloud = records.filter((r) => r && typeof r === 'object' && r.id);
       void notify().catch(onError); void retry().catch(onError);
     }, onError);
     void notify().catch(onError);
@@ -125,7 +135,7 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
       return clean(deriveExperiment({ ...snapshot.local, id: raw.id, creatorId: user.uid, creatorEmail: user.email, revision: (raw.revision || 0) + 1, updatedAt: new Date().toISOString() }));
     });
     for (const id of snapshot.draftIds) await drafts.delete(id);
-    cloud = await driver.readAll(); cloud = cloud.map((e) => normalizeCloudRecord(e, user)); await notify();
+    cloud = await driver.readAll(); await notify();
   }
   async function purge(ids) {
     try {

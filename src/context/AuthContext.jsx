@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   isAuthAvailable,
   isDemoBackend,
+  setBackendSessionUser,
   firebaseSignIn,
   firebaseSignUp,
   firebaseSignOut,
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }) => {
       return () => unsubscribe();
     } else {
       // Local mode
+      setBackendSessionUser(null);
       setAuthMode('local');
       const cached = localStorage.getItem('medchem_current_user');
       if (cached) {
@@ -47,6 +49,7 @@ export const AuthProvider = ({ children }) => {
           const parsed = JSON.parse(cached);
           // Purge old 'student-default' guest bypass so users MUST log in with password
           if (parsed && parsed.uid && parsed.uid !== 'student-default') {
+            setBackendSessionUser(parsed);
             setCurrentUser(parsed);
           } else {
             localStorage.removeItem('medchem_current_user');
@@ -129,6 +132,7 @@ export const AuthProvider = ({ children }) => {
         isLocal: true
       };
 
+      setBackendSessionUser(sessionProfile);
       setCurrentUser(sessionProfile);
       localStorage.setItem('medchem_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
@@ -184,6 +188,7 @@ export const AuthProvider = ({ children }) => {
         isLocal: true
       };
 
+      setBackendSessionUser(sessionProfile);
       setCurrentUser(sessionProfile);
       localStorage.setItem('medchem_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
@@ -196,6 +201,7 @@ export const AuthProvider = ({ children }) => {
       await firebaseSignOut();
     }
     localStorage.removeItem('medchem_current_user');
+    setBackendSessionUser(null);
     setCurrentUser(null);
   };
 
@@ -206,6 +212,14 @@ export const AuthProvider = ({ children }) => {
     } catch {
       return [];
     }
+  };
+
+  // Explicit, browser-local compatibility link; never migrate records on load.
+  const linkLegacyOwner = (ownerId) => {
+    if (isDemoBackend || isAuthAvailable() || !currentUser?.uid || !/^(student-|stu_)/.test(ownerId)) throw new Error('Không thể liên kết hồ sơ này.');
+    const profile = { ...currentUser, legacyOwnerIds: [...new Set([...(currentUser.legacyOwnerIds || []), ownerId])] };
+    localStorage.setItem('medchem_current_user', JSON.stringify(profile));
+    setBackendSessionUser(profile); setCurrentUser(profile);
   };
 
   return (
@@ -219,7 +233,8 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
-        getLabStudents
+        getLabStudents,
+        linkLegacyOwner
       }}
     >
       {children}
