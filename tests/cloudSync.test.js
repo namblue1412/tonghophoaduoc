@@ -80,7 +80,7 @@ test('main production build selects Firebase while demo build stays isolated', (
 });
 
 test('cloud subscriptions do not expose another UID or write on initial read', async () => {
-  const h = harness(); h.records.set('QA', experiment()); h.records.set('OTHER', { ...experiment(), id: 'OTHER', creatorId: 'other' });
+  const h = harness(); h.records.set('QA', experiment()); h.records.set('OTHER', { ...experiment(), id: 'OTHER', creatorId: 'other', creatorEmail: 'other@qa.invalid' });
   let seen; const before = JSON.stringify([...h.records.values()]);
   const stop = h.sync.subscribe((list) => { seen = list; }, 'user-a', (error) => { throw error; });
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -96,10 +96,11 @@ test('changed local draft requires a fresh conflict choice', async () => {
   await assert.rejects(h.sync.resolve(snapshot, 'local'));
   assert.equal(h.records.get('QA').title, 'remote'); assert.equal(h.pending.size, 2);
 });
-test('legacy student UID can follow its authenticated email without claiming a different Firebase UID', () => {
+test('old records follow the signed-in owner email even when their UID changed', () => {
   const user = { uid: 'firebase-uid', email: 'a@qa.invalid' };
   assert.equal(normalizeCloudRecord({ ...experiment(), creatorId: 'stu_old' }, user).creatorId, user.uid);
-  assert.equal(normalizeCloudRecord({ ...experiment(), creatorId: 'other-firebase-uid' }, user).creatorId, 'other-firebase-uid');
+  assert.equal(normalizeCloudRecord({ ...experiment(), creatorId: 'old-firebase-uid' }, user).creatorId, user.uid);
+  assert.equal(normalizeCloudRecord({ ...experiment(), creatorId: 'other-firebase-uid', creatorEmail: 'other@qa.invalid' }, user).creatorId, 'other-firebase-uid');
 });
 test('two tabs replaying the same durable mutation increment revision once', async () => {
   const h = harness(); const { data: base } = await h.sync.save(experiment());
@@ -107,4 +108,32 @@ test('two tabs replaying the same durable mutation increment revision once', asy
   const otherTab = createCloudSync({ driver: h.driver, drafts: h.drafts, getUser: () => ({ uid: 'user-a', email: 'a@qa.invalid' }), online: () => true });
   await Promise.all([h.sync.retry(), otherTab.retry()]);
   assert.equal(h.records.get('QA').title, 'queued'); assert.equal(h.records.get('QA').revision, 2);
+});
+test('same owner email restores old results without rewriting Firebase on subscription', async () => {
+  const h = harness();
+  const original = { ...experiment(), creatorId: 'old-account-id', creatorEmail: ' A@QA.INVALID ' };
+  h.records.set('QA', original); const before = JSON.stringify(original); let seen;
+  const stop = h.sync.subscribe((list) => { seen = list; }, 'user-a', (error) => { throw error; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(seen.length, 1); assert.equal(seen[0].creatorId, 'user-a');
+  assert.equal(JSON.stringify(h.records.get('QA')), before); stop();
+});
+test('empty emails and matching researcher names never claim another account', () => {
+  const raw = { ...experiment(), creatorId: 'other', creatorEmail: '', researcher: 'Same Name' };
+  assert.equal(normalizeCloudRecord(raw, { uid: 'current', email: '', displayName: 'Same Name' }).creatorId, 'other');
+  assert.equal(normalizeCloudRecord(raw, { uid: 'current', email: 'a@qa.invalid', displayName: 'Same Name' }).creatorId, 'other');
+});
+test('cloud results still render when browser draft storage is unavailable', async () => {
+  const h = harness(); h.records.set('QA', experiment()); let seen, error;
+  const blockedDrafts = { ...h.drafts, all: async () => { throw new Error('IndexedDB unavailable'); } };
+  const sync = createCloudSync({ driver: h.driver, drafts: blockedDrafts, getUser: () => ({ uid: 'user-a', email: 'a@qa.invalid' }), online: () => false });
+  const stop = sync.subscribe((list) => { seen = list; }, 'user-a', (e) => { error = e; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(seen.length, 1); assert.match(error.message, /bản nháp/); stop();
+});
+test('null or non-experiment nodes do not hide valid cloud records', async () => {
+  const h = harness(); h.records.set('QA', experiment()); h.records.set('empty', null); h.records.set('metadata', { note: 'not an experiment' });
+  let seen; const stop = h.sync.subscribe((list) => { seen = list; }, 'user-a', (error) => { throw error; });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(seen.map((e) => e.id), ['QA']); stop();
 });

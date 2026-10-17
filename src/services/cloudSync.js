@@ -11,9 +11,13 @@ export function normalizeCloudRecord(raw, user) {
   if (!raw) return raw;
   const list = asArray;
   const group = raw.columnAndYield || {};
+  const ownerEmail = typeof raw.creatorEmail === 'string' ? raw.creatorEmail.trim().toLowerCase() : '';
+  const accountEmail = typeof user?.email === 'string' ? user.email.trim().toLowerCase() : '';
   const normalized = {
     ...raw,
-    creatorId: ((!raw.creatorId || String(raw.creatorId).startsWith('stu_')) && raw.creatorEmail?.trim().toLowerCase() === user?.email?.trim().toLowerCase()) ? user?.uid : raw.creatorId,
+    // Main historically matched either UID or owner email. A changed UID must not
+    // hide older records of the same signed-in email. This only normalizes the view.
+    creatorId: user?.uid && ownerEmail && accountEmail && ownerEmail === accountEmail ? user.uid : raw.creatorId,
     tlcTimeline: list(raw.tlcTimeline).map((p) => ({ ...p, spots: list(p.spots), images: p.images || { uv254: p.imageUrl || null } })),
     reportProducts: list(raw.reportProducts).map((p) => ({ ...p, plates: list(p.plates).map((t) => ({ ...t, images: t.images || {} })) })),
     columnAndYield: { ...group, fractionGroups: list(group.fractionGroups).map((g, i) => ({ ...g, id: g.id || `group-${i}`, fractionNumbers: list(g.fractionNumbers).map(Number) })) }
@@ -28,7 +32,9 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
   const uid = () => { const user = getUser(); if (!user?.uid) throw new Error('Cần đăng nhập Firebase.'); return user; };
   const owned = (record, user) => !record || normalizeCloudRecord(record, user).creatorId === user.uid;
   const notify = async () => {
-    const pending = await drafts.all();
+    let pending = [], draftError;
+    try { pending = await drafts.all(); }
+    catch (error) { draftError = error; }
     for (const entry of listeners) {
       if (getUser()?.uid !== entry.uid) continue;
       const map = new Map(cloud.filter((e) => e.creatorId === entry.uid && !e._deleted).map((e) => [e.id, e]));
@@ -38,6 +44,7 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
         map.set(d.experimentId, { ...d.experiment, ...(server?.inTrash && d.kind !== 'restore' ? { inTrash: true, trashedAt: server.trashedAt } : {}), demoPending: true, demoConflict: d.conflict || '' });
       }
       entry.callback([...map.values()], pending.some((d) => d.creatorId === entry.uid) ? 'firebase-pending' : 'firebase');
+      if (draftError) entry.onError?.(new Error('Không đọc được bản nháp trên trình duyệt; dữ liệu cloud vẫn được hiển thị. ' + draftError.message));
     }
   };
   async function commit(draft) {
@@ -94,7 +101,7 @@ export function createCloudSync({ driver, drafts, getUser, online = () => naviga
   function subscribe(callback, userId, onError) {
     const entry = { callback, uid: userId, onError }; listeners.add(entry);
     const stop = driver.subscribe((records) => {
-      cloud = records.map((r) => normalizeCloudRecord(r, getUser()));
+      cloud = records.filter((r) => r && typeof r === 'object' && r.id).map((r) => normalizeCloudRecord(r, getUser()));
       void notify().catch(onError); void retry().catch(onError);
     }, onError);
     void notify().catch(onError);

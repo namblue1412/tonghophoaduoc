@@ -154,3 +154,10 @@ JSON production giữ liên kết Firebase Storage; demo chỉ giữ metadata c�
 Kiểm thử cloud dùng driver/store giả lập, không Firebase Emulator hoặc database thật. Build production và demo đều được kiểm tra. Chưa kiểm thử phiên đăng nhập/ghi trên môi trường Firebase thật; người dùng tiếp tục dùng tài khoản main.
 
 Kết quả tích hợp cuối: 99/99 kiểm thử đạt; build production và demo thành công. UI smoke test trên bản cách ly kiểm tra mở TLC nhiều bản, Esc và báo cáo; không có lỗi console. Kiểm thử bổ sung kiểm tra đọc không ghi dữ liệu, lọc UID, bảo vệ cloud đang đổi và replay đồng thời hai tab.
+
+
+### Sửa tương thích hiển thị dữ liệu cũ sau tích hợp main
+
+Bộ lọc UID trước đó chỉ đối chiếu email cho ID stu_ hoặc thiếu ID, hẹp hơn main cũ và có thể ẩn bản ghi có UID cũ khác nhưng cùng email. Sửa để đối chiếu creatorEmail đã trim/lowercase với email tài khoản Firebase đăng nhập cho mọi dạng UID. Chỉ chuẩn hóa bản hiển thị, không ghi lại chủ sở hữu vào Firebase khi tải trang. Email trống và trùng tên nghiên cứu viên không dùng để nhận quyền.
+
+Bổ sung trường hợp IndexedDB lỗi: vẫn trả danh sách cloud kèm thông báo không đọc được bản nháp, thay vì để dashboard trống. Bỏ qua node rỗng/không phải thí nghiệm. Có kiểm thử hồi quy cho email cùng chủ nhưng UID khác, bảo toàn dữ liệu nguồn khi đọc, tài khoản khác, IndexedDB bị chặn và node rỗng. Chưa đối chiếu dữ liệu Firebase thực tế của người dùng; không thực hiện đọc/ghi vào Firebase thật.
