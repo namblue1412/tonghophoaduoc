@@ -1,5 +1,7 @@
 # Bản demo MedChem ELN để kiểm tra trước
 
+> Cập nhật tích hợp main: npm run build dùng Firebase; npm run build:demo và dev mặc định giữ cách ly. Các mục demo bên dưới ghi lại quá trình phát triển. Xem phần Tích hợp main ngày 17/10/2026 ở cuối cho hành vi production.
+
 Nhánh: `codex/demo-medchem-qa`. Bắt đầu từ commit main `a433cc4868b43c3fde8f4a8d1ed29bc2b609ef35`.
 
 ## Chạy và cách ly dữ liệu
@@ -139,3 +141,16 @@ In hồ sơ đầy đủ/PDF mở hộp checkbox chọn từng phần, xem trư�
 ### Phím Enter và Esc
 
 Enter xác nhận trong ô một dòng của modal TLC/phiên khuấy và hộp chọn phần báo cáo; Esc đóng overlay trên cùng hoặc xem trước báo cáo. Enter trên nút giữ hành vi của chính nút (Hủy không thành Lưu), textarea/contenteditable giữ xuống dòng, select/checkbox/file giữ thao tác gốc. Không xử lý Enter đang gõ IME, phím giữ lặp hay sự kiện đã xử lý. Callback dùng bản nháp mới nhất; đang upload/lưu không phát lệnh lưu lần hai. Xung đột đồng bộ chỉ thêm Esc, không tự xác nhận ghi đè bằng Enter. Đăng nhập và tạo thí nghiệm tiếp tục dùng submit native. Đã kiểm tra UI Enter→xem trước, Esc→đóng, Enter trên Hủy chỉ đóng.
+
+
+## Tích hợp main ngày 17/10/2026
+
+Main dùng build production với Firebase Auth/Realtime Database/Storage; build demo riêng ở dist-demo và dev mặc định vẫn cách ly. Giữ cấu hình Firebase và database.rules.json hiện có, không triển khai rules, không đăng nhập/thực thi phép ghi nào trên Firebase thật trong quá trình phát triển. Tài khoản thử và dữ liệu demo không được tự đưa lên cloud. Netlify tiếp tục npm run build và publish dist.
+
+Gộp 3 commit TLC mới của main, giữ nhiều bản mỏng/chụp liên tục/tên bản/chọn ống theo lô, đồng thời giữ số ống vật lý và timestamp cũ. Cloud adapter dùng giao dịch Firebase, patch theo base, bản nháp IndexedDB riêng, hộp chọn cloud/local có kiểm tra cloud đổi trong lúc chọn. Purge dùng tombstone chặn tab cũ hồi sinh, không xóa thêm ID ngoài danh sách người dùng chọn. Không tự xóa ảnh Storage vì có thể còn được bản ghi khác sử dụng; cần cơ chế thu gom tham chiếu riêng.
+
+JSON production giữ liên kết Firebase Storage; demo chỉ giữ metadata của ảnh remote. ZIP production tải ảnh Storage khi người dùng bấm tải. Không áp dụng cơ chế demo vào production. Tài khoản cũ có creatorId stu_ hoặc thiếu creatorId được nhận diện qua email khớp; không suy đoán quyền từ tên nghiên cứu viên. Các trường hợp không có UID/email cần quy trình gán quyền được chủ sở hữu kiểm tra, không tự migration.
+
+Kiểm thử cloud dùng driver/store giả lập, không Firebase Emulator hoặc database thật. Build production và demo đều được kiểm tra. Chưa kiểm thử phiên đăng nhập/ghi trên môi trường Firebase thật; người dùng tiếp tục dùng tài khoản main.
+
+Kết quả tích hợp cuối: 99/99 kiểm thử đạt; build production và demo thành công. UI smoke test trên bản cách ly kiểm tra mở TLC nhiều bản, Esc và báo cáo; không có lỗi console. Kiểm thử bổ sung kiểm tra đọc không ghi dữ liệu, lọc UID, bảo vệ cloud đang đổi và replay đồng thời hai tab.

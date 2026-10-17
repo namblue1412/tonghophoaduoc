@@ -1,6 +1,6 @@
 # MedChem ELN - Nhật Ký Nghiên Cứu Tổng Hợp Hóa Dược
 
-> **Nhánh demo cách ly `codex/demo-medchem-qa`:** mọi chế độ chạy/build dùng IndexedDB cục bộ, không kết nối Firebase. Xem [hướng dẫn và bộ kiểm thử demo](docs/DEMO-QA.md). Không deploy nhánh này thay production.
+> **Main:** `npm run build` tạo bản dùng Firebase Auth/Realtime Database/Storage với cấu hình Firebase hiện có. **Demo cách ly:** `npm run dev` hoặc `npm run build:demo` dùng tài khoản thử và IndexedDB riêng. Không nhập dữ liệu demo tự động lên Firebase. Xem [hướng dẫn](docs/DEMO-QA.md).
 
 
 > 🧪 **Hệ thống Nhật ký Điện tử (ELN - Electronic Lab Notebook)** chuyên biệt cho nghiên cứu sinh, dược sĩ và nhà khoa học trong lĩnh vực **Hóa Dược & Tổng Hợp Hữu Cơ**.

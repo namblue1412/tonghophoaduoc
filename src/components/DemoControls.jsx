@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { retryDemoDrafts } from '../services/demoBackend.js';
+import { retryDemoDrafts } from '../services/firebase';
 import { SyncConflictDialog } from './SyncConflictDialog';
 import { useExperiment } from '../context/ExperimentContext';
 import { useAuth } from '../context/AuthContext';

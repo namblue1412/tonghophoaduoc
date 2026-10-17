@@ -78,14 +78,14 @@ export function mergePatch(target, patch) {
   return result;
 }
 
-export function validateImport(items, { allowDraftWeighing = false } = {}) {
+export function validateImport(items, { allowDraftWeighing = false, allowRemoteImages = false } = {}) {
   if (!Array.isArray(items) || !items.length || items.length > 1000) throw new Error('JSON phải chứa 1–1000 thí nghiệm.');
   const scan = (value) => {
     if (Array.isArray(value)) return value.forEach(scan);
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
       if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('Khóa dữ liệu không hợp lệ.');
-      if (['uv254', 'uv365', 'reagent', 'imageUrl', 'reportSchemeImageUrl'].includes(key) && typeof child === 'string' && child && !child.startsWith('data:image/')) throw new Error('Demo chỉ nhập ảnh nhúng cục bộ; không tải ảnh Firebase thật.');
+      if (['uv254', 'uv365', 'reagent', 'imageUrl', 'reportSchemeImageUrl'].includes(key) && typeof child === 'string' && child && !child.startsWith('data:image/') && !(allowRemoteImages && /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(child))) throw new Error('Ảnh phải được nhúng hoặc là ảnh Firebase Storage hợp lệ.');
       scan(child);
     }
   };

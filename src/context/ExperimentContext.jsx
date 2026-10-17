@@ -6,6 +6,7 @@ import {
   permanentlyDeleteExperimentsBatch,
   loadExperimentsData,
   isFirebaseConfigured,
+  isDemoBackend,
   uploadImage,
   importDemoExperiments,
   refreshDemoData,
@@ -561,7 +562,7 @@ export const ExperimentProvider = ({ children }) => {
       reader.onload = async (e) => {
         try {
           if (file.size > 50 * 1024 * 1024) throw new Error('Tệp JSON tối đa 50 MB.');
-          const { items: parsed, remoteAssetCount, weighingWarnings } = prepareDemoImport(JSON.parse(e.target.result));
+          const { items: parsed, remoteAssetCount, weighingWarnings } = prepareDemoImport(JSON.parse(e.target.result), { allowRemoteImages: !isDemoBackend });
           const tagged = parsed.map((item) => ({
             ...item, id: `EXP-${crypto.randomUUID()}`, sourceId: item.id,
             revision: 0, auditTrail: [], inTrash: false, trashedAt: null,

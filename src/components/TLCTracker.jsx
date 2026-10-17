@@ -1,3 +1,4 @@
+import { prepareTlcDownloadImages } from '../services/firebase';
 import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import { formatDecimal } from '../domain/display.js';
 import { DecimalInput } from './DecimalInput.jsx';
@@ -442,7 +443,7 @@ export const TLCTracker = ({ tlcList = [], onChange, currentTimerSeconds = 0 }) 
 
   // Auto-download all uploaded photos (up to 3 images: UV 254, UV 365, Reagent) of a TLC plate at once
   const handleDownloadPlateImages = async (plate) => {
-    try { downloadTlcZip(plate.images || { uv254: plate.imageUrl }, `TLC_${plate.id}`, { timestamp: plate.timestamp, eluent: plate.eluent, spots: plate.spots }); }
+    try { await downloadTlcZip(plate.images || { uv254: plate.imageUrl }, `TLC_${plate.id}`, { timestamp: plate.timestamp, eluent: plate.eluent, spots: plate.spots }, prepareTlcDownloadImages); }
     catch (error) { alert(error.message); }
   };
 

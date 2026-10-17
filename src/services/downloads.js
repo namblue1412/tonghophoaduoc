@@ -24,6 +24,7 @@ export function makeTlcZip(images, prefix, metadata = {}) {
   files['metadata.json'] = strToU8(JSON.stringify(metadata, null, 2));
   return zipSync(files, { level: 0 });
 }
-export function downloadTlcZip(images, prefix, metadata = {}) {
-  downloadBlob(new Blob([makeTlcZip(images, prefix, metadata)], { type: 'application/zip' }), `${String(prefix).replace(/[^a-zA-Z0-9_-]/g, '_')}.zip`);
+export async function downloadTlcZip(images, prefix, metadata = {}, loadImages = async (value) => value) {
+  const localImages = await loadImages(images);
+  downloadBlob(new Blob([makeTlcZip(localImages, prefix, metadata)], { type: 'application/zip' }), `${String(prefix).replace(/[^a-zA-Z0-9_-]/g, '_')}.zip`);
 }

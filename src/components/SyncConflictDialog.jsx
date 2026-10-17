@@ -1,6 +1,6 @@
 import { useDialogKeys } from '../hooks/useDialogKeys.js';
 import React, { useEffect, useState } from 'react';
-import { getDemoConflict, resolveDemoConflict } from '../services/demoBackend.js';
+import { getDemoConflict, resolveDemoConflict, isDemoBackend } from '../services/firebase';
 
 export function SyncConflictDialog({ experiment, onResolved, onClose }) {
   const [snapshot, setSnapshot] = useState(null);
@@ -25,11 +25,11 @@ export function SyncConflictDialog({ experiment, onResolved, onClose }) {
     <section role="dialog" aria-modal="true" aria-labelledby="sync-conflict-heading" className="bg-white rounded-xl p-5 w-full max-w-2xl my-auto space-y-4">
       <h2 id="sync-conflict-heading" className="text-xl font-bold">Xung đột đồng bộ · {experiment.code}</h2>
       <p>Hai thiết bị đã sửa cùng dữ liệu. Chọn bản bạn muốn giữ.</p>
-      <p className="text-sm text-amber-800">Cloud trong hộp thoại này là kho đồng bộ mô phỏng trên trình duyệt. Firebase thật không bị ghi thay đổi.</p>
+      {isDemoBackend && <p className="text-sm text-amber-800">Cloud trong hộp thoại này là kho đồng bộ mô phỏng trên trình duyệt. Firebase thật không bị ghi thay đổi.</p>}
       {error && <p role="alert" className="text-rose-700">{error}</p>}
       {snapshot && <>
         <div className="grid sm:grid-cols-2 gap-3">
-          {[['cloud', 'Bản cloud thử nghiệm', snapshot.cloud], ['local', 'Bản trên máy này', snapshot.local]].map(([key, label, data]) => <div key={key} className="border rounded-lg p-3 min-w-0">
+          {[['cloud', isDemoBackend ? 'Bản cloud thử nghiệm' : 'Bản cloud Firebase', snapshot.cloud], ['local', 'Bản trên máy này', snapshot.local]].map(([key, label, data]) => <div key={key} className="border rounded-lg p-3 min-w-0">
             <h3 className="font-bold">{label}</h3>
             <p className="break-words">{data?.title || 'Đã xóa'}</p>
             <p className="text-sm">Phiên bản: {data?.revision ?? '—'}</p>
@@ -42,7 +42,7 @@ export function SyncConflictDialog({ experiment, onResolved, onClose }) {
           <button disabled={busy || !snapshot.cloud || snapshot.purged || snapshot.cloud.inTrash} onClick={() => setChoice('local')} className="border rounded-lg px-4 py-3">Đồng bộ bản trên máy này lên</button>
         </div>
         {choice && <div className="bg-amber-50 rounded-lg p-3 space-y-2">
-          <p>{choice === 'cloud' ? 'Bản nháp trên máy sẽ bị bỏ; dùng bản đã lưu ở cloud thử nghiệm.' : 'Toàn bộ bản trên máy sẽ thay thế bản cloud thử nghiệm, kể cả các sửa đổi riêng trên thiết bị kia.'}</p>
+          <p>{choice === 'cloud' ? 'Bản nháp trên máy sẽ bị bỏ; dùng bản đã lưu ở cloud.' : 'Toàn bộ bản trên máy sẽ thay thế bản cloud thử nghiệm, kể cả các sửa đổi riêng trên thiết bị kia.'}</p>
           <button disabled={busy} onClick={resolve} className="bg-teal-700 text-white rounded-lg px-4 py-3">{busy ? 'Đang xử lý…' : 'Xác nhận lựa chọn'}</button>
         </div>}
       </>}

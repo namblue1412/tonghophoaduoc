@@ -2,7 +2,7 @@ import { asArray, validateImport } from './experiment.js';
 
 // Accept the array exported by the main web app and Firebase's keyed JSON format.
 // Only transform the copy. Never fetch a remote image or mutate the source object.
-export function prepareDemoImport(payload) {
+export function prepareDemoImport(payload, { allowRemoteImages = false } = {}) {
   const checkKeys = (value) => {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
@@ -31,13 +31,13 @@ export function prepareDemoImport(payload) {
         } else detach(child, childPath);
       }
     };
-    detach(item);
+    if (!allowRemoteImages) detach(item);
     item.sourceRemoteAssets = [...asArray(item.sourceRemoteAssets), ...assets];
     remoteAssetCount += assets.length;
     for (const field of ['stoichiometry', 'equipment', 'tlcTimeline']) if (item[field] != null) item[field] = asArray(item[field]);
     return item;
   });
-  const validated = validateImport(items, { allowDraftWeighing: true });
+  const validated = validateImport(items, { allowDraftWeighing: true, allowRemoteImages });
   const weighingWarnings = validated.flatMap((item) => [
     ['Xử lý thô', item.workup.crudeTubes],
     ['Sản phẩm', item.columnAndYield.eppendorfYield.tubes]

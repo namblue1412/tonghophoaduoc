@@ -1,5 +1,7 @@
+import { createCloudSync, normalizeCloudRecord } from './cloudSync.js';
+import { cloudDrafts } from './cloudDrafts.js';
 import { initializeApp, getApps } from 'firebase/app';
-import { getDatabase, ref, set, get, remove, onValue } from 'firebase/database';
+import { getDatabase, ref, set, get, onValue, runTransaction } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   getAuth,
@@ -64,26 +66,6 @@ if (isFirebaseConfigured()) {
 } else {
   console.info('ℹ️ [MedChem ELN] Running in LocalStorage Dual-Mode.');
 }
-
-// Clean up any legacy local storage / IndexedDB experiment caches so stale browser tabs can never conflict with Cloud data
-const purgeLegacyLocalExperimentCache = () => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem('medchem_experiments');
-    localStorage.removeItem('medchem_deleted_ids');
-  } catch (e) {
-    // Ignore
-  }
-  try {
-    if (window.indexedDB) {
-      window.indexedDB.deleteDatabase('medchem_eln_db');
-    }
-  } catch (e) {
-    // Ignore
-  }
-};
-
-purgeLegacyLocalExperimentCache();
 
 const PERMANENT_PURGED_IDS = new Set([
   'EXP-2025-COU-01',
@@ -172,197 +154,6 @@ export const uploadImage = async (file, pathFolder = 'tlc_images') => {
  */
 const sanitizeForFirebase = (obj) => {
   return JSON.parse(JSON.stringify(obj));
-};
-
-/**
- * Save an experiment directly to Firebase Realtime Database on user action
- */
-export const saveExperimentData = async (experiment) => {
-  if (!experiment || !experiment.id) return { success: false };
-
-  const cleanExp = sanitizeForFirebase({
-    ...experiment,
-    updatedAt: experiment.updatedAt || new Date().toISOString(),
-  });
-
-  if (database) {
-    try {
-      const experimentRef = ref(database, `experiments/${cleanExp.id}`);
-      await set(experimentRef, cleanExp);
-      return { success: true, mode: 'firebase', data: cleanExp };
-    } catch (err) {
-      console.error('Firebase save error:', err);
-      return { success: false, mode: 'firebase', error: err, data: cleanExp };
-    }
-  }
-
-  return { success: false, mode: 'offline', data: cleanExp };
-};
-
-/**
- * Permanently delete an experiment from Firebase Realtime Database
- */
-export const deleteExperimentData = async (id) => {
-  if (!id) return { success: false };
-
-  if (database) {
-    try {
-      const experimentRef = ref(database, `experiments/${id}`);
-      await remove(experimentRef);
-      return { success: true };
-    } catch (err) {
-      console.error('Firebase permanent delete error:', err);
-      return { success: false, error: err };
-    }
-  }
-
-  return { success: false };
-};
-
-/**
- * Permanently delete multiple experiments (Empty Trash) from Firebase Realtime Database
- */
-export const permanentlyDeleteExperimentsBatch = async (ids = []) => {
-  const allIdsToRemove = Array.from(new Set([...(ids || []), ...PERMANENT_PURGED_IDS])).filter(Boolean);
-  if (allIdsToRemove.length === 0) return { success: true, count: 0 };
-
-  if (database) {
-    try {
-      await Promise.all(
-        allIdsToRemove.map((id) => remove(ref(database, `experiments/${id}`)))
-      );
-      return { success: true, count: ids.length };
-    } catch (err) {
-      console.error('Firebase batch permanent delete error:', err);
-      return { success: false, error: err };
-    }
-  }
-
-  return { success: false };
-};
-
-const toArray = (val) => {
-  if (Array.isArray(val)) return val.filter(Boolean);
-  if (val && typeof val === 'object') return Object.values(val).filter(Boolean);
-  return [];
-};
-
-/**
- * Normalize an experiment loaded from Firebase RTDB (which strips empty arrays [] and null keys)
- */
-const normalizeExperimentArrays = (exp) => {
-  if (!exp) return exp;
-  const rawIntervals = toArray(exp.reactionTimer?.intervals);
-  const normalizedIntervals = rawIntervals.map((it) => {
-    const explicitDur = Number(it?.durationSeconds) || 0;
-    if (it?.startTime && it?.endTime) {
-      const startMs = new Date(it.startTime).getTime();
-      const endMs = new Date(it.endTime).getTime();
-      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
-        const wallDiff = Math.floor((endMs - startMs) / 1000);
-        if (!explicitDur || (explicitDur <= 1 && wallDiff > 2)) {
-          return { ...it, durationSeconds: wallDiff };
-        }
-      }
-    }
-    return { ...it, durationSeconds: Math.max(0, explicitDur) };
-  });
-  const computedTotalSeconds = normalizedIntervals.reduce(
-    (acc, it) => acc + (Number(it.durationSeconds) || 0),
-    0
-  );
-
-  return {
-    ...exp,
-    inTrash: Boolean(exp.inTrash),
-    trashedAt: exp.trashedAt || null,
-    equipment: toArray(exp.equipment),
-    stoichiometry: toArray(exp.stoichiometry),
-    reactionTimer: {
-      status: exp.reactionTimer?.status || 'idle',
-      totalSeconds:
-        normalizedIntervals.length > 0
-          ? Math.max(Number(exp.reactionTimer?.totalSeconds) || 0, computedTotalSeconds)
-          : Number(exp.reactionTimer?.totalSeconds) || 0,
-      lastStartTime: exp.reactionTimer?.lastStartTime || null,
-      temperature: exp.reactionTimer?.temperature ?? '',
-      stirringSpeed: exp.reactionTimer?.stirringSpeed ?? '600 rpm',
-      intervals: normalizedIntervals
-    },
-    tlcTimeline: toArray(exp.tlcTimeline).map((p) => ({
-      ...p,
-      images: {
-        uv254: p.images ? p.images.uv254 || null : p.imageUrl || null,
-        uv365: p.images?.uv365 || null,
-        reagent: p.images?.reagent || null
-      },
-      spots: toArray(p.spots)
-    })),
-    workup: {
-      ...(exp.workup || {}),
-      crudeTubes: toArray(exp.workup?.crudeTubes)
-    },
-    columnAndYield: {
-      ...(exp.columnAndYield || {}),
-      fractions: toArray(exp.columnAndYield?.fractions),
-      fractionGroups: toArray(exp.columnAndYield?.fractionGroups),
-      fractionTlcPlates: toArray(exp.columnAndYield?.fractionTlcPlates).map((p) => ({
-        ...p,
-        images: {
-          uv254: p.images?.uv254 || null,
-          uv365: p.images?.uv365 || null,
-          reagent: p.images?.reagent || null
-        }
-      })),
-      eppendorfYield: {
-        ...(exp.columnAndYield?.eppendorfYield || {}),
-        tubes: toArray(exp.columnAndYield?.eppendorfYield?.tubes)
-      }
-    }
-  };
-};
-
-/**
- * Subscribe directly to Firebase Realtime Database (no local offline cache merging)
- */
-export const loadExperimentsData = (onDataUpdate) => {
-  purgeLegacyLocalExperimentCache();
-
-  if (database) {
-    try {
-      const expRef = ref(database, 'experiments');
-      const unsubscribe = onValue(
-        expRef,
-        (snapshot) => {
-          const val = snapshot.val();
-          const remoteList = val ? Object.values(val) : [];
-          const validExperiments = [];
-
-          for (const rItem of remoteList) {
-            if (!rItem || !rItem.id) continue;
-            if (isDeletedRecord(rItem)) continue;
-            validExperiments.push(normalizeExperimentArrays(rItem));
-          }
-
-          const finalSorted = validExperiments.sort(
-            (a, b) => new Date(b.updatedAt || b.date || 0) - new Date(a.updatedAt || a.date || 0)
-          );
-
-          onDataUpdate(finalSorted, 'firebase');
-        },
-        (error) => {
-          console.warn('Firebase onValue error:', error);
-          onDataUpdate([], 'firebase');
-        }
-      );
-      return unsubscribe;
-    } catch (err) {
-      console.warn('Firebase listen error:', err);
-    }
-  }
-
-  onDataUpdate([], 'firebase');
-  return () => {};
 };
 
 /**
@@ -501,3 +292,71 @@ export const findLabAccount = async (identifier) => {
 
   return null;
 };
+
+
+export const isDemoBackend = false;
+const requireDatabase = () => { if (!database) throw new Error('Firebase chưa được cấu hình.'); return database; };
+const driver = {
+  async read(id) { return (await get(ref(requireDatabase(), 'experiments/' + id))).val(); },
+  async readAll() { return Object.values((await get(ref(requireDatabase(), 'experiments'))).val() || {}); },
+  subscribe(callback, onError) {
+    if (!database) { onError?.(new Error('Firebase chưa được cấu hình.')); return () => {}; }
+    return onValue(ref(database, 'experiments'), (snapshot) => callback(Object.values(snapshot.val() || {})), onError);
+  },
+  async transaction(id, updater) {
+    const location = ref(requireDatabase(), 'experiments/' + id);
+    const initial = (await get(location)).val();
+    let first = true;
+    let failure;
+    const result = await runTransaction(location, (current) => {
+      // Firebase may initially invoke the callback with an empty local cache.
+      const input = first && current == null && initial != null ? initial : current;
+      first = false;
+      try { return updater(input); } catch (error) { failure = error; return undefined; }
+    }, { applyLocally: false });
+    if (!result.committed) throw failure || new Error('Dữ liệu đã đổi; vui lòng thử lại.');
+    return result.snapshot.val();
+  }
+};
+const cloudSync = createCloudSync({ driver, drafts: cloudDrafts, getUser: () => auth?.currentUser });
+export const saveExperimentData = (experiment, options) => cloudSync.save(experiment, options);
+export const loadExperimentsData = (callback, uid, onError) => cloudSync.subscribe(callback, uid, onError);
+export const deleteExperimentData = (id) => cloudSync.purge([id]);
+export const permanentlyDeleteExperimentsBatch = (ids = []) => cloudSync.purge([...new Set(ids)]);
+export const refreshDemoData = () => cloudSync.notify();
+export const retryDemoDrafts = () => cloudSync.retry();
+export const getDemoConflict = (id) => cloudSync.conflict(id);
+export const resolveDemoConflict = (snapshot, choice) => cloudSync.resolve(snapshot, choice);
+export async function importDemoExperiments(items, user) {
+  try {
+    if (!auth?.currentUser || auth.currentUser.uid !== user.uid || items.some((item) => item.creatorId !== user.uid)) throw new Error('Tài khoản đã đổi hoặc không có quyền nhập.');
+    const location = ref(requireDatabase(), 'experiments');
+    await get(location); let failure;
+    const result = await runTransaction(location, (current) => {
+      if (auth?.currentUser?.uid !== user.uid) { failure = new Error('Tài khoản đã đổi.'); return undefined; }
+      const next = { ...(current || {}) };
+      for (const item of items) {
+        if (next[item.id]) { failure = new Error('ID đã tồn tại; không ghi đè dữ liệu cũ.'); return undefined; }
+        next[item.id] = sanitizeForFirebase({ ...normalizeCloudRecord(item, user), revision: 1 });
+      }
+      return next;
+    }, { applyLocally: false });
+    if (!result.committed) throw failure || new Error('Chưa nhập được JSON.');
+    return { success: true, count: items.length, mode: 'firebase' };
+  } catch (error) { return { success: false, error }; }
+}
+if (typeof window !== 'undefined') window.addEventListener('online', () => void cloudSync.retry());
+
+export async function prepareTlcDownloadImages(images) {
+  const localImages = {};
+  for (const [key, url] of Object.entries(images || {})) {
+    if (!url || url.startsWith('data:image/')) { localImages[key] = url; continue; }
+    if (!/^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(url)) throw new Error('Chỉ tải ảnh từ Firebase Storage.');
+    const response = await fetch(url, { credentials: 'omit' });
+    if (!response.ok) throw new Error('Không tải được ảnh từ Storage.');
+    const blob = await response.blob();
+    if (!blob.type.startsWith('image/') || blob.size > 30 * 1024 * 1024) throw new Error('Ảnh không hợp lệ hoặc lớn hơn 30 MB.');
+    localImages[key] = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
+  }
+  return localImages;
+}

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   isAuthAvailable,
+  isDemoBackend,
   firebaseSignIn,
   firebaseSignUp,
   firebaseSignOut,
@@ -16,12 +17,12 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState(isAuthAvailable() ? 'demo-local' : 'local');
+  const [authMode, setAuthMode] = useState(isAuthAvailable() ? (isDemoBackend ? 'demo-local' : 'firebase') : 'local');
 
   // Load initial user state - Require explicit authentication
   useEffect(() => {
     if (isAuthAvailable()) {
-      setAuthMode('demo-local');
+      setAuthMode(isDemoBackend ? 'demo-local' : 'firebase');
       const unsubscribe = subscribeFirebaseAuthState((user) => {
         if (user) {
           setCurrentUser({
@@ -29,7 +30,7 @@ export const AuthProvider = ({ children }) => {
             email: user.email,
             displayName: user.displayName || user.email?.split('@')[0] || 'Sinh viên',
             studentId: user.studentId || '',
-            isLocal: true
+            isLocal: isDemoBackend
           });
         } else {
           setCurrentUser(null);
@@ -40,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       // Local mode
       setAuthMode('local');
-      const cached = localStorage.getItem('medchem_demo_current_user');
+      const cached = localStorage.getItem('medchem_current_user');
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -48,11 +49,11 @@ export const AuthProvider = ({ children }) => {
           if (parsed && parsed.uid && parsed.uid !== 'student-default') {
             setCurrentUser(parsed);
           } else {
-            localStorage.removeItem('medchem_demo_current_user');
+            localStorage.removeItem('medchem_current_user');
             setCurrentUser(null);
           }
         } catch (e) {
-          localStorage.removeItem('medchem_demo_current_user');
+          localStorage.removeItem('medchem_current_user');
           setCurrentUser(null);
         }
       } else {
@@ -85,10 +86,10 @@ export const AuthProvider = ({ children }) => {
         email: user.email,
         displayName: cleanName || user.email?.split('@')[0],
         studentId: cleanStudentId,
-        isLocal: true
+        isLocal: isDemoBackend
       };
       setCurrentUser(studentProfile);
-      localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));
+      localStorage.setItem('medchem_current_user', JSON.stringify(studentProfile));
       return studentProfile;
     } else {
       // Local & Firebase Realtime Database Account Mode
@@ -129,7 +130,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setCurrentUser(sessionProfile);
-      localStorage.setItem('medchem_demo_current_user', JSON.stringify(sessionProfile));
+      localStorage.setItem('medchem_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
     }
   };
@@ -151,10 +152,10 @@ export const AuthProvider = ({ children }) => {
         email: user.email,
         displayName: user.displayName || user.email?.split('@')[0],
         studentId: user.studentId || '',
-        isLocal: true
+        isLocal: isDemoBackend
       };
       setCurrentUser(studentProfile);
-      localStorage.setItem('medchem_demo_current_user', JSON.stringify(studentProfile));
+      localStorage.setItem('medchem_current_user', JSON.stringify(studentProfile));
       return studentProfile;
     } else {
       // Local & Firebase Realtime Database Account Mode
@@ -184,7 +185,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       setCurrentUser(sessionProfile);
-      localStorage.setItem('medchem_demo_current_user', JSON.stringify(sessionProfile));
+      localStorage.setItem('medchem_current_user', JSON.stringify(sessionProfile));
       return sessionProfile;
     }
   };
@@ -194,7 +195,7 @@ export const AuthProvider = ({ children }) => {
     if (isAuthAvailable()) {
       await firebaseSignOut();
     }
-    localStorage.removeItem('medchem_demo_current_user');
+    localStorage.removeItem('medchem_current_user');
     setCurrentUser(null);
   };
 

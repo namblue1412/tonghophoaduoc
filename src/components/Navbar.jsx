@@ -381,15 +381,15 @@ export const Navbar = ({
             {isMac && (
               <div
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
-                  syncMode === 'firebase'
+                  syncMode.startsWith('firebase')
                     ? 'bg-emerald-950/60 border-emerald-600 text-emerald-400'
                     : 'bg-slate-800 border-slate-700 text-slate-300'
                 }`}
               >
-                {syncMode === 'firebase' ? (
+                {syncMode.startsWith('firebase') ? (
                   <>
                     <Cloud className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                    <span>Đám mây</span>
+                    <span>{syncMode === 'firebase-pending' ? 'Chờ đồng bộ' : 'Đám mây'}</span>
                   </>
                 ) : (
                   <>

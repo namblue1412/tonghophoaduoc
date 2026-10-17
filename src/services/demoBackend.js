@@ -18,6 +18,7 @@ let retryPromise;
 let retryRequested = false;
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('medchem-demo-v2') : null;
 bus?.unref?.();
+export const isDemoBackend = true;
 export const isFirebaseConfigured = () => false;
 export const isAuthAvailable = () => true;
 export const isDeletedRecord = (item) => !item?.id || item._deleted === true;
@@ -337,3 +338,5 @@ export const firebaseSignOut = async () => {
 export const hashPassword = async () => { throw new Error('Không sử dụng mật khẩu trong demo.'); };
 export const saveLabAccount = async () => { throw new Error('Demo không lưu tài khoản thật.'); };
 export const findLabAccount = async () => null;
+
+export const prepareTlcDownloadImages = async (images) => images;
